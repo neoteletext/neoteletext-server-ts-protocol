@@ -18,3 +18,6 @@ hackaday-next to a repository of its own), the owner's cleanup of
    file is untrusted; every length and allocation bounded.
 5. **Comments:** up to date, explaining the key things that need
    explaining, and nothing that is obvious.
+6. **A README** (the owner, 28 October 2026): what the library is, how to
+   install and use it, its API, and its licence, MIT; written once the
+   cleanup above has settled the API.
