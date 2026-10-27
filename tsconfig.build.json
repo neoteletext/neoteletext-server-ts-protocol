@@ -1,0 +1,15 @@
+{
+  // The release: JavaScript and declarations in dist/, since Node strips no
+  // types from a package installed under node_modules. Imports of ".ts"
+  // files are rewritten to ".js" as they are emitted.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "allowImportingTsExtensions": false,
+    "rewriteRelativeImportExtensions": true,
+    "declaration": true,
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}

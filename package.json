@@ -1,0 +1,32 @@
+{
+  "name": "neottx-server-ts-protocol",
+  "version": "0.1.0",
+  "description": "The NeoTeletext server's channel protocol for programs in TypeScript: the reference kit (teletext-server's docs/applications.md section 5)",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/kit.d.ts",
+      "default": "./dist/kit.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
+    "./read-tti": {
+      "types": "./dist/read-tti.d.ts",
+      "default": "./dist/read-tti.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "7.0.2"
+  }
+}
