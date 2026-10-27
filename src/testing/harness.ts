@@ -1,44 +1,28 @@
 // Driving a channel as the server drives it, for tests: sessions that
 // join, open pages, type, press keys, click and turn the wheel, a clock the
 // test moves, and what the program wrote, read back from its lines as the
-// server would read them: each page's TTI decoded into its rows, links,
-// cursor. It mirrors crates/teletext-showcase/src/testing.rs.
+// server would read them: each page's TTI decoded into its rows, links and
+// cursor.
 
-import { App, type ServerStats } from "./app.ts";
-import { type Application, Channel, type Clock } from "./channel.ts";
-import { Button, type HoverAction, type Input, type KeyAction, isCharacterKey } from "./input.ts";
-import { type ReadPage, type Rows, readTti } from "./read-tti.ts";
-import type { Cursor } from "./screen.ts";
+import type { Application } from "../channel/application.ts";
+import { Channel } from "../channel/channel.ts";
+import { Button, type Input } from "../input/input.ts";
+import { type HoverAction, type KeyAction, isCharacterKey } from "../input/keys.ts";
+import type { Cursor } from "../page/cursor.ts";
+import { ManualClock } from "./manual-clock.ts";
+import { declaredTitle, isFor, isPublication, isRelease, last, pageOf, parseSent, type Sent } from "./sent.ts";
+import { type ReadPage, type Rows, readTti } from "../tti/read-tti.ts";
+import { App } from "../wire/app.ts";
+import type { ServerStats } from "../wire/stats.ts";
 
-export { type ReadPage, type Rows, readTti, rowOf, shows, text } from "./read-tti.ts";
-
-/** A clock the test sets. */
-export class ManualClock implements Clock {
-  time = 0;
-
-  now(): number {
-    return this.time;
-  }
-}
-
-/** A line the program wrote, parsed. */
-export type Sent = Readonly<Record<string, unknown>>;
-
-/** How a harness is made. */
 export interface HarnessOptions {
   /** The real time when the channel starts, in milliseconds since the Unix epoch. */
   readonly epochMs?: number;
   readonly seed?: bigint;
 }
 
-const HEXADECIMAL = 16;
-
 /** The seed of the runtime's own test harness. */
 const TEST_SEED = 7n;
-
-function pageOf(value: unknown): number | undefined {
-  return typeof value === "string" ? Number.parseInt(value, HEXADECIMAL) : undefined;
-}
 
 /** A channel of some applications, started, and everything it wrote. */
 export class Harness {
@@ -55,14 +39,22 @@ export class Harness {
   #counted = 0;
 
   constructor(applications: readonly Application[], options: HarnessOptions = {}) {
-    const app = new App((line) => this.#record(line));
-    this.channel = new Channel(applications, app, { clock: this.clock, seed: options.seed ?? TEST_SEED, errors: (error) => this.errors.push(error) });
+    const app = new App((line) => {
+      this.#record(line);
+    });
+    this.channel = new Channel(applications, app, {
+      clock: this.clock,
+      seed: options.seed ?? TEST_SEED,
+      errors: (error): void => {
+        this.errors.push(error);
+      },
+    });
     app.declare(this.channel.declarations());
     this.channel.start(options.epochMs ?? 0);
   }
 
   #record(line: string): void {
-    const message = JSON.parse(line) as Sent;
+    const message = parseSent(line);
     this.sent.push(message);
     if (message["type"] === "goto" && typeof message["session"] === "number") {
       const page = pageOf(message["page"]);
@@ -95,7 +87,6 @@ export class Harness {
     this.channel.open(session, page);
   }
 
-  /** The session ends. */
   close(session: number): void {
     this.#open.delete(session);
     this.#went.delete(session);
@@ -133,7 +124,6 @@ export class Harness {
     this.send(session, { kind: "key", action, key, ...(isCharacterKey(key) && action !== "release" ? { text: key } : {}) });
   }
 
-  /** Presses and releases a key. */
   press(session: number, key: string): void {
     this.key(session, key, "press");
     this.key(session, key, "release");
@@ -160,7 +150,6 @@ export class Harness {
     this.send(session, { kind: "hover", action, column, row });
   }
 
-  /** A left click. */
   clickLeft(session: number, column: number, row: number): void {
     this.click(session, Button.Left, column, row);
   }
@@ -193,7 +182,6 @@ export class Harness {
     this.clock.time = Math.max(this.clock.time, until);
   }
 
-  /** The publish lines, in order. */
   publications(): Sent[] {
     return this.sent.filter((message) => message["type"] === "publish");
   }
@@ -229,8 +217,7 @@ export class Harness {
         return String(message["title"]);
       }
       if (message["type"] === "pages" && Array.isArray(message["pages"])) {
-        const declared = (message["pages"] as Sent[]).find((entry) => pageOf(entry["page"]) === page);
-        return declared === undefined ? undefined : String(declared["title"]);
+        return declaredTitle(message["pages"], page);
       }
     }
     return undefined;
@@ -268,32 +255,13 @@ export class Harness {
 
   /** The pages `session` was sent to, in order. */
   gotos(session: number): number[] {
-    return this.sent
-      .filter((message) => message["type"] === "goto" && message["session"] === session)
-      .map((message) => pageOf(message["page"]) ?? 0);
+    return this.sent.filter((message) => message["type"] === "goto" && message["session"] === session).map((message) => pageOf(message["page"]) ?? 0);
   }
 
   /** The sound lines for `session`, in order. */
   sounds(session: number): Sent[] {
     return this.sent.filter((message) => {
-      const to = message["to"];
-      return message["type"] === "sound" && typeof to === "object" && to !== null && (to as Sent)["session"] === session;
+      return message["type"] === "sound" && isFor(message["to"], session);
     });
   }
-}
-
-function isPublication(message: Sent, page: number, owner: "channel" | number): boolean {
-  return message["type"] === "publish" && pageOf(message["page"]) === page && message["owner"] === owner;
-}
-
-function isRelease(message: Sent, page: number, session: number): boolean {
-  return message["type"] === "release" && pageOf(message["page"]) === page && message["session"] === session;
-}
-
-function last(pages: readonly ReadPage[]): ReadPage {
-  const page = pages[pages.length - 1];
-  if (page === undefined) {
-    throw new Error("a publication with no sub-page");
-  }
-  return page;
 }

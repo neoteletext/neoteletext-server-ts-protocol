@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { MOST_SAMPLES, pcmBase64, soundFields } from "../src/sound.ts";
+import { MOST_SAMPLES, pcmBase64, soundFields } from "../src/index.ts";
 
 test("samples are base64 of 16-bit little-endian PCM", () => {
   // 1, -2 and 0x1234: 01 00, FE FF, 34 12.
@@ -30,16 +30,17 @@ test("each member is written as the protocol writes it", () => {
 test("what the server would refuse is refused here, where the mistake is", () => {
   const samples = new Int16Array(1);
   for (const bad of [
-    () => soundFields({ object: { handle: 256, generation: 0, rate: 8_000, samples } }),
-    () => soundFields({ object: { handle: 1, generation: 70_000, rate: 8_000, samples } }),
-    () => soundFields({ object: { handle: 1, generation: 0, rate: 9_000 as 8_000, samples } }),
-    () => soundFields({ object: { handle: 1, generation: 0, rate: 8_000, samples: new Int16Array(MOST_SAMPLES + 1) } }),
-    () => soundFields({ play: { channel: 4, handle: 1, generation: 0 } }),
-    () => soundFields({ play: { channel: 0, handle: 1, generation: 0, gain: 101 } }),
-    () => soundFields({ play: { channel: 0, handle: 1, generation: 0, duck: 7 } }),
-    () => soundFields({ play: { channel: 0, handle: 1, generation: 0, page: 0x900 } }),
-    () => soundFields({ stop: { channel: -1 } }),
-    () => soundFields({ gain: { channel: 0, gain: 0.5 } }),
+    (): Record<string, unknown> => soundFields({ object: { handle: 256, generation: 0, rate: 8_000, samples } }),
+    (): Record<string, unknown> => soundFields({ object: { handle: 1, generation: 70_000, rate: 8_000, samples } }),
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a rate the type refuses, to see the check refuse it at run time
+    (): Record<string, unknown> => soundFields({ object: { handle: 1, generation: 0, rate: 9_000 as 8_000, samples } }),
+    (): Record<string, unknown> => soundFields({ object: { handle: 1, generation: 0, rate: 8_000, samples: new Int16Array(MOST_SAMPLES + 1) } }),
+    (): Record<string, unknown> => soundFields({ play: { channel: 4, handle: 1, generation: 0 } }),
+    (): Record<string, unknown> => soundFields({ play: { channel: 0, handle: 1, generation: 0, gain: 101 } }),
+    (): Record<string, unknown> => soundFields({ play: { channel: 0, handle: 1, generation: 0, duck: 7 } }),
+    (): Record<string, unknown> => soundFields({ play: { channel: 0, handle: 1, generation: 0, page: 0x900 } }),
+    (): Record<string, unknown> => soundFields({ stop: { channel: -1 } }),
+    (): Record<string, unknown> => soundFields({ gain: { channel: 0, gain: 0.5 } }),
   ]) {
     assert.throws(bad, RangeError);
   }

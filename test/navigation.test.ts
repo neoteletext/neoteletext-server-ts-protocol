@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type Input, Key } from "../src/input.ts";
-import { FASTEXT_ROW, Navigation, clickedLink, numberAt, promptAt } from "../src/navigation.ts";
-import { Colour, type FastextLinks, Screen } from "../src/screen.ts";
+import { clickedLink, Colour, FASTEXT_ROW, type FastextLinks, type Input, Key, Navigation, numberAt, promptAt, Screen } from "../src/index.ts";
 
 const PAGES = new Set([0x100, 0x101, 0x110, 0x203, 0x402]);
 const LINKS: FastextLinks = [0x101, 0x110, null, 0x100];
@@ -96,7 +94,11 @@ function clickable(): { rows: number[][]; links: FastextLinks } {
 test("a click on a prompt follows its link, from its colour code to the next", () => {
   const view = clickable();
   const row = view.rows[FASTEXT_ROW] ?? [];
-  assert.deepEqual([0, 3, 9, 10, 15, 19, 21].map((column) => promptAt(row, column)), [0, 0, 0, 1, 1, 1, null], "white is no key's");
+  assert.deepEqual(
+    [0, 3, 9, 10, 15, 19, 21].map((column) => promptAt(row, column)),
+    [0, 0, 0, 1, 1, 1, null],
+    "white is no key's",
+  );
   assert.equal(clickedLink(view, 3, FASTEXT_ROW), 0x200);
   assert.equal(clickedLink(view, 12, FASTEXT_ROW), 0x100);
   assert.equal(clickedLink(view, 25, FASTEXT_ROW), null);
@@ -107,7 +109,10 @@ test("a click on three digits standing alone goes to that page", () => {
   const view = clickable();
   const row = view.rows[5] ?? [];
   // "See 200": the digits at columns 5 to 7, after the colour code.
-  assert.deepEqual([5, 6, 7].map((column) => numberAt(row, column)), [0x200, 0x200, 0x200]);
+  assert.deepEqual(
+    [5, 6, 7].map((column) => numberAt(row, column)),
+    [0x200, 0x200, 0x200],
+  );
   assert.equal(numberAt(row, 4), null, "a space");
   assert.equal(numberAt(row, 13), null, "four digits are no page number");
   assert.equal(numberAt(row, 18), null, "1A0's digits are not three digits in a row");

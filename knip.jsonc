@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/knip/schema-jsonc.json",
+  // The package's interface is what package.json exports; the tests and the fixture channel are entries too.
+  "entry": ["src/index.ts", "src/testing/index.ts", "test/**/*.test.ts", "test/fixtures/hello.ts"],
+  "project": ["src/**/*.ts", "test/**/*.ts"],
+  // scripts/check.sh runs these, and Knip reads no shell script; oxlint loads oxlint-tsgolint for --type-aware.
+  "ignoreDependencies": ["oxlint", "oxlint-tsgolint", "prettier"]
+}

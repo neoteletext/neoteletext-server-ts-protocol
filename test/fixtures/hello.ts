@@ -6,9 +6,18 @@
 // reads the TTI the kit writes as it was drawn; and a section and a new
 // title, which the server's contents.txt shows.
 
-import { runChannel } from "../../src/channel.ts";
-import { packedLinksLine } from "../../src/packed-links.ts";
-import { Colour, CursorFlag, Screen, Sixels, SIXELS_ACROSS, SIXELS_DOWN, decimalSubcode } from "../../src/screen.ts";
+import {
+  Colour,
+  CursorFlag,
+  decimalSubcode,
+  packedLinksLine,
+  type PageEntry,
+  runChannel,
+  Screen,
+  Sixels,
+  SIXELS_ACROSS,
+  SIXELS_DOWN,
+} from "../../src/index.ts";
 
 /** The pages the test reads. */
 const INDEX = 0x100;
@@ -16,7 +25,7 @@ const CAROUSEL = 0x101;
 const RAW = 0x102;
 const SUBPAGE_LINK = 0x103;
 /** A page in TTI as a converter writes it, with lines the kit never writes (DE, PS). */
-const RAW_TTI = "DE,Raw\nPN,10200\nSC,0000\nPS,8000\nOL,1,\u001bBRaw\nFL,100,8FF,8FF,8FF,8FF,100\n";
+const RAW_TTI = "DE,Raw\nPN,10200\nSC,0000\nPS,8000\nOL,1,\u001BBRaw\nFL,100,8FF,8FF,8FF,8FF,100\n";
 /** The carousel's sub-pages. */
 const SUBPAGES = [1, 2] as const;
 /** A page whose red link names the carousel's second sub-page, which only a packed OL,27 line can say. */
@@ -54,13 +63,13 @@ function subpage(number: number): Screen {
 
 await runChannel([
   {
-    pages: () => [
+    pages: (): PageEntry[] => [
       { page: INDEX, title: "Kit index" },
       { page: CAROUSEL, title: "Kit carousel" },
       { page: RAW, title: "Kit raw" },
       { page: SUBPAGE_LINK, title: "Kit sub-page link", section: "Kit links" },
     ],
-    start: (context) => {
+    start: (context): void => {
       // Before the pages, whose publication the test waits for.
       context.title(RAW, "Kit raw, retitled");
       context.publish("channel", INDEX, index());

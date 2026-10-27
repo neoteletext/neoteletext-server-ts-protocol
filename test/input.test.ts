@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { Button, Held, type Input, Key, character, clicked, decimalDigit, pressed, readInput, released, typed } from "../src/input.ts";
+import { Button, character, clicked, decimalDigit, Held, type Input, Key, pressed, readInput, released, typed } from "../src/index.ts";
 
 test("every kind of event the server writes is read", () => {
   assert.deepEqual(readInput({ kind: "text", text: "hi" }), { kind: "text", text: "hi" });
@@ -91,9 +91,9 @@ test("presses, releases and characters are as the runtime's Input reads them", (
 });
 
 test("typing comes from a key's press or repeat with its text, and from raw text, never a paste (INPUT.md section 6.3)", () => {
-  assert.equal(typed({ kind: "key", action: "press", key: "e", text: "\u00e9" }), "\u00e9", "a dead key's composed character");
-  assert.equal(typed({ kind: "key", action: "press", key: "e", text: "\u00b4e" }), "\u00b4e", "a dead key that did not compose: both characters");
-  assert.equal(typed({ kind: "text", text: "\u4f60\u597d" }), "\u4f60\u597d", "an input method's committed text");
+  assert.equal(typed({ kind: "key", action: "press", key: "e", text: "\u00E9" }), "\u00E9", "a dead key's composed character");
+  assert.equal(typed({ kind: "key", action: "press", key: "e", text: "\u00B4e" }), "\u00B4e", "a dead key that did not compose: both characters");
+  assert.equal(typed({ kind: "text", text: "\u4F60\u597D" }), "\u4F60\u597D", "an input method's committed text");
   assert.equal(typed({ kind: "key", action: "release", key: "e", text: "e" }), undefined);
   assert.equal(typed({ kind: "key", action: "press", key: "Dead" }), undefined, "the dead key itself");
   assert.equal(typed({ kind: "paste", text: "a" }), undefined);

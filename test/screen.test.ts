@@ -3,21 +3,22 @@ import { test } from "node:test";
 
 import {
   Attribute,
-  COLUMNS,
   Colour,
+  COLUMNS,
   CursorFlag,
-  ROWS,
-  Screen,
-  Sixels,
   decimalSubcode,
   mosaicColour,
   pageText,
+  readTti,
+  ROWS,
+  Screen,
+  Sixels,
   textColour,
   tti,
-} from "../src/screen.ts";
-import { readTti, text } from "../src/read-tti.ts";
+} from "../src/index.ts";
+import { text } from "../src/testing/index.ts";
 
-const ESC = "\u001b";
+const ESC = "\u001B";
 
 /** The TTI lines of a screen, without the 25 OL lines of an empty page that the test does not name. */
 function lines(screen: Screen, page: number, subpage: number): string[] {
@@ -28,9 +29,12 @@ test("a blank page is every row, the PN line naming page and sub-page and SC its
   const all = lines(new Screen(), 0x1a0, 0);
   assert.equal(all[0], "PN,1A000");
   assert.equal(all[1], "SC,0000");
-  assert.deepEqual(all.slice(2, 2 + ROWS), Array.from({ length: ROWS }, (_, row) => `OL,${row},`));
+  assert.deepEqual(
+    all.slice(2, 2 + ROWS),
+    Array.from({ length: ROWS }, (_, row) => `OL,${row},`),
+  );
   assert.equal(all.length, 2 + ROWS + 1, "nothing else, and a newline after the last line");
-  assert.equal(all[all.length - 1], "");
+  assert.equal(all.at(-1), "");
 });
 
 test("sub-pages are numbered in decimal digits", () => {
@@ -59,13 +63,25 @@ test("control codes are written in the escape form, ESC and the code plus 0x40",
 
 test("every control code escapes, every other code is itself, and the text is plain ASCII", () => {
   const screen = new Screen();
-  screen.codes(1, 0, Array.from({ length: 32 }, (_, code) => code));
-  screen.codes(2, 0, Array.from({ length: COLUMNS }, (_, offset) => 0x20 + offset));
-  screen.codes(3, 0, Array.from({ length: 0x60 - COLUMNS }, (_, offset) => 0x20 + COLUMNS + offset));
+  screen.codes(
+    1,
+    0,
+    Array.from({ length: 32 }, (_, code) => code),
+  );
+  screen.codes(
+    2,
+    0,
+    Array.from({ length: COLUMNS }, (_, offset) => 0x20 + offset),
+  );
+  screen.codes(
+    3,
+    0,
+    Array.from({ length: 0x60 - COLUMNS }, (_, offset) => 0x20 + COLUMNS + offset),
+  );
   const written = screen.toTti(0x100, 0);
-  assert.equal(lines(screen, 0x100, 0)[3], `OL,1,${Array.from({ length: 32 }, (_, code) => ESC + String.fromCharCode(code + 0x40)).join("")}`);
+  assert.equal(lines(screen, 0x100, 0)[3], `OL,1,${Array.from({ length: 32 }, (_, code) => ESC + String.fromCodePoint(code + 0x40)).join("")}`);
   for (const character of written) {
-    const code = character.charCodeAt(0);
+    const code = character.codePointAt(0) ?? 0;
     assert.ok(code === 0x0a || code === 0x1b || (code >= 0x20 && code <= 0x7f), `code ${code}`);
   }
   const [read] = readTti(written);
@@ -137,16 +153,31 @@ test("several sub-pages are one TTI text, each from its PN line", () => {
   first.text(1, 0, "one");
   const second = new Screen();
   second.text(1, 0, "two");
-  const read = readTti(tti(0x101, [{ screen: first, subpage: 1 }, { screen: second, subpage: 2 }]));
-  assert.deepEqual(read.map((page) => [page.subpage, text(page.rows, 1).trimEnd()]), [[1, "one"], [2, "two"]]);
+  const read = readTti(
+    tti(0x101, [
+      { screen: first, subpage: 1 },
+      { screen: second, subpage: 2 },
+    ]),
+  );
+  assert.deepEqual(
+    read.map((page) => [page.subpage, text(page.rows, 1).trimEnd()]),
+    [
+      [1, "one"],
+      [2, "two"],
+    ],
+  );
 });
 
 test("a sixel canvas draws mosaic cells after its colour (EN 300 706 Table 47)", () => {
   const canvas = new Sixels(4, 6);
-  canvas.set(0, 0, true); // top left: bit 0
-  canvas.set(1, 2, true); // bottom right: bit 6
-  canvas.set(3, 3, true); // the second row's cell to the right, top right: bit 1
-  canvas.set(9, 9, true); // outside: nothing
+  // Top left: bit 0.
+  canvas.set(0, 0, true);
+  // Bottom right: bit 6.
+  canvas.set(1, 2, true);
+  // The second row's cell to the right, top right: bit 1.
+  canvas.set(3, 3, true);
+  // Outside: nothing.
+  canvas.set(9, 9, true);
   assert.equal(canvas.cell(0, 0), 0x20 | 0x01 | 0x40);
   assert.equal(canvas.cell(2, 3), 0x20 | 0x02);
   assert.equal(canvas.get(9, 9), false);

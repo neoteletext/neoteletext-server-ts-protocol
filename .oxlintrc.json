@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // scripts/typescript.sh runs it with --type-aware: oxlint-tsgolint is built on TypeScript 7 itself.
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "node", "promise"],
+  "categories": { "correctness": "error", "suspicious": "error", "pedantic": "error", "perf": "error" },
+  "rules": {
+    // Every parameter here is a class instance (the site, the library, a Buffer, a Map, the test harness) whose private
+    // state is mutable by design, so no parameter type can be deeply readonly; typescript-eslint keeps this rule out of
+    // its strict preset for that reason.
+    "typescript/prefer-readonly-parameter-types": "off",
+    // A const and a type of one name, such as Colour, is TypeScript's declaration merging, and the compiler refuses a
+    // real redeclaration itself; typescript-eslint advises this rule off for TypeScript.
+    "eslint/no-redeclare": "off",
+    // node:test's test() returns a promise the runner awaits itself.
+    "typescript/no-floating-promises": ["error", { "allowForKnownSafeCalls": [{ "from": "package", "package": "node:test", "name": ["test", "suite", "describe", "it"] }] }],
+    // From the style and restriction categories, which are not meant to be taken whole: those the code's own rules ask for.
+    "typescript/explicit-function-return-type": "error",
+    "eslint/no-use-before-define": "error",
+    "eslint/no-nested-ternary": "error",
+    "unicorn/switch-case-braces": "error"
+  }
+}

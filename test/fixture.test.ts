@@ -8,11 +8,10 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
 
-const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
+const FIXTURES = join(import.meta.dirname, "fixtures");
 
 test("the kit's fixture channel writes the lines the server's test replays", () => {
   const start = '{"type":"start","protocol":1,"epoch_ms":0}\n';

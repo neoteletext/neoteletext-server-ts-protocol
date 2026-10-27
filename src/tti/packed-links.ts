@@ -8,8 +8,9 @@
 // with M2 and M3), then the link control byte (Table 14) and two checksum
 // bytes. In a packed line the designation code and each of those 39 bytes
 // is one character whose low four bits are the byte's four data bits; the
-// engine's TTI reader Hamming-codes them itself (its tti/packed.rs, the
-// form vbit2 reads).
+// engine's TTI reader Hamming-codes them itself (its tti/packed.rs).
+
+import { olCodes } from "./format.ts";
 
 /** A link of X/27/0: a page, and the sub-code it names or null for any sub-page. */
 export interface PageLink {
@@ -19,51 +20,73 @@ export interface PageLink {
 
 /** The six links of X/27/0 in order: red, green, yellow, cyan, link 5 and the index (clause 9.6.1). */
 export const PACKED_LINKS = 6;
+
 /** The packet number of the links, written as the OL line's row (clause 9.6.1). */
 export const PACKED_LINKS_ROW = 27;
+
 /** The designation code of the Fastext links among the X/27 packets (clause 9.6.1). */
 const DESIGNATION = 0;
+
 /** The bytes after the designation code: six links, the link control byte and two checksum bytes. */
 const PACKED_CHARACTERS = 39;
+
 /** The bytes of one link (Figure 12). */
 const LINK_NIBBLES = 6;
+
 /** Where the link control byte is, after the links. */
 const LINK_CONTROL = PACKED_LINKS * LINK_NIBBLES;
 if (LINK_CONTROL + 1 + 2 !== PACKED_CHARACTERS) {
   throw new Error("X/27/0 is six links, the link control byte and two checksum bytes");
 }
+
 /** A packed character is this plus its four data bits: printable, so the line needs no escapes (the engine's TTI_PACKED_CHARACTER_BASE). */
 const PACKED_CHARACTER_BASE = 0x40;
+
 /** The four data bits of a Hamming 8/4 byte. */
 const NIBBLE_MASK = 0x0f;
+
 const NIBBLE_BITS = 4;
+
 /** Table 14: data bit 4 of the link control byte displays row 24; bits 1 to 3 are 1 without a local code of practice. */
 const DISPLAY_ROW_24 = 0x8;
+
 const LINK_CONTROL_RESERVED = 0x7;
+
 /** A null link: page FF with sub-code 3F7F (clause 9.6.1). */
 const NULL_PAGE = 0xff;
+
 /** The sub-code that means any sub-page, and with page FF no link (clause 9.6.1). */
 export const ANY_SUBCODE = 0x3f7f;
+
 /** The bits of a page number within its magazine. */
 const PAGE_MASK = 0xff;
+
 const MAGAZINE_SHIFT = 8;
+
 /** A magazine's three bits; magazine 8 is sent as 0, as in a packet's address. */
 const MAGAZINE_BITS = 0x7;
+
 const MAGAZINE_EIGHT = 8;
+
 /** Figure 12: S1 is four bits, S2 three with M1 above, S3 four, S4 two with M2 and M3 above. */
 const S2_MASK = 0x7;
+
 const S4_MASK = 0x3;
+
 const M1_BIT = 0x1;
+
 const M2_M3_BITS = 0x6;
+
 const M1_SHIFT = 3;
+
 const M2_M3_SHIFT = 1;
+
 /** The sub-code's bits for S2, S3 and S4 (Figure 12). */
 const S2_SHIFT = 4;
+
 const S3_SHIFT = 8;
+
 const S4_SHIFT = 12;
-/** ESC and the offset of the escape form of control codes in an OL line (the engine's TTI reader, REQ-INP-013). */
-const ESCAPE = 0x1b;
-const ESCAPE_OFFSET = 0x40;
 
 /** The magazine of page number `page` as its three bits. */
 function magazineBits(page: number): number {
@@ -97,14 +120,13 @@ export function packedLinksLine(page: number, links: readonly (PageLink | null)[
     throw new RangeError(`X/27/0 has ${PACKED_LINKS} links`);
   }
   const ownBits = magazineBits(page);
-  const nibbles = [DESIGNATION, ...links.flatMap((link) => linkNibbles(link, ownBits))];
-  nibbles.push(LINK_CONTROL_RESERVED | (displayRow24 ? DISPLAY_ROW_24 : 0));
+  const nibbles = [DESIGNATION, ...links.flatMap((link) => linkNibbles(link, ownBits)), LINK_CONTROL_RESERVED | (displayRow24 ? DISPLAY_ROW_24 : 0)];
   // The two checksum bytes are not Hamming-coded, so the line cannot carry
   // them; the page's encoder computes the checksum.
   while (nibbles.length < 1 + PACKED_CHARACTERS) {
     nibbles.push(0);
   }
-  return `OL,${PACKED_LINKS_ROW},${String.fromCharCode(...nibbles.map((nibble) => PACKED_CHARACTER_BASE | nibble))}`;
+  return `OL,${PACKED_LINKS_ROW},${String.fromCodePoint(...nibbles.map((nibble) => PACKED_CHARACTER_BASE | nibble))}`;
 }
 
 /** What an X/27/0 line says: its six links and whether row 24 is displayed. */
@@ -120,15 +142,7 @@ export interface ReadLinks {
  * the engine's reader takes them.
  */
 export function readPackedLinks(page: number, text: string): ReadLinks | undefined {
-  const nibbles: number[] = [];
-  for (let at = 0; at < text.length; at += 1) {
-    let code = text.charCodeAt(at);
-    if (code === ESCAPE) {
-      at += 1;
-      code = text.charCodeAt(at) - ESCAPE_OFFSET;
-    }
-    nibbles.push(code & NIBBLE_MASK);
-  }
+  const nibbles = olCodes(text).map((code) => code & NIBBLE_MASK);
   if (nibbles[0] !== DESIGNATION) {
     return undefined;
   }

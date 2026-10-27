@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ENGLISH, englishCodes, foldCharacter } from "../src/english.ts";
+import { ENGLISH, englishCodes, foldCharacter } from "../src/index.ts";
 
-const codesOf = (text: string): number[] => [...text].map((character) => character.charCodeAt(0));
+const codesOf = (text: string): number[] => Array.from(text, (character) => character.codePointAt(0) ?? 0);
 
 test("ASCII the English set shares is written as itself", () => {
   const shared = "Hello, World! 0123456789 $@ ()*+-./:;<=>?\"'%&";
@@ -22,29 +22,30 @@ test("the signs of Table 36's English column are written at their codes", () => 
     ENGLISH.doubleBar,
   ]);
   assert.deepEqual(englishCodes("←→↑"), [ENGLISH.leftArrow, ENGLISH.rightArrow, ENGLISH.upArrow]);
-  assert.deepEqual([ENGLISH.pound, ENGLISH.hash, ENGLISH.dash, ENGLISH.half, ENGLISH.quarter, ENGLISH.threeQuarters, ENGLISH.divide], [
-    0x23, 0x5f, 0x60, 0x5c, 0x7b, 0x7d, 0x7e,
-  ]);
+  assert.deepEqual(
+    [ENGLISH.pound, ENGLISH.hash, ENGLISH.dash, ENGLISH.half, ENGLISH.quarter, ENGLISH.threeQuarters, ENGLISH.divide],
+    [0x23, 0x5f, 0x60, 0x5c, 0x7b, 0x7d, 0x7e],
+  );
 });
 
 test("ASCII whose codes the English set uses for other signs becomes the nearest it has", () => {
   // At their ASCII codes these would show as arrows, fractions and #.
-  assert.equal(String.fromCharCode(...englishCodes("[a]{b}\\|^_`~")), "(a)(b)//  '-");
+  assert.equal(String.fromCodePoint(...englishCodes("[a]{b}\\|^_`~")), "(a)(b)//  '-");
   for (const code of englishCodes("[]{}\\|^_`~")) {
     assert.ok(![0x5b, 0x5c, 0x5d, 0x5e, 0x5f, 0x60, 0x7b, 0x7c, 0x7d, 0x7e].includes(code), `code ${code}`);
   }
 });
 
 test("curly quotes, dashes and accents fold to ASCII", () => {
-  assert.equal(String.fromCharCode(...englishCodes("‘it’s’ “so” – café Ångström naïve…")), "'it's' \"so\" - cafe Angstrom naive...");
-  assert.equal(String.fromCharCode(...englishCodes("Straße Æsir 3×4 20°")), "Strasse AEsir 3x4 20 deg");
-  assert.equal(String.fromCharCode(...englishCodes("é")), "e", "a combining mark is dropped");
-  assert.equal(String.fromCharCode(...englishCodes("Москва")), "Moskva", "Cyrillic is romanised");
+  assert.equal(String.fromCodePoint(...englishCodes("‘it’s’ “so” – café Ångström naïve…")), "'it's' \"so\" - cafe Angstrom naive...");
+  assert.equal(String.fromCodePoint(...englishCodes("Straße Æsir 3×4 20°")), "Strasse AEsir 3x4 20 deg");
+  assert.equal(String.fromCodePoint(...englishCodes("é")), "e", "a combining mark is dropped");
+  assert.equal(String.fromCodePoint(...englishCodes("Москва")), "Moskva", "Cyrillic is romanised");
 });
 
 test("what the set cannot show is a question mark, a control a space", () => {
-  assert.equal(String.fromCharCode(...englishCodes("a\u{1F600}b中c")), "a?b?c");
-  assert.equal(String.fromCharCode(...englishCodes("a\u0007b\u007fc\tz")), "a b c z");
+  assert.equal(String.fromCodePoint(...englishCodes("a\u{1F600}b中c")), "a?b?c");
+  assert.equal(String.fromCodePoint(...englishCodes("a\u0007b\u007Fc\tz")), "a b c z");
   assert.equal(foldCharacter("\u{1F600}"), undefined);
   assert.equal(foldCharacter("é"), "e");
   assert.equal(foldCharacter("£"), "£");

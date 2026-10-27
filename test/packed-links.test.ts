@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ANY_SUBCODE, type PageLink, packedLinksLine, readPackedLinks } from "../src/packed-links.ts";
-import { readTti } from "../src/read-tti.ts";
-import { decimalSubcode } from "../src/screen.ts";
+import { ANY_SUBCODE, decimalSubcode, packedLinksLine, type PageLink, readPackedLinks, readTti } from "../src/index.ts";
 
 /** A null link's six nibbles as packed characters: page FF, sub-code 3F7F (EN 300 706 clause 9.6.1). */
 const NULL_LINK = "OOOGOC";

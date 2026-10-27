@@ -62,6 +62,17 @@ process.exit(newer === -1 || found[newer] > least[newer] ? 0 : 1);
     npx --no -- tsc --version
     npx --no -- tsc -p tsconfig.json
 
+    # The quality tools run on TypeScript 7: oxlint's type-aware rules are
+    # typescript-go's own.
+    step "formatting (Prettier, .prettierrc.json)"
+    npx --no -- prettier --check src test
+
+    step "lint, type-aware, warnings fail (oxlint, .oxlintrc.json)"
+    npx --no -- oxlint --type-aware --tsconfig tsconfig.json --deny-warnings src test
+
+    step "unused files, exports and dependencies (Knip, knip.jsonc)"
+    npx --no -- knip --no-progress
+
     step "tests"
     node --test "test/**/*.test.ts"
 }
