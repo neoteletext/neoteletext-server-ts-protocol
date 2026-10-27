@@ -22,15 +22,7 @@ The git hooks (`git config core.hooksPath .githooks`) run
 the stage, the build, and the stage again on the Linux host. A hook is
 never bypassed.
 
-## Release
+## Release and deploy
 
-Raise `version` in `package.json` and commit, then:
-
-    scripts/release.sh
-
-On a clean tree it checks, builds, packs
-`tmp/release/neottx-server-ts-protocol-<version>.tgz` and tags the commit
-`v<version>`. A consumer commits the file under its `vendor/`, depends on
-it as `"neottx-server-ts-protocol": "file:vendor/<the file>"`, and imports
-`neottx-server-ts-protocol`, or `neottx-server-ts-protocol/testing` for
-the test harness; nothing else is exported.
+`DEPLOYMENT.md`: the release, and how it reaches the programs that use it
+and the host they run on.
