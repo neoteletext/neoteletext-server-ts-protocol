@@ -1,6 +1,6 @@
 {
   "name": "neottx-server-ts-protocol",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The NeoTeletext server's channel protocol for programs in TypeScript: the reference kit (teletext-server's docs/applications.md section 5)",
   "private": true,
   "license": "MIT",
