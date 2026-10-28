@@ -23,7 +23,54 @@ readonly NODE_LEAST="22.18.0"
 # changed lockfile installs again.
 readonly INSTALLED_FROM="node_modules/.installed-from.sha256"
 
-step() { printf '\n== %s\n' "$*"; }
+# Timing and stamps (~/devel/neoteletext-common/DEVELOPMENT.md section 9):
+# each step prints its time as it ends; a pass records its steps' times,
+# for the next run's warning, and the tree it passed on, so a higher tier
+# does not run it again.
+# The Linux host's copy has no git directory, and records nothing.
+git_dir="$(git rev-parse --git-common-dir 2>/dev/null || true)"
+step_name=""
+step_start=$SECONDS
+step_times=""
+minutes() { printf '%dm%02ds' $(($1 / 60)) $(($1 % 60)); }
+end_step() {
+    [[ -n "$step_name" ]] || return 0
+    local took=$((SECONDS - step_start))
+    printf '   (%s)\n' "$(minutes "$took")"
+    step_times+="$took	$step_name"$'\n'
+    step_name=""
+}
+step() {
+    end_step
+    step_name="$*"
+    step_start=$SECONDS
+    printf '\n== %s\n' "$*"
+}
+announce() {
+    local file="$git_dir/gate-times-$1"
+    if [[ -f "$file" ]]; then
+        printf '== the %s gate: its last pass took %s; its slowest steps:\n' "$1" "$(minutes "$(head -1 "$file")")"
+        tail -n +2 "$file" | sort -rn | head -3 | while IFS=$'\t' read -r took name; do
+            printf '   %s  %s\n' "$(minutes "$took")" "$name"
+        done
+    else
+        printf '== the %s gate: no pass measured yet\n' "$1"
+    fi
+}
+passed() {
+    local tree="$2"
+    [[ -n "$tree" && -f "$git_dir/gate-passed-$1" && "$(cat "$git_dir/gate-passed-$1")" == "$tree" ]]
+}
+stamp() {
+    [[ -z "$2" ]] || printf '%s\n' "$2" >"$git_dir/gate-passed-$1"
+}
+record_pass() {
+    local tier="$1" tree="$2" took=$((SECONDS - gate_start))
+    end_step
+    printf '%s\n%s' "$took" "$step_times" >"$git_dir/gate-times-$tier"
+    stamp "$tier" "$tree"
+    printf '\nthe %s gate passed in %s\n' "$tier" "$(minutes "$took")"
+}
 fail() {
     printf '\nFAILED: %s\n' "$*" >&2
     exit 1
@@ -92,43 +139,107 @@ commit_gate() {
     loose="$(git diff --name-only; git ls-files --others --exclude-standard)"
     [[ -z "$loose" ]] || fail "changes that are not staged would make this check test something other than the commit; stage or stash them:
 $loose"
-    stage
+    tree="$(git write-tree)"
+    if passed commit "$tree"; then
+        printf '\n== the commit gate already passed on this tree\n'
+        tree=""
+    else
+        stage
+    fi
 }
 
+# Runs alongside the steps here in the full gate; its output is shown
+# when they are done. The copy compares content and keeps none of this
+# machine's times, which would make a file edited here before the host's
+# last build look older than that build.
 check_linux() {
+    step_name=""
     local here
     here="$(basename "$PWD")"
     step "Linux on $linux_host: the stage"
     ssh -o BatchMode=yes -o ConnectTimeout=10 "$linux_host" true || fail "$linux_host is unreachable; the full gate needs it"
-    rsync -a --delete --exclude tmp --exclude .git --exclude node_modules --exclude dist ./ "$linux_host:$here-check/"
+    rsync -a --no-times --checksum --delete --exclude tmp --exclude .git --exclude node_modules --exclude dist ./ "$linux_host:$here-check/"
     ssh "$linux_host" "set -e; cd $here-check && scripts/check.sh stage"
+    end_step
 }
 
-full_gate() {
-    # The commit being pushed is the one checked: the pre-push hook passes
-    # the pushed commits, and the tree must be clean at HEAD.
+# The commit pushed is the one checked: the pre-push hook passes the
+# pushed commits, and the tree must be clean at HEAD.
+clean_head() {
     local pushed
     for pushed in "$@"; do
         [[ "$pushed" == "$(git rev-parse HEAD)" ]] || fail "pushing $pushed, but HEAD is $(git rev-parse HEAD); check out what you push"
     done
     local loose
     loose="$(git status --porcelain)"
-    [[ -z "$loose" ]] || fail "the tree has changes that are not committed; the full gate checks the commit being pushed:
+    [[ -z "$loose" ]] || fail "the tree has changes that are not committed; the $mode gate checks the commit being pushed:
 $loose"
-    stage
-    build
-    check_linux
+    tree="$(git rev-parse 'HEAD^{tree}')"
+    if passed "$mode" "$tree"; then
+        printf '\n== the %s gate already passed on this tree\n' "$mode"
+        exit 0
+    fi
 }
 
+push_gate() {
+    if passed commit "$tree"; then
+        printf '\n== the commit gate passed on this tree: skipped\n'
+    else
+        stage
+    fi
+}
+
+full_gate() {
+    local linux_log="$git_dir/gate-linux.log" linux_pid
+    check_linux >"$linux_log" 2>&1 &
+    linux_pid=$!
+    printf '\n== the Linux steps on %s run alongside, logged in %s\n' "$linux_host" "$linux_log"
+
+    if passed push "$tree"; then
+        printf '\n== the push gate passed on this tree: skipped\n'
+    else
+        push_gate
+    fi
+    build
+
+    step "waiting for the Linux steps on $linux_host"
+    if ! wait "$linux_pid"; then
+        cat "$linux_log"
+        fail "the Linux steps on $linux_host failed"
+    fi
+    cat "$linux_log"
+
+}
+
+tree=""
 case "$mode" in
-commit) commit_gate ;;
+commit | push | full) announce "$mode" ;;
+esac
+gate_start=$SECONDS
+
+case "$mode" in
+commit)
+    commit_gate
+    [[ -z "$tree" ]] || record_pass commit "$tree"
+    ;;
+push)
+    shift
+    clean_head "$@"
+    push_gate
+    record_pass push "$tree"
+    stamp commit "$tree"
+    ;;
 stage) stage ;;
 build) build ;;
 full)
     shift
-    full_gate "$@"
+    clean_head "$@"
+    full_gate
+    record_pass full "$tree"
+    stamp push "$tree"
+    stamp commit "$tree"
     ;;
-*) fail "usage: scripts/check.sh commit | stage | build | full [pushed commit]..." ;;
+*) fail "usage: scripts/check.sh commit | push | stage | build | full [pushed commit]..." ;;
 esac
 
 step "All checks passed ($mode)"
