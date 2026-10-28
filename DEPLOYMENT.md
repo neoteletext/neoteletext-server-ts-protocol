@@ -20,6 +20,12 @@ On a clean tree it runs the checks and the build, packs
 server's end-to-end test replays (teletext-server's decision 13, item 3):
 a release that changes what the kit writes changes both.
 
+## What the host needs
+
+A program that sends sound through `ffmpegOpus` runs ffmpeg built with
+libopus (`ffmpeg -encoders` lists `libopus`), on its path or at the path
+it is given. Measured with ffmpeg 8.0.1.
+
 ## Into the programs that use it
 
 Each consumer commits the release under its own `vendor/`:

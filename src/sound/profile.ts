@@ -31,3 +31,34 @@ export const MOST_SAMPLES = 48_000 * 120;
 export const LAST_BLOCK = 0xffff;
 
 export const SAMPLE_BYTES = 2;
+
+/** Milliseconds in a second, for the profile's rates. */
+const SECOND_MS = 1_000;
+
+/** Bits in a byte. */
+const BYTE_BITS = 8;
+
+/** The one rate Opus is carried at (the engine's decision E.123). */
+export const OPUS_RATE = 48_000;
+
+/** Each Opus packet holds one frame this long (E.123). */
+export const OPUS_FRAME_MS = 20;
+
+/** Samples in each packet's frame, at {@link OPUS_RATE}: 960. */
+export const OPUS_FRAME_SAMPLES = (OPUS_RATE * OPUS_FRAME_MS) / SECOND_MS;
+
+/** The profile's average rate (E.123), which the server holds every sound to at constant rate (its decision 21 item 3). */
+export const OPUS_BITRATE = 16_000;
+
+/** The packet a constant-rate encoder writes at {@link OPUS_BITRATE}, and the longest the server takes: 40 bytes (docs/applications.md section 3.4). */
+export const OPUS_PACKET_BYTES = (OPUS_BITRATE * OPUS_FRAME_MS) / SECOND_MS / BYTE_BITS;
+
+/** The most packets a stored Opus sound has: {@link MOST_SAMPLES}, two minutes, in frames. */
+export const MOST_OPUS_PACKETS = MOST_SAMPLES / OPUS_FRAME_SAMPLES;
+
+// The profile's figures are whole: a frame of whole samples, a packet of whole bytes, two minutes of whole frames.
+for (const figure of [OPUS_FRAME_SAMPLES, OPUS_PACKET_BYTES, MOST_OPUS_PACKETS]) {
+  if (!Number.isInteger(figure)) {
+    throw new RangeError(`the Opus profile's figures are whole numbers, not ${figure}`);
+  }
+}

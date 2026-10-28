@@ -44,9 +44,28 @@ export type { PageKeys, Navigated } from "./navigation/page-keys.ts";
 export { FASTEXT_ROW, clickedLink, promptLink, promptAt, numberAt } from "./navigation/clicked-link.ts";
 export type { PageView } from "./navigation/clicked-link.ts";
 export { Navigation } from "./navigation/navigation.ts";
-export { SAMPLE_RATES, AUDIO_CHANNELS, LAST_HANDLE, LAST_GENERATION, FULL_GAIN, LONGEST_FADE_MS, DEEPEST_DUCK, MOST_SAMPLES } from "./sound/profile.ts";
+export {
+  SAMPLE_RATES,
+  AUDIO_CHANNELS,
+  LAST_HANDLE,
+  LAST_GENERATION,
+  FULL_GAIN,
+  LONGEST_FADE_MS,
+  DEEPEST_DUCK,
+  MOST_SAMPLES,
+  OPUS_RATE,
+  OPUS_FRAME_MS,
+  OPUS_FRAME_SAMPLES,
+  OPUS_BITRATE,
+  OPUS_PACKET_BYTES,
+  MOST_OPUS_PACKETS,
+} from "./sound/profile.ts";
 export type { SampleRate } from "./sound/profile.ts";
-export type { Audience, SoundObject, LiveSound, LiveBlocks, Play, Stop, Gain, SoundMember } from "./sound/members.ts";
+export type { Audience, SoundObject, LiveSound, LiveBlocks, OpusSound, OpusLive, OpusPackets, Play, Stop, Gain, SoundMember } from "./sound/members.ts";
+export type { EncodedOpus, OpusEncoder, OpusStream } from "./sound/opus-encoder.ts";
+export { ffmpegOpus } from "./sound/ffmpeg-opus.ts";
+export type { FfmpegOptions } from "./sound/ffmpeg-opus.ts";
+export { OggOpusReader, oggCrc } from "./sound/ogg-opus.ts";
 export { pcmBase64, soundFields } from "./sound/sound-fields.ts";
 export type { PageEntry, Application } from "./channel/application.ts";
 export { Random } from "./channel/random.ts";

@@ -5,26 +5,13 @@
 
 import { isPageNumber, pageText } from "../page/page-numbers.ts";
 import type { SoundMember } from "./members.ts";
-import {
-  AUDIO_CHANNELS,
-  DEEPEST_DUCK,
-  FULL_GAIN,
-  LAST_BLOCK,
-  LAST_GENERATION,
-  LAST_HANDLE,
-  LONGEST_FADE_MS,
-  MOST_SAMPLES,
-  SAMPLE_BYTES,
-  SAMPLE_RATES,
-} from "./profile.ts";
+import { pcmBytes } from "./pcm.ts";
+import { opusFields, opusLiveFields, opusPacketsFields } from "./opus-fields.ts";
+import { AUDIO_CHANNELS, DEEPEST_DUCK, FULL_GAIN, LAST_BLOCK, LAST_GENERATION, LAST_HANDLE, LONGEST_FADE_MS, MOST_SAMPLES, SAMPLE_RATES } from "./profile.ts";
 
 /** `samples` as base64 of 16-bit little-endian samples (RFC 4648 section 4). */
 export function pcmBase64(samples: Int16Array): string {
-  const bytes = new DataView(new ArrayBuffer(samples.length * SAMPLE_BYTES));
-  samples.forEach((sample, index) => {
-    bytes.setInt16(index * SAMPLE_BYTES, sample, true);
-  });
-  return Buffer.from(bytes.buffer).toString("base64");
+  return Buffer.from(pcmBytes(samples)).toString("base64");
 }
 
 function wholeIn(name: string, value: number, least: number, most: number): number {
@@ -81,6 +68,15 @@ export function soundFields(member: SoundMember): Record<string, unknown> {
     return {
       blocks: { ...handleFields(blocks), rate: rateOf(blocks.rate), first: wholeIn("first", blocks.first, 0, LAST_BLOCK), pcm: samplesOf(blocks.samples) },
     };
+  }
+  if ("opus" in member) {
+    return opusFields(member.opus);
+  }
+  if ("opusLive" in member) {
+    return opusLiveFields(member.opusLive);
+  }
+  if ("opusPackets" in member) {
+    return opusPacketsFields(member.opusPackets);
   }
   if ("play" in member) {
     const { play } = member;

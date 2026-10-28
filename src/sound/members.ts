@@ -1,5 +1,7 @@
 // What a `sound` message carries: a stored sound, a live one and its
-// blocks, or a command to a channel.
+// blocks, or a command to a channel. Opus is what desktop and phone
+// receivers play; PCM, which the server encodes as IMA ADPCM, is for
+// microcontrollers (docs/applications.md section 3.4, decision 21).
 
 import type { SampleRate } from "./profile.ts";
 
@@ -25,6 +27,30 @@ export interface LiveSound {
 export interface LiveBlocks extends LiveSound {
   readonly first: number;
   readonly samples: Int16Array;
+}
+
+/** A stored Opus sound: constant-rate packets, one 20 ms frame each, back to back, sent once and played by later commands. */
+export interface OpusSound {
+  readonly handle: number;
+  readonly generation: number;
+  /** Every packet's length, 1 to OPUS_PACKET_BYTES. */
+  readonly packetBytes: number;
+  /** The sound's length at OPUS_RATE, the encoder's pre-skip with it: its last packet's frame may run past it. */
+  readonly samples: number;
+  readonly packets: Uint8Array;
+}
+
+/** A live Opus sound's object, whose packets follow. */
+export interface OpusLive {
+  readonly handle: number;
+  readonly generation: number;
+  readonly packetBytes: number;
+}
+
+/** A live Opus sound's next packets, one a block, from block number `first`. */
+export interface OpusPackets extends OpusLive {
+  readonly first: number;
+  readonly packets: Uint8Array;
 }
 
 /** A command to play a stored or live sound on a channel. */
@@ -62,6 +88,9 @@ export type SoundMember =
   | { readonly object: SoundObject }
   | { readonly live: LiveSound }
   | { readonly blocks: LiveBlocks }
+  | { readonly opus: OpusSound }
+  | { readonly opusLive: OpusLive }
+  | { readonly opusPackets: OpusPackets }
   | { readonly play: Play }
   | { readonly stop: Stop }
   | { readonly gain: Gain };

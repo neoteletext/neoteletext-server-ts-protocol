@@ -13,7 +13,7 @@ made.
 The package is released as a built tarball, not to a registry. Commit the
 release under your `vendor/` and depend on it:
 
-    npm install ./vendor/neoteletext-server-ts-protocol-0.3.0.tgz
+    npm install ./vendor/neoteletext-server-ts-protocol-0.4.0.tgz
 
 It needs Node 22.18 or later.
 
@@ -57,7 +57,15 @@ a sound, ask to be woken.
   themselves get page selection by them, and a click a page does not take
   follows the prompt or page number it is on.
 - **Sound:** stored and live sounds and the commands that play them, in
-  the engine's audio profile.
+  the engine's audio profile. Desktop and phone receivers play Opus alone,
+  which the program encodes and the server carries unchanged
+  (teletext-server's decision 21): `ffmpegOpus` encodes a whole sound or
+  a stream with ffmpeg's libopus, in the profile's constant-rate 16 kbit/s
+  packets of 20 ms, and the `opus`, `opusLive` and `opusPackets` members
+  carry them. `OggOpusReader` reads an Ogg Opus stream, checked and
+  bounded. The PCM members, which the server encodes as IMA ADPCM, are for
+  microcontroller receivers. The testing entry's `fakeOpus` stands in for
+  ffmpeg in tests.
 - **TTI:** `readTti`, TTI read back as the server's reader takes it, and
   `packedLinksLine`, Fastext links that name a sub-page.
 - **The wire:** `App`, `readMessage` and `serveLines`, for a program that

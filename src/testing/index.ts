@@ -2,6 +2,7 @@
 // it, and what it wrote read back, for tests.
 
 export { ManualClock } from "./manual-clock.ts";
+export { fakeOpus } from "./fake-opus.ts";
 export { Harness } from "./harness.ts";
 export type { HarnessOptions } from "./harness.ts";
 export type { Sent } from "./sent.ts";
