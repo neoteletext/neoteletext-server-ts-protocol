@@ -13,7 +13,7 @@ import { decimalSubcode } from "../tti/subcode.ts";
 import { NO_LINK } from "../tti/format.ts";
 import { SUBCODE_DIGITS, hex, rowText } from "../tti/write-row.ts";
 
-const ALL_FLAGS = CursorFlag.Echo | CursorFlag.Masked | CursorFlag.Block;
+const ALL_FLAGS = CursorFlag.Block;
 
 /** Whether `value` is a whole number from 0 to `most`. */
 function within(value: number, most: number): boolean {
@@ -150,12 +150,12 @@ export class Screen {
     this.#fastextRow = true;
   }
 
-  /** Places the cursor at `row`, `column`, with `width` cells the receiver may echo into and `flags` (INPUT.md section 7.1). */
-  cursor(row: number, column: number, width: number, flags: number): void {
-    if (!within(row, ROWS - 1) || !within(column, COLUMNS - 1) || !within(width, COLUMNS) || !within(flags, ALL_FLAGS)) {
-      throw new RangeError(`cursor: row ${row}, column ${column}, width ${width} and flags ${flags} must be on the page`);
+  /** Places the cursor at `row`, `column`, with `flags` (INPUT.md section 7.1). */
+  cursor(row: number, column: number, flags: number): void {
+    if (!within(row, ROWS - 1) || !within(column, COLUMNS - 1) || !within(flags, ALL_FLAGS) || (flags & ~ALL_FLAGS) !== 0) {
+      throw new RangeError(`cursor: row ${row}, column ${column} and flags ${flags} must be on the page`);
     }
-    this.#cursor = { row, column, width, flags };
+    this.#cursor = { row, column, flags };
   }
 
   cursorLine(): Cursor | null {
@@ -173,8 +173,10 @@ export class Screen {
       lines.push(`FL,${links.map((link) => pageText(link ?? NO_LINK)).join(",")}`);
     }
     if (this.#cursor !== null) {
-      const { row, column, width, flags } = this.#cursor;
-      lines.push(`CU,${row},${column},${width},${flags}`);
+      const { row, column, flags } = this.#cursor;
+      // The third field, once the echo's width, keeps its place, written 0
+      // (the engine's E.134).
+      lines.push(`CU,${row},${column},0,${flags}`);
     }
     return lines.map((line) => `${line}\n`).join("");
   }

@@ -91,10 +91,10 @@ function readLinks(page: PageBeingRead, rest: string): void {
   page.fastextRow = true;
 }
 
-/** A CU line: the cursor's cell, its width and its flags. */
+/** A CU line: the cursor's cell and its flags; the third field, once the echo's width, is skipped. */
 function readCursor(page: PageBeingRead, rest: string): void {
-  const [row, column, width, flags] = rest.split(",").map((field) => wholeField(field, DECIMAL, 0));
-  page.cursor = { row: row ?? 0, column: column ?? 0, width: width ?? 0, flags: flags ?? 0 };
+  const [row, column, , flags] = rest.split(",").map((field) => wholeField(field, DECIMAL, 0));
+  page.cursor = { row: row ?? 0, column: column ?? 0, flags: flags ?? 0 };
 }
 
 /** Reads what {@link Screen.toTti} writes: PN, SC, OL, FL and CU lines. */

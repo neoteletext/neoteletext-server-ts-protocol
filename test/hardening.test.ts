@@ -29,13 +29,17 @@ test("an FL line's malformed or out-of-range fields read as no link", () => {
 test("a cursor, a Fastext link or an index link off the page is refused where it is set", () => {
   const screen = new Screen();
   assert.throws(() => {
-    screen.cursor(25, 0, 1, 0);
+    screen.cursor(25, 0, 0);
   }, RangeError);
   assert.throws(() => {
-    screen.cursor(0, 0, 1, 8);
+    screen.cursor(0, 0, 8);
   }, RangeError);
   assert.throws(() => {
-    screen.cursor(0, Number.NaN, 1, 0);
+    // Echo, withdrawn by the engine's E.134.
+    screen.cursor(0, 0, 1);
+  }, RangeError);
+  assert.throws(() => {
+    screen.cursor(0, Number.NaN, 0);
   }, RangeError);
   assert.throws(() => {
     screen.fastext([Number.NaN, null, null, null]);

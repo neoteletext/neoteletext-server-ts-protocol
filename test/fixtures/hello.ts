@@ -51,7 +51,7 @@ function index(): Screen {
   screen.fastext([CAROUSEL, null, null, INDEX]);
   screen.indexLink(INDEX);
   // A cursor, which the server must accept too.
-  screen.cursor(6, 2, 10, CursorFlag.Echo);
+  screen.cursor(6, 2, CursorFlag.Block);
   return screen;
 }
 

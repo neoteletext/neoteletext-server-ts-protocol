@@ -140,12 +140,12 @@ test("a page with no links has no FL line unless its row 24 is to show", () => {
 
 test("the cursor is a CU line, and a page has no IM line: it asks for no input (INPUT.md section 6.3)", () => {
   const screen = new Screen();
-  screen.cursor(5, 14, 16, CursorFlag.Echo | CursorFlag.Masked);
+  screen.cursor(5, 14, CursorFlag.Block);
   const all = lines(screen, 0x201, 0);
-  assert.ok(all.includes("CU,5,14,16,3"));
+  assert.ok(all.includes("CU,5,14,0,4"), "the third field, once the echo's width, written 0 (E.134)");
   assert.ok(!all.some((line) => line.startsWith("IM,")), all.join("\n"));
   const [read] = readTti(screen.toTti(0x201, 0));
-  assert.deepEqual(read?.cursor, { row: 5, column: 14, width: 16, flags: 3 });
+  assert.deepEqual(read?.cursor, { row: 5, column: 14, flags: 4 });
 });
 
 test("several sub-pages are one TTI text, each from its PN line", () => {
