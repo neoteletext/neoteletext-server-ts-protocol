@@ -1,4 +1,4 @@
-# neottx-server-ts-protocol: to do
+# neoteletext-server-ts-protocol: to do
 
 Nothing is outstanding. The owner's cleanup of 28 October 2026 (the
 quality tools' pass, the code split into files and organised, modern

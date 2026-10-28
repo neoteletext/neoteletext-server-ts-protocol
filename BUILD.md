@@ -1,4 +1,4 @@
-# Building neottx-server-ts-protocol
+# Building neoteletext-server-ts-protocol
 
 The source is TypeScript that Node runs as it is, by stripping its types
 (Node 22.18 and later), so the tests run the source. A release is built:

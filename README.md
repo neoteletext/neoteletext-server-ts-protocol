@@ -1,4 +1,4 @@
-# neottx-server-ts-protocol
+# neoteletext-server-ts-protocol
 
 The NeoTeletext server's channel protocol for programs in TypeScript: the
 reference kit of teletext-server's `docs/applications.md` section 5. A
@@ -13,14 +13,14 @@ made.
 The package is released as a built tarball, not to a registry. Commit the
 release under your `vendor/` and depend on it:
 
-    npm install ./vendor/neottx-server-ts-protocol-0.2.0.tgz
+    npm install ./vendor/neoteletext-server-ts-protocol-0.3.0.tgz
 
 It needs Node 22.18 or later.
 
 ## A channel
 
 ```ts
-import { type Application, Colour, runChannel, Screen } from "neottx-server-ts-protocol";
+import { type Application, Colour, runChannel, Screen } from "neoteletext-server-ts-protocol";
 
 const hello: Application = {
   pages: () => [{ page: 0x100, title: "Hello" }],
@@ -68,15 +68,15 @@ imported.
 
 ## Tests
 
-`neottx-server-ts-protocol/testing` drives a channel as the server does,
+`neoteletext-server-ts-protocol/testing` drives a channel as the server does,
 and reads back what it wrote:
 
 ```ts
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type Application, Colour, Screen } from "neottx-server-ts-protocol";
-import { Harness, shows } from "neottx-server-ts-protocol/testing";
+import { type Application, Colour, Screen } from "neoteletext-server-ts-protocol";
+import { Harness, shows } from "neoteletext-server-ts-protocol/testing";
 
 const hello: Application = {
   pages: () => [{ page: 0x100, title: "Hello" }],

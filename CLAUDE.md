@@ -1,4 +1,4 @@
-# neottx-server-ts-protocol
+# neoteletext-server-ts-protocol
 
 The NeoTeletext server's channel protocol for programs in TypeScript: the
 reference kit of teletext-server's `docs/applications.md` section 5. These

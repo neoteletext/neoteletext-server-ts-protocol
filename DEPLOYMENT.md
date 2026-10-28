@@ -1,4 +1,4 @@
-# Deploying neottx-server-ts-protocol
+# Deploying neoteletext-server-ts-protocol
 
 A library is deployed by releasing it. Nothing of this repository runs on
 a host by itself: a release reaches the deploy host inside the programs
@@ -12,7 +12,7 @@ Raise `version` in `package.json` (semantic versioning: a change to what
     scripts/release.sh
 
 On a clean tree it runs the checks and the build, packs
-`tmp/release/neottx-server-ts-protocol-<version>.tgz` and tags the commit
+`tmp/release/neoteletext-server-ts-protocol-<version>.tgz` and tags the commit
 `v<version>`. A version already tagged is refused.
 
 `test/fixtures/hello.jsonl` must stay the same as teletext-server's
@@ -24,23 +24,23 @@ a release that changes what the kit writes changes both.
 
 Each consumer commits the release under its own `vendor/`:
 
-- **neottx-server-ts-ui-components**, as its peer dependency and, for its
+- **neoteletext-server-ts-ui-components**, as its peer dependency and, for its
   tests, a development dependency (its `BUILD.md`, "A new release of the
   protocol"). It then releases a version built against this one.
 - **neoteletext-server-channels** (kitchensink and showcase) and
   **neoteletext-server-channel-hackaday**, as a dependency:
 
-      cp tmp/release/neottx-server-ts-protocol-<version>.tgz <consumer>/vendor/
-      git -C <consumer> rm vendor/neottx-server-ts-protocol-<old version>.tgz
-      cd <consumer> && npm install --save-exact ./vendor/neottx-server-ts-protocol-<version>.tgz
+      cp tmp/release/neoteletext-server-ts-protocol-<version>.tgz <consumer>/vendor/
+      git -C <consumer> rm vendor/neoteletext-server-ts-protocol-<old version>.tgz
+      cd <consumer> && npm install --save-exact ./vendor/neoteletext-server-ts-protocol-<version>.tgz
 
   `package.json` then names `file:vendor/<the file>`, and the lockfile
   pins its checksum. A consumer that also uses the component library
   takes the library's release built against the same version. The
   consumer's gates run, and it commits.
 
-The package exports `neottx-server-ts-protocol` and
-`neottx-server-ts-protocol/testing` (the test harness); nothing else.
+The package exports `neoteletext-server-ts-protocol` and
+`neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
 ## To the host
 
