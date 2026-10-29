@@ -18,9 +18,13 @@ consumer takes the JavaScript and declarations in `dist/`.
     scripts/check.sh build    # the release build into dist/
 
 The git hooks (`git config core.hooksPath .githooks`) run
-`scripts/check.sh commit` on commit and `scripts/check.sh full` on push:
-the stage, the build, and the stage again on the Linux host. A hook is
-never bypassed.
+`scripts/check.sh commit` (the stage) on commit, `scripts/check.sh push`
+on a push of any branch but `main` (nothing the commit already passed on
+the same tree), and `scripts/check.sh full` on a push to `main`, the long
+integration step: the build, and the stage again on the Linux host
+alongside. Work happens on `livedevelopment`; the day-to-day routine is
+`~/devel/neoteletext-common/DEVELOPMENT.md` section 9. A hook is never
+bypassed.
 
 ## Release and deploy
 
