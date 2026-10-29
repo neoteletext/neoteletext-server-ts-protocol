@@ -25,7 +25,7 @@ function lines(screen: Screen, page: number, subpage: number): string[] {
   return screen.toTti(page, subpage).split("\n");
 }
 
-test("a blank page is every row, the PN line naming page and sub-page and SC its sub-code", () => {
+test("a blank page is every row, the PN line naming the page and SC its sub-code", () => {
   const all = lines(new Screen(), 0x1a0, 0);
   assert.equal(all[0], "PN,1A000");
   assert.equal(all[1], "SC,0000");
@@ -41,8 +41,8 @@ test("sub-pages are numbered in decimal digits", () => {
   assert.equal(decimalSubcode(1), 0x0001);
   assert.equal(decimalSubcode(10), 0x0010);
   assert.equal(decimalSubcode(79), 0x0079);
-  const all = lines(new Screen(), 0x101, 12);
-  assert.equal(all[0], "PN,10112");
+  const all = lines(new Screen(), 0x101, decimalSubcode(12));
+  assert.equal(all[0], "PN,10100", "the server reads no sub-page from PN");
   assert.equal(all[1], "SC,0012");
 });
 
@@ -153,18 +153,15 @@ test("several sub-pages are one TTI text, each from its PN line", () => {
   first.text(1, 0, "one");
   const second = new Screen();
   second.text(1, 0, "two");
-  const read = readTti(
-    tti(0x101, [
-      { screen: first, subpage: 1 },
-      { screen: second, subpage: 2 },
-    ]),
+  const written = tti(0x101, [{ screen: first }, { screen: second, subcode: 0x0a10 }]);
+  assert.deepEqual(
+    readTti(written).map((page) => text(page.rows, 1).trimEnd()),
+    ["one", "two"],
   );
   assert.deepEqual(
-    read.map((page) => [page.subpage, text(page.rows, 1).trimEnd()]),
-    [
-      [1, "one"],
-      [2, "two"],
-    ],
+    written.split("\n").filter((line) => /^(PN|SC),/u.test(line)),
+    ["PN,10100", "PN,10100", "SC,0A10"],
+    "an SC line only for the sub-page given a sub-code",
   );
 });
 

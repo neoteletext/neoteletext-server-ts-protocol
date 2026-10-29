@@ -4,10 +4,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { figure, figuresIn, readMessage } from "../src/index.ts";
+import { SERVER_LIMITS } from "../src/testing/index.ts";
 import { isFields } from "../src/wire/fields.ts";
 
 test("each of the server's messages is read whole", () => {
-  assert.deepEqual(readMessage('{"type":"start","protocol":1,"epoch_ms":1792886400000}'), { type: "start", protocol: 1, epochMs: 1_792_886_400_000 });
+  const start =
+    '{"type":"start","protocol":1,"epoch_ms":1792886400000,"standard":{"magazines":8,"pages":2022,"keyable_pages":800,"subpages":8190,"numbered_subpages":8069,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120}}';
+  assert.deepEqual(readMessage(start), { type: "start", protocol: 1, epochMs: 1_792_886_400_000, limits: SERVER_LIMITS });
   assert.deepEqual(readMessage('{"type":"join","session":7}'), { type: "join", session: 7 });
   assert.deepEqual(readMessage('{"type":"open","session":7,"page":"1A0"}'), { type: "open", session: 7, page: 0x1a0 });
   assert.deepEqual(readMessage('{"type":"leave","session":7,"page":"100"}'), { type: "leave", session: 7, page: 0x100 });
@@ -52,6 +55,8 @@ test("a line that is not a whole, valid message is refused with the reason", () 
     "[]",
     '"start"',
     '{"type":"start","protocol":1}',
+    '{"type":"start","protocol":1,"epoch_ms":0}',
+    '{"type":"start","protocol":1,"epoch_ms":0,"standard":{"magazines":8},"budgets":{"line_bytes":1,"title_characters":1}}',
     '{"type":"join"}',
     '{"type":"join","session":-1}',
     '{"type":"join","session":1.5}',

@@ -14,6 +14,7 @@ import { type PageView, clickedLink } from "../navigation/clicked-link.ts";
 import { Navigation } from "../navigation/navigation.ts";
 import { pageText } from "../page/page-numbers.ts";
 import { App, type PageDeclaration } from "../wire/app.ts";
+import type { Limits } from "../wire/limits.ts";
 import type { ServerEvents } from "../wire/server-events.ts";
 import type { ServerStats } from "../wire/stats.ts";
 
@@ -92,9 +93,10 @@ export class Channel implements ServerEvents {
     return [...this.#entries.values()];
   }
 
-  /** The server said start: every application publishes its shared pages. */
-  start(epochMs: number): void {
+  /** The server said start, with the limits it keeps to: every application publishes its shared pages. */
+  start(epochMs: number, limits: Limits): void {
     this.#epochAtStart = epochMs - this.#clock.now();
+    this.#app.started(limits);
     this.#applications.forEach((_, index) => {
       this.#call(index, (application, context) => {
         application.start(context);

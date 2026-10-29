@@ -3,7 +3,8 @@
 // 5). This is the package's whole interface; the test harness is apart, in
 // neoteletext-server-ts-protocol/testing.
 
-export { PROTOCOL, LONGEST_LINE, MOST_PAGES, LONGEST_TITLE, MOST_SUBPAGES } from "./wire/limits.ts";
+export { PROTOCOL, LONGEST_LINE, readLimits } from "./wire/limits.ts";
+export type { Budgets, Limits, Standard } from "./wire/limits.ts";
 export { figure, figuresIn } from "./wire/stats.ts";
 export type { Figures, ServerStats } from "./wire/stats.ts";
 export { isSession, readPage, readMessage } from "./wire/server-message.ts";

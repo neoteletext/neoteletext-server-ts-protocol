@@ -76,7 +76,7 @@ await runChannel([
       context.publishSubpages(
         "channel",
         CAROUSEL,
-        SUBPAGES.map((number) => ({ screen: subpage(number), subpage: number })),
+        SUBPAGES.map((number) => ({ screen: subpage(number) })),
       );
       context.publishTti("channel", RAW, RAW_TTI);
       context.publishTti("channel", SUBPAGE_LINK, SUBPAGE_LINK_TTI);

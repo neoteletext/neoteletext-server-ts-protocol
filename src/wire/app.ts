@@ -1,5 +1,9 @@
 // The program's side of the protocol: each line it writes is checked first
 // as the server will check it, so a mistake is caught where it is made.
+// The bounds it checks against are those the server gives in `start`
+// (docs/applications.md section 2); the kit writes none of its own, so the
+// declaration, which comes before `start`, is checked for its form only and
+// its count and titles' lengths by the server.
 
 import { CONTROL_CHARACTER } from "../input/typed.ts";
 import { isPageNumber, pageText } from "../page/page-numbers.ts";
@@ -7,11 +11,13 @@ import { Screen } from "../page/screen.ts";
 import { type Subpage, tti } from "../page/subpage.ts";
 import type { Audience, SoundMember } from "../sound/members.ts";
 import { soundFields } from "../sound/sound-fields.ts";
-import { LONGEST_LINE, LONGEST_TITLE, MOST_PAGES, MOST_SUBPAGES } from "./limits.ts";
+import { LONGEST_LINE, type Limits } from "./limits.ts";
 import { isSession } from "./server-message.ts";
 
-/** The highest sub-page number: TTI's PN line writes it in two decimal digits. */
-const LAST_SUBPAGE = 99;
+/** A sub-code's four hexadecimal digits, as a put's SC line and a remove write it. */
+const SUBCODE_DIGITS = 4;
+/** The largest number four hexadecimal digits write; the server refuses those outside the standard's thirteen bits. */
+const LARGEST_FOUR_DIGITS = 0xffff;
 
 /** Seven-bit text: what a TTI text may hold. */
 const ASCII = /^\p{ASCII}*$/u;
@@ -30,9 +36,14 @@ export interface PageDeclaration {
   readonly section?: string;
 }
 
-/** Whether `text` is a title or a section's name the server takes: at most {@link LONGEST_TITLE} characters, none a control. */
-function isTitle(text: string): boolean {
-  return Array.from(text).length <= LONGEST_TITLE && !CONTROL_CHARACTER.test(text);
+/** Whether `text` is a title or a section's name the server takes: none of its characters a control, and, once `start` has said, within its length. */
+function isTitle(text: string, limits: Limits | undefined): boolean {
+  return (limits === undefined || Array.from(text).length <= limits.budgets.titleCharacters) && !CONTROL_CHARACTER.test(text);
+}
+
+/** Whether `subcode` can be written as a sub-code's four hexadecimal digits. */
+function isSubcodeNumber(subcode: unknown): subcode is number {
+  return typeof subcode === "number" && Number.isInteger(subcode) && subcode >= 0 && subcode <= LARGEST_FOUR_DIGITS;
 }
 
 /** The program's side of the protocol: each call writes one line, checked first as the server will check it. */
@@ -41,6 +52,7 @@ export class App {
   /** Each declared page's title as `contents.txt` lists it now. */
   readonly #titles = new Map<number, string>();
   #declared = false;
+  #limits: Limits | undefined;
 
   /** A program that writes its lines, each without its newline, to `write`. */
   constructor(write: (line: string) => void) {
@@ -51,23 +63,33 @@ export class App {
     this.#write(JSON.stringify(message));
   }
 
+  /** The server said `start`, with the limits it keeps to. */
+  started(limits: Limits): void {
+    this.#limits = limits;
+  }
+
+  /** The limits `start` gave; a program publishes only after `start`, so asking before is a mistake. */
+  limits(): Limits {
+    if (this.#limits === undefined) {
+      throw new Error("the limits are the server's, given in start: nothing is published before it");
+    }
+    return this.#limits;
+  }
+
   /** Declares the program's pages: the first line, once. */
   declare(pages: readonly PageDeclaration[]): void {
     if (this.#declared) {
       throw new Error("pages are declared once, in the first line");
     }
-    if (pages.length > MOST_PAGES) {
-      throw new RangeError(`at most ${MOST_PAGES} pages`);
-    }
     for (const { page, title, section } of pages) {
       if (!isPageNumber(page) || this.#titles.has(page)) {
         throw new RangeError(`page ${page} is not a page number, or is declared twice`);
       }
-      if (!isTitle(title)) {
-        throw new RangeError(`the title of ${pageText(page)} is over ${LONGEST_TITLE} characters or has controls`);
+      if (!isTitle(title, this.#limits)) {
+        throw new RangeError(`the title of ${pageText(page)} has controls`);
       }
-      if (section !== undefined && !isTitle(section)) {
-        throw new RangeError(`the section ${pageText(page)} starts is over ${LONGEST_TITLE} characters or has controls`);
+      if (section !== undefined && !isTitle(section, this.#limits)) {
+        throw new RangeError(`the section ${pageText(page)} starts has controls`);
       }
       this.#titles.set(page, title);
     }
@@ -94,8 +116,8 @@ export class App {
     if (now === undefined) {
       throw new RangeError(`title: ${pageText(page)} was not declared`);
     }
-    if (!isTitle(title)) {
-      throw new RangeError(`title: the title of ${pageText(page)} is over ${LONGEST_TITLE} characters or has controls`);
+    if (!isTitle(title, this.limits())) {
+      throw new RangeError(`title: the title of ${pageText(page)} is over ${this.limits().budgets.titleCharacters} characters or has controls`);
     }
     if (now !== title) {
       this.#titles.set(page, title);
@@ -111,45 +133,93 @@ export class App {
     this.#send({ type: "release", session, page: pageText(page) });
   }
 
-  /** Publishes `page`: one screen as sub-page 0, or sub-pages each numbered as given. */
-  publish(owner: Owner, page: number, content: Screen | readonly Subpage[]): void {
+  #check(kind: string, owner: Owner, page: number): void {
     if (!this.#titles.has(page)) {
-      throw new RangeError(`publish: ${pageText(page)} was not declared`);
+      throw new RangeError(`${kind}: ${pageText(page)} was not declared`);
     }
     if (owner !== "channel" && !isSession(owner)) {
-      throw new RangeError(`publish: owner is "channel" or a session, not ${String(owner)}`);
+      throw new RangeError(`${kind}: owner is "channel" or a session, not ${String(owner)}`);
     }
-    const subpages = content instanceof Screen ? [{ screen: content, subpage: 0 }] : content;
-    if (subpages.length === 0 || subpages.length > MOST_SUBPAGES) {
-      throw new RangeError(`publish: 1 to ${MOST_SUBPAGES} sub-pages`);
+  }
+
+  /**
+   * Publishes `page` whole: one screen, or sub-pages in their order, the
+   * page's others ended. The server numbers them by place as the code of
+   * practice does (docs/applications.md section 3.2), so a sub-code given
+   * is not written; at most `start`'s `numbered_subpages`.
+   */
+  publish(owner: Owner, page: number, content: Screen | readonly Subpage[]): void {
+    this.#check("publish", owner, page);
+    const screens = content instanceof Screen ? [content] : content.map(({ screen }) => screen);
+    const most = this.limits().standard.numberedSubpages;
+    if (screens.length === 0 || screens.length > most) {
+      throw new RangeError(`publish: 1 to ${most} sub-pages`);
     }
-    if (subpages.some(({ subpage }) => !Number.isInteger(subpage) || subpage < 0 || subpage > LAST_SUBPAGE)) {
-      throw new RangeError(`publish: a sub-page is 0 to ${LAST_SUBPAGE}`);
+    this.#send({
+      type: "publish",
+      page: pageText(page),
+      owner,
+      tti: tti(
+        page,
+        screens.map((screen) => ({ screen })),
+      ),
+    });
+  }
+
+  /**
+   * Puts sub-pages in `page`, each named by its sub-code, keeping the
+   * page's others (docs/applications.md section 3.2): one with a sub-code
+   * the page has replaces it, a new one is placed by its sub-code.
+   */
+  put(owner: Owner, page: number, subpages: readonly Subpage[]): void {
+    this.#check("publish", owner, page);
+    const most = this.limits().standard.subpages;
+    if (subpages.length === 0 || subpages.length > most) {
+      throw new RangeError(`publish: 1 to ${most} sub-pages`);
     }
-    this.#send({ type: "publish", page: pageText(page), owner, tti: tti(page, subpages) });
+    const subcodes = new Set<number>();
+    for (const { subcode } of subpages) {
+      if (!isSubcodeNumber(subcode) || subcodes.has(subcode)) {
+        throw new RangeError(`publish: a put names each sub-page once by a sub-code of ${SUBCODE_DIGITS} hexadecimal digits`);
+      }
+      subcodes.add(subcode);
+    }
+    this.#send({ type: "publish", page: pageText(page), owner, tti: tti(page, subpages), keep: true });
+  }
+
+  /** Ends the sub-pages of `subcodes` in `page`, keeping its others; a page left with none is no longer served (docs/applications.md section 3.2a). */
+  remove(owner: Owner, page: number, subcodes: readonly number[]): void {
+    this.#check("remove", owner, page);
+    const most = this.limits().standard.subpages;
+    if (subcodes.length === 0 || subcodes.length > most || !subcodes.every((subcode) => isSubcodeNumber(subcode))) {
+      throw new RangeError(`remove: 1 to ${most} sub-codes of ${SUBCODE_DIGITS} hexadecimal digits`);
+    }
+    this.#send({
+      type: "remove",
+      page: pageText(page),
+      owner,
+      subpages: subcodes.map((subcode) => subcode.toString(16).toUpperCase().padStart(SUBCODE_DIGITS, "0")),
+    });
   }
 
   /**
    * Publishes `page` from TTI written elsewhere, such as a converted
    * picture's file: every sub-page from its PN line, which the server
-   * addresses to `page` whatever the line says. The text must be ASCII,
+   * addresses to `page` and numbers by place whatever the PN and SC lines
+   * say, a whole page as {@link App.publish} is. The text must be ASCII,
    * control codes in the escape form: the protocol carries it as a JSON
    * string, and a byte of the 8-bit form (0x80 to 0x9F) would arrive as
    * two bytes of UTF-8.
    */
   publishTti(owner: Owner, page: number, text: string): void {
-    if (!this.#titles.has(page)) {
-      throw new RangeError(`publish: ${pageText(page)} was not declared`);
-    }
-    if (owner !== "channel" && !isSession(owner)) {
-      throw new RangeError(`publish: owner is "channel" or a session, not ${String(owner)}`);
-    }
-    if (!ASCII.test(text) || text.length > LONGEST_LINE) {
+    this.#check("publish", owner, page);
+    if (!ASCII.test(text) || text.length > Math.min(LONGEST_LINE, this.limits().budgets.lineBytes)) {
       throw new RangeError("publish: TTI is ASCII, control codes escaped, within the line's bound");
     }
     const subpages = text.split("\n").filter((line) => line.startsWith(PAGE_NUMBER_LINE)).length;
-    if (subpages === 0 || subpages > MOST_SUBPAGES) {
-      throw new RangeError(`publish: 1 to ${MOST_SUBPAGES} sub-pages, each from a PN line`);
+    const most = this.limits().standard.numberedSubpages;
+    if (subpages === 0 || subpages > most) {
+      throw new RangeError(`publish: 1 to ${most} sub-pages, each from a PN line`);
     }
     this.#send({ type: "publish", page: pageText(page), owner, tti: text });
   }

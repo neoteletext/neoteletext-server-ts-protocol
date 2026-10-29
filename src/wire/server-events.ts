@@ -1,12 +1,13 @@
 // What a program does with each of the server's messages.
 
 import type { Input } from "../input/input.ts";
+import type { Limits } from "./limits.ts";
 import type { ServerMessage } from "./server-message.ts";
 import type { ServerStats } from "./stats.ts";
 
 /** What the program does with each of the server's messages. */
 export interface ServerEvents {
-  start(epochMs: number): void;
+  start(epochMs: number, limits: Limits): void;
   join(session: number): void;
   open(session: number, page: number): void;
   leave(session: number, page: number): void;
@@ -18,7 +19,7 @@ export interface ServerEvents {
 export function dispatch(message: ServerMessage, events: ServerEvents): void {
   switch (message.type) {
     case "start": {
-      events.start(message.epochMs);
+      events.start(message.epochMs, message.limits);
       return;
     }
     case "join": {

@@ -4,6 +4,7 @@
 // server would read them: each page's TTI decoded into its rows, links and
 // cursor.
 
+// oxlint-disable import/max-dependencies -- the harness stands in for the server, so it meets every part a program uses: the channel, input, pages, the wire and the limits start gives
 import type { Application } from "../channel/application.ts";
 import { Channel } from "../channel/channel.ts";
 import { Button, type Input } from "../input/input.ts";
@@ -13,12 +14,15 @@ import { ManualClock } from "./manual-clock.ts";
 import { declaredTitle, isFor, isPublication, isRelease, last, pageOf, parseSent, type Sent } from "./sent.ts";
 import { type ReadPage, type Rows, readTti } from "../tti/read-tti.ts";
 import { App } from "../wire/app.ts";
+import { type Limits, SERVER_LIMITS } from "./server-limits.ts";
 import type { ServerStats } from "../wire/stats.ts";
 
 export interface HarnessOptions {
   /** The real time when the channel starts, in milliseconds since the Unix epoch. */
   readonly epochMs?: number;
   readonly seed?: bigint;
+  /** The limits `start` gives: the server's by default. */
+  readonly limits?: Limits;
 }
 
 /** The seed of the runtime's own test harness. */
@@ -50,7 +54,7 @@ export class Harness {
       },
     });
     app.declare(this.channel.declarations());
-    this.channel.start(options.epochMs ?? 0);
+    this.channel.start(options.epochMs ?? 0, options.limits ?? SERVER_LIMITS);
   }
 
   #record(line: string): void {

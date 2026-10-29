@@ -40,8 +40,8 @@ function wakeTimer(channel: Channel, clock: Clock): { readonly schedule: () => v
 /** The server's messages to `channel`, the wake timer set again after each. */
 function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
   return {
-    start(epochMs): void {
-      channel.start(epochMs);
+    start(epochMs, limits): void {
+      channel.start(epochMs, limits);
       schedule();
     },
     join(session): void {

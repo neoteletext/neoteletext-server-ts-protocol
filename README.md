@@ -68,6 +68,12 @@ a sound, ask to be woken.
   ffmpeg in tests.
 - **TTI:** `readTti`, TTI read back as the server's reader takes it, and
   `packedLinksLine`, Fastext links that name a sub-page.
+- **Sub-pages and limits:** a whole page's sub-pages are numbered by the
+  server; `Context.put` and `Context.remove` change some of a page's
+  sub-pages by their sub-codes and keep the rest. The kit holds no limit
+  of its own: `Context.limits()` is what the server's `start` said, the
+  standard's maxima (8,190 sub-pages a page, 2,022 pages a channel) and
+  the server's budgets (teletext-server's requirement 3.3).
 - **The wire:** `App`, `readMessage` and `serveLines`, for a program that
   runs its own loop.
 

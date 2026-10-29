@@ -9,6 +9,7 @@ import type { Subpage } from "../page/subpage.ts";
 import type { Audience, SoundMember } from "../sound/members.ts";
 import { readTti } from "../tti/read-tti.ts";
 import { App, type Owner } from "../wire/app.ts";
+import type { Limits } from "../wire/limits.ts";
 
 /** What a context reaches of its channel. */
 export interface Host {
@@ -42,12 +43,17 @@ export class Context {
     return this.#host.epochAtStart() + this.#now;
   }
 
-  /** Publishes a page drawn on a screen, as its one sub-page, 0. */
-  publish(owner: Owner, page: number, screen: Screen): void {
-    this.publishSubpages(owner, page, [{ screen, subpage: 0 }]);
+  /** The standard's maxima and the server's budgets, as the server told them in `start`. */
+  limits(): Limits {
+    return this.#host.app.limits();
   }
 
-  /** Publishes a page with its sub-pages, each numbered as given. */
+  /** Publishes a page drawn on a screen, as its one sub-page. */
+  publish(owner: Owner, page: number, screen: Screen): void {
+    this.publishSubpages(owner, page, [{ screen }]);
+  }
+
+  /** Publishes a page with its sub-pages, in their order, the server numbering them ({@link App.publish}). */
   publishSubpages(owner: Owner, page: number, subpages: readonly Subpage[]): void {
     this.#host.app.publish(owner, page, subpages);
     const first = subpages[0]?.screen;
@@ -60,6 +66,16 @@ export class Context {
     const first = readTti(text)[0];
     const links = first?.links ?? [];
     this.#host.published(owner, page, { rows: first?.rows ?? [], links: [links[0] ?? null, links[1] ?? null, links[2] ?? null, links[3] ?? null] });
+  }
+
+  /** Puts sub-pages in a page, each by its sub-code, keeping its others ({@link App.put}). */
+  put(owner: Owner, page: number, subpages: readonly Subpage[]): void {
+    this.#host.app.put(owner, page, subpages);
+  }
+
+  /** Ends the sub-pages of `subcodes` in a page, keeping its others ({@link App.remove}). */
+  remove(owner: Owner, page: number, subcodes: readonly number[]): void {
+    this.#host.app.remove(owner, page, subcodes);
   }
 
   /** Sends the session's viewer to `page` (INPUT.md section 7.1). */

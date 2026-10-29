@@ -9,9 +9,11 @@ import { type FastextLinks, NO_LINKS } from "./fastext.ts";
 import { CODE_MASK, COLUMNS, HEADER_TEXT_COLUMN, ROWS, SPACE } from "./geometry.ts";
 import { isPageNumber, pageText } from "./page-numbers.ts";
 import { englishCodes } from "../text/english.ts";
-import { decimalSubcode } from "../tti/subcode.ts";
 import { NO_LINK } from "../tti/format.ts";
 import { SUBCODE_DIGITS, hex, rowText } from "../tti/write-row.ts";
+
+/** The sub-page digits of a PN line, which the server does not read. */
+const PN_SUBPAGE = "00";
 
 const ALL_FLAGS = CursorFlag.Block;
 
@@ -162,9 +164,14 @@ export class Screen {
     return this.#cursor;
   }
 
-  /** This screen as sub-page `subpage` of page `page`, in TTI. */
-  toTti(page: number, subpage: number): string {
-    const lines = [`PN,${pageText(page)}${subpage.toString().padStart(2, "0")}`, `SC,${hex(decimalSubcode(subpage), SUBCODE_DIGITS)}`];
+  /**
+   * This screen as a sub-page of page `page`, in TTI, with sub-code
+   * `subcode` when it has one. The PN line's sub-page digits are 00: the
+   * server takes a whole page's sub-pages by place and a put's by their SC
+   * line (docs/applications.md section 3.2), never by PN.
+   */
+  toTti(page: number, subcode?: number): string {
+    const lines = [`PN,${pageText(page)}${PN_SUBPAGE}`, ...(subcode === undefined ? [] : [`SC,${hex(subcode, SUBCODE_DIGITS)}`])];
     for (const [row, codes] of this.#rows.entries()) {
       lines.push(`OL,${row},${rowText(codes)}`);
     }

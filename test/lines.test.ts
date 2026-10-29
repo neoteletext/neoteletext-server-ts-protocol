@@ -82,7 +82,9 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
       errors.push(text);
     },
   });
-  input.write('{"type":"start","protocol":2,"epoch_ms":5}\n{"type":"join","session":1}\nnonsense\n');
+  input.write(
+    '{"type":"start","protocol":2,"epoch_ms":5,"standard":{"magazines":8,"pages":2022,"keyable_pages":800,"subpages":8190,"numbered_subpages":8069,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120}}\n{"type":"join","session":1}\nnonsense\n',
+  );
   input.write('{"type":"open","session":1,"page":"100"}\n{"type":"input","session":1,"page":"100","event":{"kind":"focus"}}\n');
   input.write('{"type":"stats","server":{"uptime_s":10},"channel":{"viewers":1}}\n');
   input.end('{"type":"leave","session":1,"page":"100"}\n{"type":"close","session":1}');

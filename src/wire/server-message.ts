@@ -4,11 +4,12 @@
 import type { Input } from "../input/input.ts";
 import { readInput } from "../input/read-input.ts";
 import { isFields } from "./fields.ts";
+import { type Limits, readLimits } from "./limits.ts";
 import type { ServerStats } from "./stats.ts";
 
 /** A message from the server, checked. */
 export type ServerMessage =
-  | { readonly type: "start"; readonly protocol: number; readonly epochMs: number }
+  | { readonly type: "start"; readonly protocol: number; readonly epochMs: number; readonly limits: Limits }
   | { readonly type: "join"; readonly session: number }
   | { readonly type: "open"; readonly session: number; readonly page: number }
   | { readonly type: "leave"; readonly session: number; readonly page: number }
@@ -48,7 +49,11 @@ export function readMessage(line: string): ServerMessage | string {
     if (typeof protocol !== "number" || !Number.isSafeInteger(epochMs) || typeof epochMs !== "number") {
       return "start: protocol and epoch_ms are whole numbers";
     }
-    return { type, protocol, epochMs };
+    const limits = readLimits(fields["standard"], fields["budgets"]);
+    if (limits === undefined) {
+      return "start: standard and budgets are objects of counts";
+    }
+    return { type, protocol, epochMs, limits };
   }
   if (type === "stats") {
     const server = fields["server"];

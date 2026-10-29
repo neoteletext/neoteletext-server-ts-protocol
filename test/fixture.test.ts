@@ -14,7 +14,8 @@ import { test } from "node:test";
 const FIXTURES = join(import.meta.dirname, "fixtures");
 
 test("the kit's fixture channel writes the lines the server's test replays", () => {
-  const start = '{"type":"start","protocol":1,"epoch_ms":0}\n';
+  const start =
+    '{"type":"start","protocol":1,"epoch_ms":0,"standard":{"magazines":8,"pages":2022,"keyable_pages":800,"subpages":8190,"numbered_subpages":8069,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120}}\n';
   const result = spawnSync(process.execPath, [join(FIXTURES, "hello.ts")], { input: start, encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, readFileSync(join(FIXTURES, "hello.jsonl"), "utf8"));
