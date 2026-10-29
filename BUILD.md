@@ -17,14 +17,8 @@ consumer takes the JavaScript and declarations in `dist/`.
                               # lint and Knip, the tests
     scripts/check.sh build    # the release build into dist/
 
-The git hooks (`git config core.hooksPath .githooks`) run
-`scripts/check.sh commit` (the stage) on commit, `scripts/check.sh push`
-on a push of any branch but `main` (nothing the commit already passed on
-the same tree), and `scripts/check.sh full` on a push to `main`, the long
-integration step: the build, and the stage again on the Linux host
-alongside. Work happens on `livedevelopment`; the day-to-day routine is
-`~/devel/neoteletext-common/DEVELOPMENT.md` section 9. A hook is never
-bypassed.
+The git hooks (`git config core.hooksPath .githooks`) run `scripts/check.sh`;
+`~/devel/neoteletext-common/gates.md` says how the gates and the work branch `livedevelopment` work.
 
 ## Release and deploy
 
