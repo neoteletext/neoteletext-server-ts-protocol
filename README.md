@@ -7,9 +7,13 @@ standard input and output. This package speaks protocol version 2
 (DEC-1482): every message in both directions is checked against the
 server's published JSON Schema (`schema/protocol-2.json`, the server's
 `protocol/schema-2.json`) by validators Ajv 8 compiles from it at build, in
-standalone mode, so nothing compiles a schema at run time. A message the
+standalone mode, so nothing compiles a schema at run time, and then held
+to the server's rules of text the schema cannot state: no control or
+bidirectional formatting character, Unicode normalisation form C, and a
+cookie's fields and an author's log line bounded in bytes. A message the
 program would write that the server would refuse is never written: the
-call throws a `ProtocolError` naming the path and the rule. A line from
+call throws a `ProtocolError` naming the path and the rule. The titles,
+names and log lines the kit fits itself are fitted in NFC. A line from
 the server that is not valid is reported and never acted on.
 
 ## Install

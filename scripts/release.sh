@@ -17,6 +17,7 @@ version="$(node -p 'require("./package.json").version')"
 tag="v$version"
 [[ -z "$(git tag --list "$tag")" ]] || fail "$tag is released already; raise the version in package.json"
 
+scripts/check.sh schema
 scripts/check.sh stage
 scripts/check.sh build
 mkdir -p tmp/release

@@ -22,11 +22,17 @@ export function isReserved(page: number): boolean {
   return RESERVED_IN_EVERY_MAGAZINE.has(page & PAGE_MASK) || RESERVED_PAGES.has(page);
 }
 
-/** `text` cut to `most` characters, controls made spaces: the server refuses a control in a title. */
+/**
+ * `text` cut to `most` characters, controls made spaces, in Unicode
+ * normalisation form C: the server refuses a control in a title, and text
+ * not in NFC. Composing never lengthens the cut text, which is a prefix of
+ * text already in NFC.
+ */
 export function fitText(text: string, most: number): string {
-  return Array.from(text.replaceAll(/[\p{Cc}\p{Cf}]/gu, " "))
+  return Array.from(text.replaceAll(/[\p{Cc}\p{Cf}]/gu, " ").normalize("NFC"))
     .slice(0, most)
-    .join("");
+    .join("")
+    .normalize("NFC");
 }
 
 /** What the index says of each page, beside its entry. */

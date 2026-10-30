@@ -25,6 +25,10 @@ rules add to `~/.claude/CLAUDE.md`.
 - **This is a library.** What `package.json`'s `exports` names is its
   whole interface; a change to it is a change of version, and its
   consumers take a release, never its source.
-- **The fixture is half of a check.** `test/fixtures/hello.jsonl` must stay
-  the same as teletext-server's `tests/fixtures/kit-channel.jsonl`, which
-  the server's end-to-end test replays.
+- **The fixture is half of a check.** `test/fixtures/hello.jsonl` is what
+  `test/fixtures/hello.ts` writes, byte for byte (`test/fixture.test.ts`).
+  The server's end-to-end test that replayed the kit's fixture went with
+  its TTI fixture `tests/fixtures/kit-channel.jsonl` in protocol 2; its
+  replay of `hello.jsonl` is owed (neoteletext-app-server's TODO-1537), and
+  until it exists a change to the fixture is checked against the server by
+  running the fixture channel on it.

@@ -114,7 +114,8 @@ function messaging(parts: HostParts): MessagingHost {
       sender.toAudience(to, (named) => ({ type: "sound", connections: named, ...fields }));
     },
     authorLog: (to, level, text, page): void => {
-      const fitted = fitBytes(text.replaceAll(/\p{Cc}/gu, " "), app.limits().budgets.authorLogBytes);
+      // As fitText makes a title: the server refuses a control, a bidirectional formatting character, and text not in NFC.
+      const fitted = fitBytes(text.replaceAll(/[\p{Cc}\p{Cf}]/gu, " ").normalize("NFC"), app.limits().budgets.authorLogBytes).normalize("NFC");
       if (fitted !== "") {
         sender.toAudience(to, (named) => ({ type: "author_log", connections: named, level, text: fitted, page: page === null ? null : pageText(page) }));
       }

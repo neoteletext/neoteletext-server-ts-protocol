@@ -2,18 +2,16 @@
 // precompiled from it (scripts/validators.ts; DEC-1482 item 7): a program's
 // before it is written, so a mistake is caught where it is made, and the
 // server's after it is read, so nothing acts on a line that is not valid.
-// A fault is said as the server says a refusal: the path of the first
-// fault and the rule broken, from the server's closed list (REQ-1475).
+// A program's message the schema passes is then held to the server's rules
+// of text that the schema cannot state (text-rules.ts), so the kit never
+// writes what the server refuses. A fault is said as the server says a
+// refusal: the path of the first fault and the rule broken, from the
+// server's closed list (REQ-1475).
 
+import type { Fault } from "./fault.ts";
 import { type ValidationFault, type Validator, program, server } from "./generated/validators.js";
-import type { WireServerMessage } from "./protocol.ts";
-
-/** Why a message is not valid: where, by which rule, and what was found. */
-export interface Fault {
-  readonly path: string;
-  readonly rule: string;
-  readonly detail: string;
-}
+import type { ProgramMessage, WireServerMessage } from "./protocol.ts";
+import { checkText } from "./text-rules.ts";
 
 /** A message the program was about to write broke the protocol: nothing of it was written. */
 export class ProtocolError extends Error {
@@ -85,9 +83,13 @@ function check(validators: Readonly<Record<string, Validator>>, message: unknown
   return validator(message) ? null : first(validator.errors ?? []);
 }
 
-/** Whether a message the program would send is valid: null, or its first fault. */
+function isProgramMessage(message: unknown): message is ProgramMessage {
+  return check(program, message) === null;
+}
+
+/** Whether a message the program would send is valid, by the schema and then by the server's rules of text: null, or its first fault. */
 export function checkProgram(message: unknown): Fault | null {
-  return check(program, message);
+  return isProgramMessage(message) ? checkText(message) : check(program, message);
 }
 
 /** Whether a message the server sent is valid: null, or its first fault. */

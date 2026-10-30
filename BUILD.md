@@ -17,7 +17,11 @@ consumer takes the JavaScript and declarations in `dist/`.
   never holds. The release ships those plain functions, with Ajv's two
   run-time helpers written in, so it needs nothing of Ajv when it runs.
   A new schema from the server is taken by copying it over
-  `schema/protocol-2.json`.
+  `schema/protocol-2.json` and naming the server's commit it is from in
+  `scripts/check.sh` (`SCHEMA_FROM`): the commit gate, and
+  `scripts/check.sh schema`, fail when the copy differs from the server's
+  `protocol/schema-2.json` at that commit, read from the server's
+  repository at `~/devel/neoteletext-app-server` (or `NEOTELETEXT_SERVER`).
 
 ## Check
 
