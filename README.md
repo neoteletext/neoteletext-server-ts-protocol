@@ -73,11 +73,16 @@ sub-code in ascending order, and answers the server for them:
   list again, and a changed count the index.
 
 A page given whole (`publish`, `publishSubpages`, `publishTti`) is
-numbered by place: one sub-page is 0000; up to `start`'s
-`decimal_subpages` take the sub-codes a viewer can key, 0001 upward
-(0009, then 0010); more take every sub-code from 0001. `put` and `remove`
-name sub-pages by their sub-codes, and a `Subpage`'s `title` is its title
-in the page's list (at most 40 characters).
+numbered by place by the code of practice (the engine's REQ-317 and
+REQ-314 part 1; EN 300 706 Annex A.1), as the engine's `limits::sub_code_of`
+numbers them: one sub-page is 0000; 2 to 79 are 0001 to 0079 in order
+(0009, then 0010); more take only sub-codes above 0079, the 3,120 decimal
+ones first in ascending order (0100 to 3979), then the 4,949 with a
+hexadecimal digit in ascending order, 3F7F left out, so a page given whole
+has at most 8,069 sub-pages. `put` and `remove` name sub-pages by their
+sub-codes, which are kept as given, 0000 beside others included
+(DEC-1526), and a `Subpage`'s `title` is its title in the page's list (at
+most 40 characters).
 
 ## What is in it
 
