@@ -9,22 +9,49 @@ test("samples are base64 of 16-bit little-endian PCM", () => {
   assert.equal(pcmBase64(new Int16Array(0)), "");
 });
 
-test("each member is written as the protocol writes it", () => {
+test("each member is written as the protocol writes it, by its kind, every field given", () => {
   assert.deepEqual(soundFields({ object: { handle: 20, generation: 1, rate: 8_000, samples: Int16Array.from([1]) } }), {
-    object: { handle: 20, generation: 1, rate: 8_000, pcm: "AQA=" },
+    kind: "object",
+    handle: 20,
+    generation: 1,
+    rate: 8_000,
+    pcm: "AQA=",
   });
-  assert.deepEqual(soundFields({ live: { handle: 30, generation: 2, rate: 22_050 } }), { live: { handle: 30, generation: 2, rate: 22_050 } });
+  assert.deepEqual(soundFields({ live: { handle: 30, generation: 2, rate: 22_050 } }), { kind: "live", handle: 30, generation: 2, rate: 22_050 });
   assert.deepEqual(soundFields({ blocks: { handle: 30, generation: 2, rate: 22_050, first: 7, samples: Int16Array.from([0]) } }), {
-    blocks: { handle: 30, generation: 2, rate: 22_050, first: 7, pcm: "AAA=" },
+    kind: "blocks",
+    handle: 30,
+    generation: 2,
+    rate: 22_050,
+    first: 7,
+    pcm: "AAA=",
   });
   assert.deepEqual(soundFields({ play: { channel: 1, handle: 20, generation: 1, gain: 80, fadeMs: 5 } }), {
-    play: { channel: 1, handle: 20, generation: 1, gain: 80, fade_ms: 5 },
+    kind: "play",
+    channel: 1,
+    handle: 20,
+    generation: 1,
+    gain: 80,
+    fade_ms: 5,
+    loop: false,
+    after: false,
+    duck: 0,
+    page: null,
   });
   assert.deepEqual(soundFields({ play: { channel: 3, handle: 9, generation: 0, loop: true, after: false, duck: 6, page: 0x501 } }), {
-    play: { channel: 3, handle: 9, generation: 0, loop: true, after: false, duck: 6, page: "501" },
+    kind: "play",
+    channel: 3,
+    handle: 9,
+    generation: 0,
+    gain: 100,
+    fade_ms: 0,
+    loop: true,
+    after: false,
+    duck: 6,
+    page: "501",
   });
-  assert.deepEqual(soundFields({ stop: { channel: 2, fadeMs: 100 } }), { stop: { channel: 2, fade_ms: 100 } });
-  assert.deepEqual(soundFields({ gain: { channel: 0, gain: 50 } }), { gain: { channel: 0, gain: 50 } });
+  assert.deepEqual(soundFields({ stop: { channel: 2, fadeMs: 100 } }), { kind: "stop", channel: 2, fade_ms: 100 });
+  assert.deepEqual(soundFields({ gain: { channel: 0, gain: 50 } }), { kind: "gain", channel: 0, gain: 50, fade_ms: 0 });
 });
 
 test("what the server would refuse is refused here, where the mistake is", () => {

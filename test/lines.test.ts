@@ -56,23 +56,26 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
     start: (epochMs) => {
       heard.push(`start ${epochMs}`);
     },
-    join: (session) => {
-      heard.push(`join ${session}`);
+    connected: (connection, session, selection) => {
+      heard.push(`connected ${connection} ${session} ${selection === null ? "none" : selection.page.toString(16)}`);
     },
-    open: (session, page) => {
-      heard.push(`open ${session} ${page.toString(16)}`);
+    selected: (connection, selection) => {
+      heard.push(`selected ${connection} ${selection.page.toString(16)} ${selection.sub.toString(16)}`);
     },
-    leave: (session, page) => {
-      heard.push(`leave ${session} ${page.toString(16)}`);
+    left: (connection, page) => {
+      heard.push(`left ${connection} ${page.toString(16)}`);
     },
-    input: (session, page, event) => {
-      heard.push(`input ${session} ${page.toString(16)} ${event.kind}`);
+    input: (connection, page, event) => {
+      heard.push(`input ${connection} ${page.toString(16)} ${event.kind}`);
     },
-    close: (session) => {
-      heard.push(`close ${session}`);
+    closed: (session) => {
+      heard.push(`closed ${session}`);
     },
     stats: (stats) => {
       heard.push(`stats ${figure(stats.server, "uptime_s")}`);
+    },
+    refused: (refusal) => {
+      heard.push(`refused ${refusal.rule}`);
     },
   };
   const served = serveLines(events, {
@@ -83,14 +86,14 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
     },
   });
   input.write(
-    '{"type":"start","protocol":2,"epoch_ms":5,"standard":{"magazines":8,"pages":2022,"keyable_pages":800,"subpages":8190,"numbered_subpages":8069,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120}}\n{"type":"join","session":1}\nnonsense\n',
+    '{"type":"start","protocol":2,"epoch_ms":5,"standard":{"magazines":8,"pages":2022,"pages_per_magazine":253,"pages_in_magazine_1":251,"keyable_pages":800,"subpages":8190,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120,"author_log_bytes":200,"log_characters":1000,"named_connections":4096,"reply_limit_ms":5000}}\n{"type":"connected","connection":3,"session":1,"cookies":[],"selection":null}\nnonsense\n',
   );
-  input.write('{"type":"open","session":1,"page":"100"}\n{"type":"input","session":1,"page":"100","event":{"kind":"focus"}}\n');
-  input.write('{"type":"stats","server":{"uptime_s":10},"channel":{"viewers":1}}\n');
-  input.end('{"type":"leave","session":1,"page":"100"}\n{"type":"close","session":1}');
+  input.write('{"type":"selected","connection":3,"page":"100","sub":"3F7F"}\n{"type":"input","connection":3,"page":"100","event":{"kind":"focus"}}\n');
+  input.write('{"type":"stats","server":{"uptime_s":10},"channel":{"viewers":1}}\n{"type":"selected","connection":3,"page":"100","sub":"3F7F","view":0}\n');
+  input.end('{"type":"left","connection":3,"page":"100"}\n{"type":"closed","session":1}');
   await served;
-  assert.deepEqual(heard, ["start 5", "join 1", "open 1 100", "input 1 100 focus", "stats 10", "leave 1 100", "close 1"]);
+  assert.deepEqual(heard, ["start 5", "connected 3 1 none", "selected 3 100 3f7f", "input 3 100 focus", "stats 10", "left 3 100", "closed 1"]);
   assert.equal(errors.length, 2);
-  assert.match(errors[0] ?? "", /protocol 2/u);
-  assert.match(errors[1] ?? "", /not JSON/u);
+  assert.match(errors[0] ?? "", /not JSON/u);
+  assert.match(errors[1] ?? "", /unknown_field/u, "a view number is no field of protocol 2 (DEC-1527)");
 });

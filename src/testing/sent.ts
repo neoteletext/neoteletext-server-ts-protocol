@@ -1,8 +1,7 @@
-// What the program wrote, as the harness reads it back: each line parsed,
-// and the publications, releases and pages in it.
+// What the program wrote, as the harness reads it back: each line parsed.
 
 import { PAGE_RADIX } from "../page/page-numbers.ts";
-import type { ReadPage } from "../tti/read-tti.ts";
+import type { ReadPage } from "../page/content.ts";
 import { isFields } from "../wire/fields.ts";
 
 /** A line the program wrote, parsed. */
@@ -11,14 +10,6 @@ export type Sent = Readonly<Record<string, unknown>>;
 /** A page as the protocol writes it, "1A0", as a number. */
 export function pageOf(value: unknown): number | undefined {
   return typeof value === "string" ? Number.parseInt(value, PAGE_RADIX) : undefined;
-}
-
-export function isPublication(message: Sent, page: number, owner: "channel" | number): boolean {
-  return message["type"] === "publish" && pageOf(message["page"]) === page && message["owner"] === owner;
-}
-
-export function isRelease(message: Sent, page: number, session: number): boolean {
-  return message["type"] === "release" && pageOf(message["page"]) === page && message["session"] === session;
 }
 
 export function last(pages: readonly ReadPage[]): ReadPage {
@@ -38,13 +29,7 @@ export function parseSent(line: string): Sent {
   return message;
 }
 
-/** The title a `pages` line declared `page` with, if it declared it. */
-export function declaredTitle(pages: readonly unknown[], page: number): string | undefined {
-  const declared = pages.filter((entry) => isFields(entry)).find((entry) => pageOf(entry["page"]) === page);
-  return declared === undefined ? undefined : String(declared["title"]);
-}
-
-/** Whether a sound's `to` is `session`. */
-export function isFor(to: unknown, session: number): boolean {
-  return isFields(to) && to["session"] === session;
+/** Whether a message's `connections` name `connection`, or are every connection. */
+export function isFor(connections: unknown, connection: number): boolean {
+  return connections === "all" || (Array.isArray(connections) && connections.includes(connection));
 }

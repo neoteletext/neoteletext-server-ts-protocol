@@ -1,8 +1,9 @@
-// Driving a channel as the server drives it, for tests: sessions that
-// join, open pages, type, press keys, click and turn the wheel, a clock the
-// test moves, and what the program wrote, read back from its lines as the
-// server would read them: each page's TTI decoded into its rows, links and
-// cursor.
+// Driving a channel as the server drives it, on protocol version 2, for
+// tests: sessions that connect (one connection each, numbered as the
+// session), select pages, type, press keys, click and turn the wheel, a
+// clock the test moves, and what the program wrote, every line checked
+// against the schema as it was written; and the pages the channel keeps,
+// read back as rows, links and cursor.
 
 // oxlint-disable import/max-dependencies -- the harness stands in for the server, so it meets every part a program uses: the channel, input, pages, the wire and the limits start gives
 import type { Application } from "../channel/application.ts";
@@ -11,8 +12,11 @@ import { Button, type Input } from "../input/input.ts";
 import { type HoverAction, type KeyAction, isCharacterKey } from "../input/keys.ts";
 import type { Cursor } from "../page/cursor.ts";
 import { ManualClock } from "./manual-clock.ts";
-import { declaredTitle, isFor, isPublication, isRelease, last, pageOf, parseSent, type Sent } from "./sent.ts";
-import { type ReadPage, type Rows, readTti } from "../tti/read-tti.ts";
+import { isFor, last, pageOf, parseSent, type Sent } from "./sent.ts";
+import { ANY_SUB } from "../channel/channel.ts";
+import type { Owner } from "../channel/copies.ts";
+import { type ReadPage, readBack } from "../page/content.ts";
+import type { Rows } from "../tti/read-tti.ts";
 import { App } from "../wire/app.ts";
 import { type Limits, SERVER_LIMITS } from "./server-limits.ts";
 import type { ServerStats } from "../wire/stats.ts";
@@ -32,15 +36,14 @@ const TEST_SEED = 7n;
 export class Harness {
   readonly clock = new ManualClock();
   readonly channel: Channel;
-  /** Every line written, parsed, the first being the pages. */
+  /** Every line written, parsed. */
   readonly sent: Sent[] = [];
   /** What the channel reported on standard error. */
   readonly errors: string[] = [];
   readonly #open = new Map<number, number>();
   readonly #went = new Map<number, number>();
-  /** Where each session's lines begin: what came before it joined was another session's of the same number. */
-  readonly #since = new Map<number, number>();
-  #counted = 0;
+  /** How many changes of each page's shared copy were counted. */
+  readonly #counted = new Map<number, number>();
 
   constructor(applications: readonly Application[], options: HarnessOptions = {}) {
     const app = new App((line) => {
@@ -53,17 +56,16 @@ export class Harness {
         this.errors.push(error);
       },
     });
-    app.declare(this.channel.declarations());
     this.channel.start(options.epochMs ?? 0, options.limits ?? SERVER_LIMITS);
   }
 
   #record(line: string): void {
     const message = parseSent(line);
     this.sent.push(message);
-    if (message["type"] === "goto" && typeof message["session"] === "number") {
+    if (message["type"] === "goto" && typeof message["connection"] === "number") {
       const page = pageOf(message["page"]);
       if (page !== undefined) {
-        this.#went.set(message["session"], page);
+        this.#went.set(message["connection"], page);
       }
     }
   }
@@ -73,28 +75,33 @@ export class Harness {
     return this.clock.time;
   }
 
-  /** A session that joined and opened `page`. */
+  /** A session whose one connection, numbered as the session, connected with `page` selected. */
   join(session: number, page: number): void {
-    this.#since.set(session, this.sent.length);
-    this.channel.join(session);
-    this.open(session, page);
+    this.#open.set(session, page);
+    this.#went.delete(session);
+    this.channel.connected(session, session, { page, sub: ANY_SUB }, []);
   }
 
-  /** The session opens `page`, leaving the page it had open, as the server says. */
-  open(session: number, page: number): void {
+  /** The session's connection selects `page`, or sub-page `sub` of it, leaving the page it had, as the server says. */
+  open(session: number, page: number, sub: number = ANY_SUB): void {
     const before = this.#open.get(session);
     if (before !== undefined && before !== page) {
-      this.channel.leave(session, before);
+      this.channel.left(session, before);
     }
     this.#open.set(session, page);
     this.#went.delete(session);
-    this.channel.open(session, page);
+    this.channel.selected(session, { page, sub });
   }
 
+  /** The session's connection closes, and the session ends. */
   close(session: number): void {
+    const page = this.#open.get(session);
+    if (page !== undefined) {
+      this.channel.left(session, page);
+    }
     this.#open.delete(session);
     this.#went.delete(session);
-    this.channel.close(session);
+    this.channel.closed(session);
   }
 
   /** Input from `session` on the page it has open. */
@@ -186,45 +193,40 @@ export class Harness {
     this.clock.time = Math.max(this.clock.time, until);
   }
 
+  /** The sub-pages sent, each a `page` message. */
   publications(): Sent[] {
-    return this.sent.filter((message) => message["type"] === "publish");
+    return this.sent.filter((message) => message["type"] === "page");
   }
 
-  /** How many times `page` was published shared since the last call. */
+  /** How many times the shared copy of `page` changed since the last call. */
   sharedPublications(page: number): number {
-    const count = this.sent.slice(this.#counted).filter((message) => isPublication(message, page, "channel")).length;
-    this.#counted = this.sent.length;
+    const now = this.channel.changes("channel", page);
+    const count = now - (this.#counted.get(page) ?? 0);
+    this.#counted.set(page, now);
     return count;
   }
 
-  /** The latest shared copy of `page`, every sub-page. */
+  #pages(owner: Owner, page: number): ReadPage[] | undefined {
+    return this.channel.copy(owner, page)?.map(({ sub, content }) => readBack(content, sub));
+  }
+
+  /** The shared copy of `page` the channel keeps, every sub-page in ascending order. */
   sharedPages(page: number): ReadPage[] {
-    const latest = this.sent.findLast((message) => isPublication(message, page, "channel"));
-    if (latest === undefined) {
+    const pages = this.#pages("channel", page);
+    if (pages === undefined) {
       throw new Error(`page ${page.toString(16)} was never published shared`);
     }
-    return readTti(String(latest["tti"]));
+    return pages;
   }
 
-  /** The latest copy of `page` sent to `session` alone, every sub-page; undefined if none since it joined, or since it was released. */
+  /** The copy of `page` the channel keeps for `session` alone, every sub-page; undefined if it has none. */
   ownPages(session: number, page: number): ReadPage[] | undefined {
-    const since = this.sent.slice(this.#since.get(session) ?? 0);
-    const latest = since.findLastIndex((message) => isPublication(message, page, session) || isRelease(message, page, session));
-    const message = since[latest];
-    return message === undefined || message["type"] === "release" ? undefined : readTti(String(message["tti"]));
+    return this.#pages(session, page);
   }
 
-  /** The title `contents.txt` lists `page` under now: its declaration's, or the last it was given. */
+  /** The title the channel's index lists `page` under now. */
   title(page: number): string | undefined {
-    for (const message of this.sent.toReversed()) {
-      if (message["type"] === "title" && pageOf(message["page"]) === page) {
-        return String(message["title"]);
-      }
-      if (message["type"] === "pages" && Array.isArray(message["pages"])) {
-        return declaredTitle(message["pages"], page);
-      }
-    }
-    return undefined;
+    return this.channel.titleOf(page);
   }
 
   /** The shared copy's rows: its last sub-page, as a receiver ends up holding it. */
@@ -257,15 +259,13 @@ export class Harness {
     return page === undefined ? null : this.seen(session, page).cursor;
   }
 
-  /** The pages `session` was sent to, in order. */
+  /** The pages `session`'s connection was sent to, in order. */
   gotos(session: number): number[] {
-    return this.sent.filter((message) => message["type"] === "goto" && message["session"] === session).map((message) => pageOf(message["page"]) ?? 0);
+    return this.sent.filter((message) => message["type"] === "goto" && message["connection"] === session).map((message) => pageOf(message["page"]) ?? 0);
   }
 
-  /** The sound lines for `session`, in order. */
+  /** The sound lines for `session`'s connection, in order. */
   sounds(session: number): Sent[] {
-    return this.sent.filter((message) => {
-      return message["type"] === "sound" && isFor(message["to"], session);
-    });
+    return this.sent.filter((message) => message["type"] === "sound" && isFor(message["connections"], session));
   }
 }

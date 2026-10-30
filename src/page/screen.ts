@@ -8,7 +8,9 @@ import { CursorFlag, type Cursor } from "./cursor.ts";
 import { type FastextLinks, NO_LINKS } from "./fastext.ts";
 import { CODE_MASK, COLUMNS, HEADER_TEXT_COLUMN, ROWS, SPACE } from "./geometry.ts";
 import { isPageNumber, pageText } from "./page-numbers.ts";
+import { type SubPageContent, blankContent, encodeRow } from "./content.ts";
 import { englishCodes } from "../text/english.ts";
+import type { WireKeyLink, WireLinkKey, WireNumberLink, WireTextLink } from "../wire/protocol.ts";
 import { NO_LINK } from "../tti/format.ts";
 import { SUBCODE_DIGITS, hex, rowText } from "../tti/write-row.ts";
 
@@ -16,6 +18,25 @@ import { SUBCODE_DIGITS, hex, rowText } from "../tti/write-row.ts";
 const PN_SUBPAGE = "00";
 
 const ALL_FLAGS = CursorFlag.Block;
+
+/** Any sub-page, in a link (EN 300 706 clause 9.6.1). */
+const ANY_SUBCODE_TEXT = "3F7F";
+
+/** The Link Extension's bounds (the server's schema, $defs/LinkExtension; the engine's Appendix E). */
+const MOST_NUMBER_LINKS = 8;
+const MOST_TEXT_LINKS = 8;
+const LONGEST_TARGET = 256;
+const LONGEST_LABEL = 9;
+const FIRST_TEXT_LINK_ROW = 1;
+const LAST_TEXT_LINK_ROW = 23;
+/** A target: `mpp`, `mpp:ssss`, `name:mpp`, an address, `web:` and one; printable ASCII without spaces or commas (Appendix E.1). */
+const TARGET = /^[!-+\--~]+$/u;
+
+function checkTarget(kind: string, target: string): void {
+  if (target.length > LONGEST_TARGET || !TARGET.test(target)) {
+    throw new RangeError(`${kind}: a target is printable ASCII without spaces or commas, at most ${LONGEST_TARGET} bytes, not ${JSON.stringify(target)}`);
+  }
+}
 
 /** Whether `value` is a whole number from 0 to `most`. */
 function within(value: number, most: number): boolean {
@@ -29,6 +50,9 @@ export class Screen {
   #index: number | null = null;
   #cursor: Cursor | null = null;
   #fastextRow = false;
+  readonly #keyLinks: WireKeyLink[] = [];
+  readonly #numberLinks: WireNumberLink[] = [];
+  readonly #textLinks: WireTextLink[] = [];
 
   constructor() {
     this.#rows = Array.from({ length: ROWS }, () => Array.from({ length: COLUMNS }, () => SPACE));
@@ -44,6 +68,9 @@ export class Screen {
     copy.#index = this.#index;
     copy.#cursor = this.#cursor;
     copy.#fastextRow = this.#fastextRow;
+    copy.#keyLinks.push(...this.#keyLinks);
+    copy.#numberLinks.push(...this.#numberLinks);
+    copy.#textLinks.push(...this.#textLinks);
     return copy;
   }
 
@@ -162,6 +189,66 @@ export class Screen {
 
   cursorLine(): Cursor | null {
     return this.#cursor;
+  }
+
+  /**
+   * Declares the Link Extension link of a key (TTI's `LN`, the engine's
+   * Appendix E; REQ-1494): `target` is `mpp`, `mpp:ssss`, `name:mpp`,
+   * `name:mpp:ssss`, an `http` or `https` address, or `web:` and one;
+   * `label` the prompt, at most 9 characters (8 for another service), none
+   * for the Index key. A key's second link replaces its first.
+   */
+  keyLink(key: WireLinkKey, target: string, label?: string): void {
+    checkTarget("keyLink", target);
+    if (label !== undefined && (key === "index" || label.length === 0 || Array.from(label).length > LONGEST_LABEL)) {
+      throw new RangeError(`keyLink: a label is 1 to ${LONGEST_LABEL} characters, and the Index key has none`);
+    }
+    const at = this.#keyLinks.findIndex((link) => link.key === key);
+    const link: WireKeyLink = { key, target, label: label ?? null };
+    if (at >= 0) {
+      this.#keyLinks[at] = link;
+    } else {
+      this.#keyLinks.push(link);
+    }
+  }
+
+  /** Declares a page number the page shows as a link to `target` (TTI's `LK`), never to `web:`; at most 8. */
+  numberLink(number: number, target: string): void {
+    checkTarget("numberLink", target);
+    if (!isPageNumber(number) || target.startsWith("web:") || this.#numberLinks.length >= MOST_NUMBER_LINKS) {
+      throw new RangeError(`numberLink: a page number, a target that is not web:, at most ${MOST_NUMBER_LINKS} links`);
+    }
+    this.#numberLinks.push({ number: pageText(number), target });
+  }
+
+  /** Declares the run of `length` characters from `row`, `column` a link to `target` (TTI's `LT`): rows 1 to 23, within the row; at most 8. */
+  textLink(row: number, column: number, length: number, target: string): void {
+    checkTarget("textLink", target);
+    if (
+      !within(row, LAST_TEXT_LINK_ROW) ||
+      row < FIRST_TEXT_LINK_ROW ||
+      !within(column, COLUMNS - 1) ||
+      length < 1 ||
+      column + length > COLUMNS ||
+      this.#textLinks.length >= MOST_TEXT_LINKS
+    ) {
+      throw new RangeError(`textLink: rows ${FIRST_TEXT_LINK_ROW} to ${LAST_TEXT_LINK_ROW}, the run within the row, at most ${MOST_TEXT_LINKS} links`);
+    }
+    this.#textLinks.push({ row, column, length, target });
+  }
+
+  /** This screen as a sub-page's typed content (REQ-1478), for the page and sub-code it is put in. */
+  content(): SubPageContent {
+    const links = [...this.#fastext, null, this.#index].map((link) => (link === null ? null : { page: pageText(link), sub: ANY_SUBCODE_TEXT }));
+    const cursor = this.#cursor;
+    return {
+      ...blankContent(),
+      rows: this.#rows.map((row) => encodeRow(row)),
+      links,
+      display_row_24: this.#fastextRow || links.some((link) => link !== null),
+      link_extension: { keys: [...this.#keyLinks], numbers: [...this.#numberLinks], texts: [...this.#textLinks] },
+      cursor: cursor === null ? null : { row: cursor.row, column: cursor.column, block: (cursor.flags & CursorFlag.Block) !== 0 },
+    };
   }
 
   /**

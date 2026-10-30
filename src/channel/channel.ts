@@ -1,22 +1,35 @@
-// A channel's applications in one program. Pages that do not use digits or
-// the coloured keys themselves get page selection by them
-// (navigation/navigation.ts), so every page can be left by number or by
-// Fastext; a click the page does not take follows the prompt or the page
-// number it is on.
+// A channel's applications in one program, on protocol version 2
+// (DEC-1482): one connection a browser tab, one selection a connection
+// (DEC-1527). Each `connected` and `selected` is answered with one
+// sub-page (answers.ts); what an application publishes is kept (copies.ts)
+// and sent, one sub-page at a time, to the connections whose selection
+// shows it (sender.ts). Pages that do not use digits or the coloured keys
+// get page selection by them (navigation.ts); a click the page does not
+// take follows the prompt or the page number it is on.
 
 // oxlint-disable import/max-dependencies -- the channel is where the protocol's parts meet: the wire, input, navigation, pages and applications
 import type { Application, PageEntry } from "./application.ts";
-import { Context, type Host } from "./context.ts";
-import { NO_VIEW } from "./page-view.ts";
-import { Random } from "./random.ts";
+import { type AnswerParts, answerConnected, answerSelected, viewOf } from "./answers.ts";
+import { Applications } from "./applications.ts";
+import { type Connection, Connections } from "./connections.ts";
+import type { Context, Host } from "./context.ts";
+import { Copies, type Owner } from "./copies.ts";
+import { makeHost } from "./host.ts";
+import { Sender } from "./sender.ts";
+import { ANY_SUB } from "./wire-page.ts";
 import { type Input, clicked } from "../input/input.ts";
 import { type PageView, clickedLink } from "../navigation/clicked-link.ts";
 import { Navigation } from "../navigation/navigation.ts";
+import type { SubPageContent } from "../page/content.ts";
 import { pageText } from "../page/page-numbers.ts";
-import { App, type PageDeclaration } from "../wire/app.ts";
+import type { App } from "../wire/app.ts";
 import type { Limits } from "../wire/limits.ts";
+import type { WireMagazine } from "../wire/protocol.ts";
 import type { ServerEvents } from "../wire/server-events.ts";
+import type { CookiePair, Refusal, Selection } from "../wire/server-message.ts";
 import type { ServerStats } from "../wire/stats.ts";
+
+export { ANY_SUB };
 
 /** The channel's clock: milliseconds since the program started, never going back. */
 export interface Clock {
@@ -30,201 +43,258 @@ export interface ChannelOptions {
   readonly errors: (text: string) => void;
 }
 
-/** The channel: its applications, the sessions it has seen, and each page's links as each viewer sees them. */
+/** The channel: its applications, the sessions and connections it has, and every page it keeps. */
 export class Channel implements ServerEvents {
-  readonly #applications: readonly Application[];
+  readonly #applications: Applications;
+  readonly #entries: ReadonlyMap<number, PageEntry>;
+  readonly #titles: Map<number, string>;
   readonly #app: App;
   readonly #clock: Clock;
   readonly #errors: (text: string) => void;
-  readonly #entries = new Map<number, PageEntry>();
-  readonly #owners = new Map<number, number>();
-  readonly #wakes: (number | null)[];
   readonly #sessions = new Set<number>();
-  readonly #shared = new Map<number, PageView>();
-  readonly #own = new Map<number, Map<number, PageView>>();
+  readonly #connections = new Connections();
+  readonly #copies = new Copies();
+  readonly #sender: Sender;
   readonly #navigation: Navigation;
   readonly #host: Host;
+  readonly #answers: AnswerParts;
+  /** The connection the call being run came from, if any. */
+  #current: number | null = null;
   #epochAtStart = 0;
 
   /** A channel of `applications`, writing through `app`; the first application to declare a page serves it. */
   constructor(applications: readonly Application[], app: App, options: ChannelOptions) {
-    this.#applications = applications;
+    this.#applications = new Applications(applications, options.errors);
+    this.#entries = this.#applications.entries;
+    this.#titles = this.#applications.titles;
     this.#app = app;
     this.#clock = options.clock;
     this.#errors = options.errors;
-    this.#wakes = applications.map(() => null);
-    applications.forEach((application, index) => {
-      for (const entry of application.pages()) {
-        if (!this.#entries.has(entry.page)) {
-          this.#entries.set(entry.page, entry);
-          this.#owners.set(entry.page, index);
-        }
-      }
-    });
     this.#navigation = new Navigation((page) => this.#entries.has(page));
-    this.#host = {
+    this.#sender = new Sender(app, this.#connections, this.#copies, (): WireMagazine[] => this.#applications.index(this.#copies, this.#app.limits()));
+    this.#host = makeHost({
       app,
-      random: new Random(options.seed),
-      epochAtStart: (): number => this.#epochAtStart,
-      wakeAt: (index, at): void => {
-        const wake = this.#wakes[index];
-        this.#wakes[index] = wake === null || wake === undefined ? at : Math.min(wake, at);
+      seed: options.seed,
+      sender: this.#sender,
+      copies: this.#copies,
+      connections: this.#connections,
+      titles: this.#titles,
+      serves: (page) => this.#entries.has(page),
+      sessions: this.#sessions,
+      epochAtStart: () => this.#epochAtStart,
+      wakeAt: (index, at) => {
+        this.#applications.wakeAt(index, at);
       },
-      published: (owner, page, view): void => {
-        if (owner === "channel") {
-          this.#shared.set(page, view);
-        } else {
-          const own = this.#own.get(owner) ?? new Map<number, PageView>();
-          own.set(page, view);
-          this.#own.set(owner, own);
-        }
-      },
-      released: (session, page): boolean => this.#own.get(session)?.delete(page) ?? false,
+      current: () => this.#current,
+      errors: this.#errors,
+    });
+    this.#answers = {
+      copies: this.#copies,
+      sender: this.#sender,
+      index: (): WireMagazine[] => this.#applications.index(this.#copies, this.#app.limits()),
+      errors: this.#errors,
     };
     this.#epochAtStart = Date.now() - this.#clock.now();
   }
 
-  /** The pages, in the order the applications declare them, for the first line. */
-  declarations(): PageDeclaration[] {
-    return [...this.#entries.values()].map(({ page, title, section }): PageDeclaration => (section === undefined ? { page, title } : { page, title, section }));
+  /** The owner's copy of `page`, each sub-page by sub-code in ascending order: for tests. */
+  copy(owner: Owner, page: number): readonly { readonly sub: number; readonly content: SubPageContent }[] | undefined {
+    const copy = this.#copies.get(owner, page);
+    return copy?.subs().flatMap((sub) => {
+      const content = copy.subpages.get(sub)?.content;
+      return content === undefined ? [] : [{ sub, content }];
+    });
   }
 
-  entries(): readonly PageEntry[] {
-    return [...this.#entries.values()];
+  /** How many times the owner's copy of `page` changed: for tests. */
+  changes(owner: Owner, page: number): number {
+    return this.#copies.changes(owner, page);
   }
+
+  titleOf(page: number): string | undefined {
+    return this.#titles.get(page);
+  }
+
+  // The server's events.
 
   /** The server said start, with the limits it keeps to: every application publishes its shared pages. */
   start(epochMs: number, limits: Limits): void {
     this.#epochAtStart = epochMs - this.#clock.now();
     this.#app.started(limits);
-    this.#applications.forEach((_, index) => {
-      this.#call(index, (application, context) => {
-        application.start(context);
-      });
+    this.#connections.clear();
+    this.#each((application, context) => {
+      application.start(context);
     });
   }
 
-  join(session: number): void {
+  connected(connection: number, session: number, selection: Selection | null, _cookies: readonly CookiePair[]): void {
     this.#know(session);
-  }
-
-  open(session: number, page: number): void {
-    this.#know(session);
-    this.#navigation.reset(session);
-    this.#callOwner(page, (application, context) => {
-      application.opened?.(session, page, context);
+    const state = this.#connections.add(connection, session);
+    const asked = selection !== null && this.#entries.has(selection.page) ? selection : null;
+    const page = asked?.page ?? this.#applications.initialPage();
+    this.#answering(connection, () => {
+      state.page = page ?? null;
+      this.#open(connection, state);
+      answerConnected(this.#answers, connection, state, page, asked?.sub ?? ANY_SUB);
     });
   }
 
-  leave(session: number, page: number): void {
-    this.#know(session);
-    this.#callOwner(page, (application, context) => {
-      application.leftPage?.(session, page, context);
+  selected(connection: number, selection: Selection): void {
+    const state = this.#connections.get(connection);
+    if (state === undefined) {
+      this.#errors(`selected on connection ${connection}, which never connected`);
+      return;
+    }
+    const { page, sub } = selection;
+    const newPage = state.page !== page;
+    this.#answering(connection, () => {
+      if (newPage) {
+        this.#leave(connection, state);
+        state.page = page;
+        this.#navigation.reset(connection);
+        this.#open(connection, state);
+      }
+      answerSelected(this.#answers, connection, state, page, sub, newPage);
     });
   }
 
-  input(session: number, page: number, input: Input): void {
-    this.#know(session);
+  left(connection: number, page: number): void {
+    const state = this.#connections.get(connection);
+    if (state?.page !== page) {
+      return;
+    }
+    this.#leave(connection, state);
+    state.page = null;
+    state.sub = null;
+  }
+
+  input(connection: number, page: number, input: Input): void {
+    const state = this.#connections.get(connection);
     const entry = this.#entries.get(page);
-    if (entry === undefined) {
-      this.#errors(`input on page ${pageText(page)}, which no application serves`);
+    if (state === undefined || entry === undefined) {
+      this.#errors(`input on page ${pageText(page)} from connection ${connection}, which no application serves`);
       return;
     }
-    const view = (): PageView => this.#own.get(session)?.get(page) ?? this.#shared.get(page) ?? NO_VIEW;
-    const navigated = this.#navigation.take(session, input, entry, view().links);
-    if (navigated.taken) {
-      if (navigated.goto !== null) {
-        this.#app.goto(session, navigated.goto);
+    const { session } = state;
+    const view = (): PageView => viewOf(this.#copies, state, page);
+    this.#current = connection;
+    try {
+      const navigated = this.#navigation.take(connection, input, entry, view().links);
+      if (navigated.taken) {
+        if (navigated.goto !== null) {
+          this.#sender.goto(connection, navigated.goto, ANY_SUB);
+        }
+        return;
       }
-      return;
-    }
-    let taken = false;
-    this.#callOwner(page, (application, context) => {
-      taken = application.input?.(session, page, input, context) === true;
-    });
-    if (!taken && clicked(input) && input.kind === "mouse") {
-      const link = clickedLink(view(), input.column, input.row);
-      if (link !== null) {
-        this.#app.goto(session, link);
+      let taken = false;
+      this.#callOwner(page, (application, context) => {
+        taken = application.input?.(session, page, input, context) === true;
+      });
+      if (!taken && clicked(input) && input.kind === "mouse") {
+        const link = clickedLink(view(), input.column, input.row);
+        if (link !== null) {
+          this.#sender.goto(connection, link, ANY_SUB);
+        }
       }
+    } finally {
+      this.#current = null;
     }
   }
 
-  close(session: number): void {
+  closed(session: number): void {
+    for (const connection of this.#connections.forgetSession(session)) {
+      this.#navigation.forget(connection);
+    }
     if (!this.#sessions.delete(session)) {
       return;
     }
-    this.#own.delete(session);
-    this.#navigation.forget(session);
-    this.#applications.forEach((_, index) => {
-      this.#call(index, (application, context) => {
-        application.ended?.(session, context);
-      });
+    this.#copies.forget(session);
+    this.#each((application, context) => {
+      application.ended?.(session, context);
     });
   }
 
   /** The server's figures came: every application may show them. */
   stats(stats: ServerStats): void {
-    this.#applications.forEach((_, index) => {
-      this.#call(index, (application, context) => {
-        application.stats?.(stats, context);
-      });
+    this.#each((application, context) => {
+      application.stats?.(stats, context);
     });
+  }
+
+  refused(refusal: Refusal): void {
+    this.#errors(
+      `the server refused ${refusal.message ?? "a line"}: ${refusal.path === "" ? "the message" : refusal.path}: ${refusal.rule} (${refusal.detail})`,
+    );
   }
 
   /** When the channel next needs {@link Channel.deadline}, by its clock. */
   nextWake(): number | null {
-    const wakes = this.#wakes.filter((wake): wake is number => wake !== null);
-    return wakes.length === 0 ? null : Math.min(...wakes);
+    return this.#applications.nextWake();
   }
 
   /** The time has come for the applications whose wake is due now. */
   deadline(): void {
-    const now = this.#clock.now();
-    this.#wakes.forEach((wake, index) => {
-      if (wake !== null && wake <= now) {
-        this.#wakes[index] = null;
-        this.#call(index, (application, context) => {
-          application.wake?.(context);
-        });
-      }
-    });
+    this.#applications.wake(this.#host, this.#clock.now());
   }
 
-  /**
-   * A session the channel has not seen joins as it is first named: the
-   * server says `join` once, so after this program is started again the
-   * sessions it already had arrive without one.
-   */
+  // Sessions and connections.
+
+  /** A session the channel has not seen joins as it is first named. */
   #know(session: number): void {
     if (this.#sessions.has(session)) {
       return;
     }
     this.#sessions.add(session);
-    this.#applications.forEach((_, index) => {
-      this.#call(index, (application, context) => {
-        application.joined?.(session, context);
-      });
+    this.#each((application, context) => {
+      application.joined?.(session, context);
     });
   }
 
-  #callOwner(page: number, run: (application: Application, context: Context) => void): void {
-    const index = this.#owners.get(page);
-    if (index !== undefined) {
-      this.#call(index, run);
+  /** The connection's selection came to its page: the page's application is told, for the session's first connection there. */
+  #open(connection: number, state: Connection): void {
+    const { page, session } = state;
+    if (page === null || this.#connections.otherOn(connection, session, page)) {
+      return;
+    }
+    this.#callOwner(page, (application, context) => {
+      application.opened?.(session, page, context);
+    });
+  }
+
+  /** The connection's selection left its page: the page's application is told, for the session's last connection there. */
+  #leave(connection: number, state: Connection): void {
+    const { page, session } = state;
+    if (page === null || this.#connections.otherOn(connection, session, page)) {
+      return;
+    }
+    this.#callOwner(page, (application, context) => {
+      application.leftPage?.(session, page, context);
+    });
+  }
+
+  /** Runs `answer` for `connection`, held back from every other sending until the answer is sent; a failure is reported. */
+  #answering(connection: number, answer: () => void): void {
+    const state = this.#connections.get(connection);
+    if (state === undefined) {
+      return;
+    }
+    state.pending = true;
+    this.#current = connection;
+    try {
+      answer();
+    } catch (error) {
+      this.#errors(`answering connection ${connection} failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
+    } finally {
+      state.pending = false;
+      this.#current = null;
     }
   }
 
-  /** Runs one application with a context; a failure is reported, and the channel goes on serving. */
-  #call(index: number, run: (application: Application, context: Context) => void): void {
-    const application = this.#applications[index];
-    if (application === undefined) {
-      return;
-    }
-    try {
-      run(application, new Context(this.#host, index, this.#clock.now()));
-    } catch (error) {
-      this.#errors(`application ${index} failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
-    }
+  #callOwner(page: number, run: (application: Application, context: Context) => void): void {
+    this.#applications.owner(this.#host, this.#clock.now(), page, run);
+  }
+
+  #each(run: (application: Application, context: Context) => void): void {
+    this.#applications.each(this.#host, this.#clock.now(), run);
   }
 }

@@ -1,12 +1,12 @@
-// The protocol's own bounds, and the figures the server tells a program in
+// The protocol's version, and the figures the server tells a program in
 // `start` (docs/applications.md section 2): the standard's maxima, from the
 // engine's limits, and the server's budgets. The kit writes none of those
 // figures: a program that needs one asks the context for it.
 
-import { isFields } from "./fields.ts";
+import type { WireBudgets, WireStandard } from "./protocol.ts";
 
-/** The protocol's version, in `start` (docs/applications.md). */
-export const PROTOCOL = 1;
+/** The protocol's version, in `start` (DEC-1482). */
+export const PROTOCOL = 2;
 
 /**
  * The longest line either side may send (docs/applications.md section 1):
@@ -21,13 +21,15 @@ export interface Standard {
   readonly magazines: number;
   /** Page numbers that may carry a page. */
   readonly pages: number;
+  /** Pages a magazine may have. */
+  readonly pagesPerMagazine: number;
+  /** Pages magazine 1 may have. */
+  readonly pagesInMagazine1: number;
   /** Of those, the ones a viewer can key. */
   readonly keyablePages: number;
-  /** Sub-pages a page may hold, put by their sub-codes. */
+  /** Sub-pages a page may hold, 0001 to 3F7E. */
   readonly subpages: number;
-  /** Sub-pages a whole page may have, numbered by place by the server. */
-  readonly numberedSubpages: number;
-  /** Sub-codes a viewer can key. */
+  /** Sub-codes a viewer can key: those whose digits are all decimal. */
   readonly decimalSubpages: number;
 }
 
@@ -35,8 +37,16 @@ export interface Standard {
 export interface Budgets {
   /** The longest line, in bytes. */
   readonly lineBytes: number;
-  /** The longest page title or section name, in characters. */
+  /** The longest page title, magazine name or section, in characters. */
   readonly titleCharacters: number;
+  /** The longest author's log line, in bytes of UTF-8. */
+  readonly authorLogBytes: number;
+  /** The longest operator's log line, in characters. */
+  readonly logCharacters: number;
+  /** The connections one message may name. */
+  readonly namedConnections: number;
+  /** How long the server waits for an answer to `connected` or `selected`, in milliseconds. */
+  readonly replyLimitMs: number;
 }
 
 /** What `start` tells a program of the limits it works within. */
@@ -45,39 +55,25 @@ export interface Limits {
   readonly budgets: Budgets;
 }
 
-/** A count as the protocol writes it: a whole number, at least 1. */
-function count(fields: Readonly<Record<string, unknown>>, name: string): number | undefined {
-  const value = fields[name];
-  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined;
-}
-
-/** `start`'s `standard` and `budgets`, checked whole; undefined when either is missing or has a field that is not a count. */
-export function readLimits(standard: unknown, budgets: unknown): Limits | undefined {
-  if (!isFields(standard) || !isFields(budgets)) {
-    return undefined;
-  }
-  const read = {
-    magazines: count(standard, "magazines"),
-    pages: count(standard, "pages"),
-    keyablePages: count(standard, "keyable_pages"),
-    subpages: count(standard, "subpages"),
-    numberedSubpages: count(standard, "numbered_subpages"),
-    decimalSubpages: count(standard, "decimal_subpages"),
-    lineBytes: count(budgets, "line_bytes"),
-    titleCharacters: count(budgets, "title_characters"),
+/** `start`'s `standard` and `budgets`, which the schema has checked. */
+export function readLimits(standard: WireStandard, budgets: WireBudgets): Limits {
+  return {
+    standard: {
+      magazines: standard.magazines,
+      pages: standard.pages,
+      pagesPerMagazine: standard.pages_per_magazine,
+      pagesInMagazine1: standard.pages_in_magazine_1,
+      keyablePages: standard.keyable_pages,
+      subpages: standard.subpages,
+      decimalSubpages: standard.decimal_subpages,
+    },
+    budgets: {
+      lineBytes: budgets.line_bytes,
+      titleCharacters: budgets.title_characters,
+      authorLogBytes: budgets.author_log_bytes,
+      logCharacters: budgets.log_characters,
+      namedConnections: budgets.named_connections,
+      replyLimitMs: budgets.reply_limit_ms,
+    },
   };
-  const { magazines, pages, keyablePages, subpages, numberedSubpages, decimalSubpages, lineBytes, titleCharacters } = read;
-  if (
-    magazines === undefined ||
-    pages === undefined ||
-    keyablePages === undefined ||
-    subpages === undefined ||
-    numberedSubpages === undefined ||
-    decimalSubpages === undefined ||
-    lineBytes === undefined ||
-    titleCharacters === undefined
-  ) {
-    return undefined;
-  }
-  return { standard: { magazines, pages, keyablePages, subpages, numberedSubpages, decimalSubpages }, budgets: { lineBytes, titleCharacters } };
 }

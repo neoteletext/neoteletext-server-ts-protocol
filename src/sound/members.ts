@@ -5,8 +5,8 @@
 
 import type { SampleRate } from "./profile.ts";
 
-/** Who hears a sound: one viewer, or everyone with a page open. */
-export type Audience = { readonly session: number } | { readonly page: number };
+/** Who hears a sound: one viewer (every connection of their session), everyone whose selection is a page, or the connections named ("all" or a list). */
+export type Audience = { readonly session: number } | { readonly page: number } | { readonly connections: "all" | readonly number[] };
 
 /** A stored sound: its samples, sent once and played by later commands. */
 export interface SoundObject {

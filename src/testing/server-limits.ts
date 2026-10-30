@@ -8,6 +8,6 @@ export type { Limits };
 
 /** The figures of teletext-server's `start`, from the engine's `neoteletext_core::limits` and the server's budgets. */
 export const SERVER_LIMITS: Limits = {
-  standard: { magazines: 8, pages: 2022, keyablePages: 800, subpages: 8190, numberedSubpages: 8069, decimalSubpages: 3199 },
-  budgets: { lineBytes: 16 * 1024 * 1024, titleCharacters: 120 },
+  standard: { magazines: 8, pages: 2022, pagesPerMagazine: 253, pagesInMagazine1: 251, keyablePages: 800, subpages: 8190, decimalSubpages: 3199 },
+  budgets: { lineBytes: 16 * 1024 * 1024, titleCharacters: 120, authorLogBytes: 200, logCharacters: 1000, namedConnections: 4096, replyLimitMs: 5000 },
 };

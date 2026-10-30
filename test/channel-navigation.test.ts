@@ -70,11 +70,17 @@ test("a released copy leaves the viewer the channel's, its links with it", () =>
     },
   };
   const harness = new Harness([greeting]);
-  assert.deepEqual(harness.sent[0], { type: "pages", pages: [{ page: "100", title: "Index", section: "Front" }] }, "the section is declared");
   harness.join(1, 0x100);
+  const reply = harness.sent.find((message) => message["type"] === "reply");
+  assert.deepEqual(
+    reply?.["magazines"],
+    [{ magazine: 1, name: "Front", pages: [{ page: "100", title: "Index", section: "Front", subpages: 1 }] }],
+    "the section names the magazine",
+  );
   assert.ok(shows(harness.own(1, 0x100), "hello"));
+  const before = harness.publications().length;
   harness.typeText(1, "x");
-  assert.equal(harness.sent.filter((message) => message["type"] === "release").length, 1, "released once: then it has no copy of its own");
+  assert.equal(harness.publications().length, before + 1, "released once, the channel's copy sent: then it has no copy of its own");
   assert.equal(harness.ownPages(1, 0x100), undefined);
   assert.ok(shows(harness.seen(1, 0x100).rows, "shared"));
   harness.press(1, Key.Red);

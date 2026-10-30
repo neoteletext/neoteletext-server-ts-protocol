@@ -3,17 +3,21 @@
 The NeoTeletext server's channel protocol for programs in TypeScript: the
 reference kit of teletext-server's `docs/applications.md` section 5. A
 channel is a program the server starts; they talk in lines of JSON on its
-standard input and output. This package speaks that protocol, checks
-everything the server sends before it is used, and checks everything the
-program writes as the server will, so a mistake is caught where it is
-made.
+standard input and output. This package speaks protocol version 2
+(DEC-1482): every message in both directions is checked against the
+server's published JSON Schema (`schema/protocol-2.json`, the server's
+`protocol/schema-2.json`) by validators Ajv 8 compiles from it at build, in
+standalone mode, so nothing compiles a schema at run time. A message the
+program would write that the server would refuse is never written: the
+call throws a `ProtocolError` naming the path and the rule. A line from
+the server that is not valid is reported and never acted on.
 
 ## Install
 
 The package is released as a built tarball, not to a registry. Commit the
 release under your `vendor/` and depend on it:
 
-    npm install ./vendor/neoteletext-server-ts-protocol-0.4.0.tgz
+    npm install ./vendor/neoteletext-server-ts-protocol-1.0.0.tgz
 
 It needs Node 22.18 or later.
 
@@ -36,18 +40,50 @@ const hello: Application = {
 await runChannel([hello]);
 ```
 
-`runChannel` declares the applications' pages, serves the server's lines
-and resolves when the server closes standard input. Each application is
-called with what happened (`start`, `joined`, `opened`, `input`, `wake`,
-`ended`, `stats`) and answers through its `Context`: publish a page for
-everyone or for one viewer, send a viewer to a page, retitle a page, play
-a sound, ask to be woken.
+`runChannel` serves the server's lines and resolves when the server closes
+standard input. Each application is called with what happened (`start`,
+`joined`, `opened`, `leftPage`, `input`, `wake`, `ended`, `stats`) and
+answers through its `Context`: publish a page for everyone or for one
+viewer, send a viewer to a page, retitle a page, play a sound, write to
+the viewer's console (`authorLog`) or the server's log, set a cookie,
+ask to be woken.
+
+**How the kit answers the server.** One connection is one browser tab,
+with one selection (DEC-1527). The kit keeps every page the applications
+publish, the channel's copy and each viewer's own, each sub-page by its
+sub-code in ascending order, and answers the server for them:
+
+- `connected`: one `reply` with the channel's index (its magazines, each
+  page's title, section and sub-page count, never the sub-pages) and the
+  one sub-page the connection's selection shows (the initial page, 100 or
+  the lowest, when it has none); then the page's `subpages` list when it
+  has more than one sub-page.
+- `selected`: exactly one `page` message, one sub-page. A selection of
+  sub-code 3F7F (the page, no sub-page in particular) is answered with the
+  page's **first sub-page in ascending sub-code order** (0000 when it has
+  it); any other sub-code with that sub-page alone. A page selection also
+  sends the page's `subpages` list. Nothing rotates: a page's sub-pages
+  are sent one at a time, each only when it is selected.
+- A page published again sends each connection whose selection shows it
+  the changed sub-page, to the connections named; a changed list sends the
+  list again, and a changed count the index.
+
+A page given whole (`publish`, `publishSubpages`, `publishTti`) is
+numbered by place: one sub-page is 0000; up to `start`'s
+`decimal_subpages` take the sub-codes a viewer can key, 0001 upward
+(0009, then 0010); more take every sub-code from 0001. `put` and `remove`
+name sub-pages by their sub-codes, and a `Subpage`'s `title` is its title
+in the page's list (at most 40 characters).
 
 ## What is in it
 
 - **Pages:** `Screen`, a page drawn as a terminal draws its screen (text
   and colour at a row and column, double height, backgrounds, Fastext and
-  index links, a cursor), written as TTI; `Sixels`, mosaic graphics;
+  index links, a cursor, and the Link Extension's `keyLink`, `numberLink`
+  and `textLink`), written as the typed sub-page the protocol carries
+  (`Screen.content()`: rows as base64 of 40 seven-bit codes, the six
+  links, the named control bits, the character set, enhancement packets,
+  the cursor), or as TTI for a file; `Sixels`, mosaic graphics;
   `Colour` and `Attribute`, the spacing attributes of EN 300 706 Table 26.
 - **Text:** `englishCodes`, any text as the English G0 set shows it, the
   characters it lacks folded to the nearest it has.
@@ -66,24 +102,30 @@ a sound, ask to be woken.
   bounded. The PCM members, which the server encodes as IMA ADPCM, are for
   microcontroller receivers. The testing entry's `fakeOpus` stands in for
   ffmpeg in tests.
-- **TTI:** `readTti`, TTI read back as the server's reader takes it, and
-  `packedLinksLine`, Fastext links that name a sub-page.
-- **Sub-pages and limits:** a whole page's sub-pages are numbered by the
-  server; `Context.put` and `Context.remove` change some of a page's
-  sub-pages by their sub-codes and keep the rest. The kit holds no limit
-  of its own: `Context.limits()` is what the server's `start` said, the
-  standard's maxima (8,190 sub-pages a page, 2,022 pages a channel) and
-  the server's budgets (teletext-server's requirement 3.3).
-- **The wire:** `App`, `readMessage` and `serveLines`, for a program that
-  runs its own loop.
+- **TTI, for files:** `readTtiPages` reads TTI into typed sub-pages as
+  the engine's reader does (rows, the packed lines OL,26 to OL,29, FL,
+  PS, RE, CU and the Link Extension's LN, LK and LT); `readTti` reads it
+  back as rows and links; `packedLinksLine`, Fastext links that name a
+  sub-page.
+- **Limits:** the kit holds no limit of its own: `Context.limits()` is
+  what the server's `start` said, the standard's maxima (8,190 sub-pages
+  a page, 2,022 pages a channel) and the server's budgets (the longest
+  title, log line, the connections one message may name).
+- **The wire:** the hand-written types of every message (`ProgramMessage`,
+  `WireServerMessage`, `WirePage` and the rest), `checkProgram` and
+  `checkServer`, `App` (which sends a message only when it is valid),
+  `readMessage` and `serveLines`, for a program that runs its own loop.
 
 Everything is exported from the package's root; nothing else may be
 imported.
 
 ## Tests
 
-`neoteletext-server-ts-protocol/testing` drives a channel as the server does,
-and reads back what it wrote:
+`neoteletext-server-ts-protocol/testing` drives a channel as the server
+does (each session one connection, numbered as the session: `join`
+connects it, `open(session, page, sub?)` selects), keeps every line the
+program wrote in `sent`, and reads back the pages the channel keeps
+(`shared`, `own`, `seen`, `sharedPages`):
 
 ```ts
 import assert from "node:assert/strict";

@@ -56,6 +56,9 @@ process.exit(newer === -1 || found[newer] > least[newer] ? 0 : 1);
         printf '%s\n' "$lock" >"$INSTALLED_FROM"
     fi
 
+    step "the validators, from the server's schema (Ajv's standalone mode)"
+    node scripts/validators.ts
+
     step "type check, every strict option, errors fail"
     npx --no -- tsc --version
     npx --no -- tsc -p tsconfig.json
@@ -63,7 +66,7 @@ process.exit(newer === -1 || found[newer] > least[newer] ? 0 : 1);
     # The quality tools run on TypeScript 7: oxlint's type-aware rules are
     # typescript-go's own.
     step "formatting (Prettier, .prettierrc.json)"
-    npx --no -- prettier --check src test
+    npx --no -- prettier --check src test scripts/validators.ts
 
     step "lint, type-aware, warnings fail (oxlint, .oxlintrc.json)"
     npx --no -- oxlint --type-aware --tsconfig tsconfig.json --deny-warnings src test
@@ -78,7 +81,11 @@ process.exit(newer === -1 || found[newer] > least[newer] ? 0 : 1);
 build() {
     step "the release build (tsconfig.build.json)"
     rm -rf dist
+    node scripts/validators.ts
     npx --no -- tsc -p tsconfig.build.json
+    # The validators are generated JavaScript, which tsc does not emit.
+    mkdir -p dist/wire/generated
+    cp src/wire/generated/validators.js src/wire/generated/validators.d.ts dist/wire/generated/
 }
 
 commit_steps() { stage; }

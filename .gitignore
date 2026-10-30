@@ -6,6 +6,9 @@ tmp/
 # The build, made from src/ by scripts/check.sh build.
 dist/
 
+# The validators, compiled from schema/ by scripts/validators.ts at every check and build.
+src/wire/generated/
+
 # Secrets: they live in ~/devel/credentials, never here.
 .env*
 *.pem

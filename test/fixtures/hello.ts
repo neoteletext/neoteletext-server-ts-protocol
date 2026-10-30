@@ -1,10 +1,9 @@
-// A small channel whose lines (hello.jsonl, checked by fixture.test.ts)
-// the server's end-to-end test replays (teletext-server's
-// crates/teletext-native/tests/channel_program.rs): pages drawn with the
-// kit, with control codes, the English set's own signs, mosaics, Fastext,
-// links to a sub-page and sub-pages, so the test can check the server
-// reads the TTI the kit writes as it was drawn; and a section and a new
-// title, which the server's contents.txt shows.
+// A small channel whose answers (hello.jsonl, checked by fixture.test.ts)
+// to a connection and its selections are kept, for the server's tests to
+// replay: pages drawn with the kit, with control codes, the English set's
+// own signs, mosaics, Fastext, links to a sub-page and sub-pages, so a
+// test can check the server encodes the typed sub-pages the kit writes as
+// they were drawn; and a section and a new title, which the index shows.
 
 import {
   Colour,

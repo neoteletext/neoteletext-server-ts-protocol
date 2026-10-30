@@ -44,36 +44,39 @@ function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
       channel.start(epochMs, limits);
       schedule();
     },
-    join(session): void {
-      channel.join(session);
+    connected(connection, session, selection, cookies): void {
+      channel.connected(connection, session, selection, cookies);
       schedule();
     },
-    open(session, page): void {
-      channel.open(session, page);
+    selected(connection, selection): void {
+      channel.selected(connection, selection);
       schedule();
     },
-    leave(session, page): void {
-      channel.leave(session, page);
+    input(connection, page, input): void {
+      channel.input(connection, page, input);
       schedule();
     },
-    input(session, page, input): void {
-      channel.input(session, page, input);
+    left(connection, page): void {
+      channel.left(connection, page);
       schedule();
     },
-    close(session): void {
-      channel.close(session);
+    closed(session): void {
+      channel.closed(session);
       schedule();
     },
     stats(stats): void {
       channel.stats(stats);
       schedule();
     },
+    refused(refusal): void {
+      channel.refused(refusal);
+      schedule();
+    },
   };
 }
 
 /**
- * Runs `applications` as this process's channel: declares their pages,
- * serves the server's lines, wakes each application when it asked, and
+ * Runs `applications` as this process's channel: serves the server's lines, wakes each application when it asked, and
  * resolves when the server closes standard input.
  */
 export async function runChannel(applications: readonly Application[], options: RunOptions = {}): Promise<void> {
@@ -82,7 +85,6 @@ export async function runChannel(applications: readonly Application[], options: 
   const started = performance.now();
   const clock: Clock = { now: (): number => Math.floor(performance.now() - started) };
   const channel = new Channel(applications, app, { clock, seed: options.seed ?? process.hrtime.bigint(), errors: streams.errors });
-  app.declare(channel.declarations());
   const timer = wakeTimer(channel, clock);
   await serveLines(channelEvents(channel, timer.schedule), streams);
   timer.stop();

@@ -17,11 +17,26 @@ function packets(count: number): Uint8Array {
 
 test("the Opus members are written as the server reads them", () => {
   assert.deepEqual(soundFields({ opus: { handle: 4, generation: 1, packetBytes: OPUS_PACKET_BYTES, samples: OPUS_FRAME_SAMPLES + 1, packets: packets(2) } }), {
-    opus: { handle: 4, generation: 1, packet_bytes: OPUS_PACKET_BYTES, samples: OPUS_FRAME_SAMPLES + 1, packets: Buffer.from(packets(2)).toString("base64") },
+    kind: "opus",
+    handle: 4,
+    generation: 1,
+    packet_bytes: OPUS_PACKET_BYTES,
+    samples: OPUS_FRAME_SAMPLES + 1,
+    packets: Buffer.from(packets(2)).toString("base64"),
   });
-  assert.deepEqual(soundFields({ opusLive: { handle: 255, generation: 3, packetBytes: 40 } }), { opus_live: { handle: 255, generation: 3, packet_bytes: 40 } });
+  assert.deepEqual(soundFields({ opusLive: { handle: 255, generation: 3, packetBytes: 40 } }), {
+    kind: "opus_live",
+    handle: 255,
+    generation: 3,
+    packet_bytes: 40,
+  });
   assert.deepEqual(soundFields({ opusPackets: { handle: 255, generation: 3, packetBytes: 40, first: 9, packets: PACKET } }), {
-    opus_packets: { handle: 255, generation: 3, packet_bytes: 40, first: 9, packets: Buffer.from(PACKET).toString("base64") },
+    kind: "opus_packets",
+    handle: 255,
+    generation: 3,
+    packet_bytes: 40,
+    first: 9,
+    packets: Buffer.from(PACKET).toString("base64"),
   });
 });
 

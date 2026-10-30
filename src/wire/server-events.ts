@@ -2,18 +2,24 @@
 
 import type { Input } from "../input/input.ts";
 import type { Limits } from "./limits.ts";
-import type { ServerMessage } from "./server-message.ts";
+import type { CookiePair, Refusal, Selection, ServerMessage } from "./server-message.ts";
 import type { ServerStats } from "./stats.ts";
 
-/** What the program does with each of the server's messages. */
+/** What the program does with each of the server's messages (docs/applications.md section 2). */
 export interface ServerEvents {
   start(epochMs: number, limits: Limits): void;
-  join(session: number): void;
-  open(session: number, page: number): void;
-  leave(session: number, page: number): void;
-  input(session: number, page: number, input: Input): void;
-  close(session: number): void;
+  /** A viewer's connection opened: answer with `reply`, once (REQ-1471). */
+  connected(connection: number, session: number, selection: Selection | null, cookies: readonly CookiePair[]): void;
+  /** The connection selected a page (sub-code 3F7F) or one sub-page: answer with one sub-page (REQ-1472). */
+  selected(connection: number, selection: Selection): void;
+  input(connection: number, page: number, input: Input): void;
+  /** The connection's selection left `page`, or the connection closed. */
+  left(connection: number, page: number): void;
+  /** The session ended: forget it. */
+  closed(session: number): void;
   stats(stats: ServerStats): void;
+  /** A line the program sent was refused whole. */
+  refused(refusal: Refusal): void;
 }
 
 export function dispatch(message: ServerMessage, events: ServerEvents): void {
@@ -22,28 +28,32 @@ export function dispatch(message: ServerMessage, events: ServerEvents): void {
       events.start(message.epochMs, message.limits);
       return;
     }
-    case "join": {
-      events.join(message.session);
+    case "connected": {
+      events.connected(message.connection, message.session, message.selection, message.cookies);
       return;
     }
-    case "open": {
-      events.open(message.session, message.page);
-      return;
-    }
-    case "leave": {
-      events.leave(message.session, message.page);
+    case "selected": {
+      events.selected(message.connection, message.selection);
       return;
     }
     case "input": {
-      events.input(message.session, message.page, message.input);
+      events.input(message.connection, message.page, message.input);
       return;
     }
-    case "close": {
-      events.close(message.session);
+    case "left": {
+      events.left(message.connection, message.page);
+      return;
+    }
+    case "closed": {
+      events.closed(message.session);
       return;
     }
     case "stats": {
       events.stats(message.stats);
+      return;
+    }
+    case "refused": {
+      events.refused(message.refusal);
     }
   }
 }

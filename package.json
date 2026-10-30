@@ -1,6 +1,6 @@
 {
   "name": "neoteletext-server-ts-protocol",
-  "version": "0.6.0",
+  "version": "1.0.0",
   "description": "The NeoTeletext server's channel protocol for programs in TypeScript: the reference kit (teletext-server's docs/applications.md section 5)",
   "private": true,
   "license": "MIT",
@@ -23,6 +23,7 @@
   ],
   "devDependencies": {
     "@types/node": "22.20.5",
+    "ajv": "8.20.0",
     "knip": "6.43.0",
     "oxlint": "1.90.0",
     "oxlint-tsgolint": "7.0.2005",

@@ -8,7 +8,7 @@ import { type Application, type PageEntry, Random } from "../src/index.ts";
 import { Harness, shows } from "../src/testing/index.ts";
 import { Recorder, screen } from "./recorder.ts";
 
-test("pages are declared in order, the first application to declare one serving it", () => {
+test("the first application to name a page serves it; every application hears a session begin, only the owner its pages", () => {
   const first = new Recorder([
     { page: 0x100, title: "Index" },
     { page: 0x101, title: "News" },
@@ -18,32 +18,41 @@ test("pages are declared in order, the first application to declare one serving 
     { page: 0x200, title: "Games", ownsDigits: true },
   ]);
   const harness = new Harness([first, second]);
-  assert.deepEqual(harness.sent[0], {
-    type: "pages",
-    pages: [
-      { page: "100", title: "Index" },
-      { page: "101", title: "News" },
-      { page: "200", title: "Games" },
-    ],
-  });
   harness.join(1, 0x101);
+  const reply = harness.sent.find((message) => message["type"] === "reply");
+  assert.deepEqual(reply?.["magazines"], [
+    {
+      magazine: 1,
+      name: "Magazine 1",
+      pages: [
+        { page: "100", title: "Index", section: null, subpages: 1 },
+        { page: "101", title: "News", section: null, subpages: 1 },
+      ],
+    },
+    { magazine: 2, name: "Magazine 2", pages: [{ page: "200", title: "Games", section: null, subpages: 1 }] },
+  ]);
   assert.deepEqual(first.heard, ["joined 1", "opened 1 101"]);
-  assert.deepEqual(second.heard, ["joined 1"], "every application hears a join, only the owner the page");
+  assert.deepEqual(second.heard, ["joined 1"], "every application hears a session begin, only the owner the page");
   harness.open(1, 0x200);
   assert.deepEqual(first.heard.slice(2), ["left 1 101"]);
   assert.deepEqual(second.heard.slice(1), ["opened 1 200"]);
 });
 
-test("a page retitled says so once, and the contents list it so", () => {
+test("a page retitled sends the index once, and the index lists it so", () => {
   const story: Application = {
     pages: (): PageEntry[] => [{ page: 0x201, title: "Story" }],
     start: (context): void => {
+      context.publish("channel", 0x201, screen("story"));
+    },
+    input: (_session, _page, _input, context): void => {
       context.title(0x201, "Robot arm");
       context.title(0x201, "Robot arm");
     },
   };
   const harness = new Harness([story]);
-  assert.equal(harness.sent.filter((message) => message["type"] === "title").length, 1);
+  harness.join(1, 0x201);
+  harness.typeText(1, "x");
+  assert.equal(harness.sent.filter((message) => message["type"] === "index").length, 1);
   assert.equal(harness.title(0x201), "Robot arm");
   assert.equal(harness.title(0x202), undefined);
 });
@@ -107,15 +116,16 @@ test("the real time is the server's, from start", () => {
   assert.equal(seen, 1_792_886_401_000);
 });
 
-test("a session first named after the program started again joins then, and ends once", () => {
+test("a session ends once, when the server says it closed", () => {
   const recorder = new Recorder([{ page: 0x100, title: "Index" }]);
   const harness = new Harness([recorder]);
-  harness.channel.input(9, 0x100, { kind: "text", text: "x" });
-  assert.deepEqual(recorder.heard.slice(0, 2), ["joined 9", `input 9 100 {"kind":"text","text":"x"}`]);
-  harness.channel.close(9);
-  harness.channel.close(9);
-  harness.channel.close(10);
-  assert.deepEqual(recorder.heard.slice(2), ["ended 9"]);
+  harness.join(9, 0x100);
+  harness.typeText(9, "x");
+  assert.deepEqual(recorder.heard.slice(0, 3), ["joined 9", "opened 9 100", `input 9 100 {"kind":"text","text":"x"}`]);
+  harness.close(9);
+  harness.channel.closed(9);
+  harness.channel.closed(10);
+  assert.deepEqual(recorder.heard.slice(3), ["left 9 100", "ended 9"]);
 });
 
 test("an application that fails is reported, and the channel goes on", () => {
@@ -136,7 +146,7 @@ test("an application that fails is reported, and the channel goes on", () => {
   harness.join(1, 0x100);
   harness.typeText(1, "x");
   assert.equal(harness.errors.length, 2);
-  assert.match(harness.errors[0] ?? "", /101 was not declared/u);
+  assert.match(harness.errors[0] ?? "", /no application serves 101/u);
   assert.match(harness.errors[1] ?? "", /broken/u);
   assert.ok(shows(harness.shared(0x100), "up"));
   harness.channel.input(1, 0x150, { kind: "focus" });

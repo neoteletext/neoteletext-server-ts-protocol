@@ -10,6 +10,14 @@ consumer takes the JavaScript and declarations in `dist/`.
 - **Node 22.18 or later.** `scripts/check.sh` refuses an older one.
 - **TypeScript 7.0.2**, the latest release, and the quality tools (oxlint
   with oxlint-tsgolint, Prettier, Knip), all pinned in `package-lock.json`.
+- **Ajv 8**, pinned, at build only: `scripts/validators.ts` compiles the
+  server's schema (`schema/protocol-2.json`, a copy of the server's
+  `protocol/schema-2.json`) with Ajv's standalone mode into
+  `src/wire/generated/`, which every check and build makes again and git
+  never holds. The release ships those plain functions, with Ajv's two
+  run-time helpers written in, so it needs nothing of Ajv when it runs.
+  A new schema from the server is taken by copying it over
+  `schema/protocol-2.json`.
 
 ## Check
 
