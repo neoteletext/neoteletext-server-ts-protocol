@@ -9,7 +9,7 @@ import type { ServerStats } from "./stats.ts";
 export interface ServerEvents {
   start(epochMs: number, limits: Limits): void;
   /** A viewer's connection opened: answer with `reply`, once (REQ-1471). */
-  connected(connection: number, session: number, selection: Selection | null, cookies: readonly CookiePair[]): void;
+  connected(connection: number, session: number, selection: Selection | null, cookies: readonly CookiePair[], query: string | null): void;
   /** The connection selected a page (sub-code 3F7F) or one sub-page: answer with one sub-page (REQ-1472). */
   selected(connection: number, selection: Selection): void;
   /** Input on the sub-page the viewer was looking at (REQ-1557). */
@@ -30,7 +30,7 @@ export function dispatch(message: ServerMessage, events: ServerEvents): void {
       return;
     }
     case "connected": {
-      events.connected(message.connection, message.session, message.selection, message.cookies);
+      events.connected(message.connection, message.session, message.selection, message.cookies, message.query);
       return;
     }
     case "selected": {

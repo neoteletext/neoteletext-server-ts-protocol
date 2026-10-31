@@ -279,6 +279,7 @@ export type WireServerMessage =
       readonly session: number;
       readonly cookies: readonly { readonly name: string; readonly value: string }[];
       readonly selection?: WireSelection | null;
+      readonly query?: string | null;
     }
   | { readonly type: "selected"; readonly connection: number; readonly page: WirePageNumber; readonly sub: WireSubCode }
   | {

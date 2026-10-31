@@ -162,3 +162,23 @@ test("random numbers are the runtime's xorshift64*", () => {
     assert.ok(random.below(3) < 3);
   }
 });
+
+test("an application hears the query of the address its viewer opened, as it came, before the page opens", () => {
+  const heard: string[] = [];
+  const application: Application = {
+    pages: () => [{ page: 0x100, title: "Index" }],
+    start: (context) => {
+      context.publish("channel", 0x100, screen("Index"));
+    },
+    query: (session, query) => {
+      heard.push(`query ${session} ${query}`);
+    },
+    opened: (session) => {
+      heard.push(`opened ${session}`);
+    },
+  };
+  const harness = new Harness([application]);
+  harness.channel.connected(1, 1, null, [], "id=7&b=%20x");
+  harness.channel.connected(2, 2, null, [], null);
+  assert.deepEqual(heard, ["query 1 id=7&b=%20x", "opened 1", "opened 2"]);
+});

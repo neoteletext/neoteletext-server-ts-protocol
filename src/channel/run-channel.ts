@@ -44,8 +44,8 @@ function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
       channel.start(epochMs, limits);
       schedule();
     },
-    connected(connection, session, selection, cookies): void {
-      channel.connected(connection, session, selection, cookies);
+    connected(connection, session, selection, cookies, query): void {
+      channel.connected(connection, session, selection, cookies, query);
       schedule();
     },
     selected(connection, selection): void {

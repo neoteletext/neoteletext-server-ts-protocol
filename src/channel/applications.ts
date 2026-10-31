@@ -83,6 +83,16 @@ export class Applications {
     });
   }
 
+  /** A session not among `sessions` joins as it is first named. */
+  know(sessions: Set<number>, session: number, host: Host, now: number): void {
+    if (!sessions.has(session)) {
+      sessions.add(session);
+      this.each(host, now, (application, context) => {
+        application.joined?.(session, context);
+      });
+    }
+  }
+
   /** Runs `run` on the application that serves `page`. */
   owner(host: Host, now: number, page: number, run: (application: Application, context: Context) => void): void {
     const index = this.#owners.get(page);

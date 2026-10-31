@@ -12,7 +12,8 @@ import type { WireLinkKey } from "../wire/protocol.ts";
 const MOST_KEY_LINKS = 5;
 const MOST_NUMBER_LINKS = 8;
 const MOST_TEXT_LINKS = 8;
-const LONGEST_TARGET = 256;
+/** The longest address of REQ-1661 and a `web:` mark. */
+const LONGEST_TARGET = 8004;
 const LONGEST_LABEL = 9;
 const FIRST_TEXT_LINK_ROW = 1;
 const LAST_TEXT_LINK_ROW = 23;

@@ -25,7 +25,8 @@ const ANY_SUBCODE_TEXT = "3F7F";
 /** The Link Extension's bounds (the server's schema, $defs/LinkExtension; the engine's Appendix E). */
 const MOST_NUMBER_LINKS = 8;
 const MOST_TEXT_LINKS = 8;
-const LONGEST_TARGET = 256;
+/** The longest address of REQ-1661 and a `web:` mark. */
+const LONGEST_TARGET = 8004;
 const LONGEST_LABEL = 9;
 const FIRST_TEXT_LINK_ROW = 1;
 const LAST_TEXT_LINK_ROW = 23;

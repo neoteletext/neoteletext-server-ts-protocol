@@ -46,7 +46,7 @@ await runChannel([hello]);
 
 `runChannel` serves the server's lines and resolves when the server closes
 standard input. Each application is called with what happened (`start`,
-`joined`, `opened`, `leftPage`, `input`, `wake`, `ended`, `stats`) and
+`joined`, `query`, `opened`, `leftPage`, `input`, `wake`, `ended`, `stats`) and
 answers through its `Context`: publish a page for everyone or for one
 viewer, send a viewer to a page, retitle a page, play a sound, write to
 the viewer's console (`authorLog`) or the server's log, set a cookie,

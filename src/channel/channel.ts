@@ -127,9 +127,14 @@ export class Channel implements ServerEvents {
     });
   }
 
-  connected(connection: number, session: number, selection: Selection | null, _cookies: readonly CookiePair[]): void {
-    this.#know(session);
+  connected(connection: number, session: number, selection: Selection | null, _cookies: readonly CookiePair[], query: string | null = null): void {
+    this.#applications.know(this.#sessions, session, this.#host, this.#clock.now());
     const state = this.#connections.add(connection, session);
+    if (query !== null) {
+      this.#each((application, context) => {
+        application.query?.(session, query, context);
+      });
+    }
     const asked = selection !== null && this.#entries.has(selection.page) ? selection : null;
     const page = asked?.page ?? this.#applications.initialPage();
     this.#answering(connection, () => {
@@ -238,17 +243,6 @@ export class Channel implements ServerEvents {
   }
 
   // Sessions and connections.
-
-  /** A session the channel has not seen joins as it is first named. */
-  #know(session: number): void {
-    if (this.#sessions.has(session)) {
-      return;
-    }
-    this.#sessions.add(session);
-    this.#each((application, context) => {
-      application.joined?.(session, context);
-    });
-  }
 
   /** The connection's selection came to its page: the page's application is told, for the session's first connection there. */
   #open(connection: number, state: Connection): void {

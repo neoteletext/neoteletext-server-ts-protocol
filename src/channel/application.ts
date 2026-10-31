@@ -25,6 +25,12 @@ export interface Application {
   start(context: Context): void;
   /** A session began: a viewer connected. */
   joined?(session: number, context: Context): void;
+  /**
+   * The session's viewer opened the channel at an address with a query,
+   * given without its `?`, before any page opens. It is untrusted text from
+   * the viewer, undecoded, and may be anything printable (REQ-1674).
+   */
+  query?(session: number, query: string, context: Context): void;
   /** The session's viewer opened one of this application's pages. */
   opened?(session: number, page: number, context: Context): void;
   /** The session's viewer left one of this application's pages. */
