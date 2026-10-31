@@ -206,7 +206,7 @@ test("an application hears a selection's page parameters before the page opens, 
   harness.open(1, 0x302, ANY_SUB, "a=1&b=%20x");
   harness.open(1, 0x302, ANY_SUB, "a=2");
   harness.open(1, 0x303);
-  assert.deepEqual(heard, ["parameters 1 302 a=1&b=%20x", "opened 1 302", "parameters 1 302 a=2", "parameters 1 303 null", "opened 1 303"]);
+  assert.deepEqual(heard, ["parameters 1 302 a=1&b=%20x", "opened 1 302", "parameters 1 302 a=2", "parameters 1 302 null", "opened 1 303"]);
 });
 
 test("a program that starts again hears the page parameters of a connection's selection", () => {

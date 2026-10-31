@@ -170,6 +170,7 @@ export class Channel implements ServerEvents {
     const newPage = state.page !== page;
     this.#answering(connection, () => {
       if (newPage) {
+        tellParameters(this.#calls, state, null);
         tellLeft(this.#calls, connection, state);
         state.page = page;
         this.#navigation.reset(connection);
@@ -187,6 +188,7 @@ export class Channel implements ServerEvents {
     if (state?.page !== page) {
       return;
     }
+    tellParameters(this.#calls, state, null);
     tellLeft(this.#calls, connection, state);
     state.page = null;
     state.sub = null;
