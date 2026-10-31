@@ -6,7 +6,7 @@ import type { Input } from "../input/input.ts";
 import { readInput } from "../input/read-input.ts";
 import { PAGE_RADIX } from "../page/page-numbers.ts";
 import { type Limits, readLimits } from "./limits.ts";
-import type { WireServerMessage } from "./protocol.ts";
+import type { WireServerMessage } from "./server-wire.ts";
 import type { ServerStats } from "./stats.ts";
 import { readServer } from "./validate.ts";
 
@@ -41,8 +41,10 @@ export type ServerMessage =
       readonly selection: Selection | null;
       /** The query of the address the viewer opened: untrusted text (REQ-1674). */
       readonly query: string | null;
+      /** The page parameters of `selection`: untrusted text (REQ-1693 item 6). */
+      readonly parameters: string | null;
     }
-  | { readonly type: "selected"; readonly connection: number; readonly selection: Selection }
+  | { readonly type: "selected"; readonly connection: number; readonly selection: Selection; readonly parameters: string | null }
   | { readonly type: "input"; readonly connection: number; readonly page: number; readonly sub: number; readonly input: Input }
   | { readonly type: "left"; readonly connection: number; readonly page: number }
   | { readonly type: "closed"; readonly session: number }
@@ -99,10 +101,16 @@ function messageOf(message: WireServerMessage): ServerMessage | string {
       cookies: message.cookies,
       selection: selection === null ? null : { page: pageOf(selection.page), sub: subOf(selection.sub) },
       query: message.query ?? null,
+      parameters: message.parameters ?? null,
     };
   }
   if (message.type === "selected") {
-    return { type: "selected", connection: message.connection, selection: { page: pageOf(message.page), sub: subOf(message.sub) } };
+    return {
+      type: "selected",
+      connection: message.connection,
+      selection: { page: pageOf(message.page), sub: subOf(message.sub) },
+      parameters: message.parameters ?? null,
+    };
   }
   if (message.type === "input") {
     return {

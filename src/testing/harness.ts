@@ -83,14 +83,14 @@ export class Harness {
   }
 
   /** The session's connection selects `page`, or sub-page `sub` of it, leaving the page it had, as the server says. */
-  open(session: number, page: number, sub: number = ANY_SUB): void {
+  open(session: number, page: number, sub: number = ANY_SUB, parameters: string | null = null): void {
     const before = this.#open.get(session);
     if (before !== undefined && before !== page) {
       this.channel.left(session, before);
     }
     this.#open.set(session, page);
     this.#went.delete(session);
-    this.channel.selected(session, { page, sub });
+    this.channel.selected(session, { page, sub }, parameters);
   }
 
   /** The session's connection closes, and the session ends. */

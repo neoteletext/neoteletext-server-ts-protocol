@@ -31,6 +31,14 @@ export interface Application {
    * the viewer, undecoded, and may be anything printable (REQ-1674).
    */
   query?(session: number, query: string, context: Context): void;
+  /**
+   * The page parameters of the viewer's selection of one of this
+   * application's pages changed, before the page opens: those of the address
+   * selected, given without their `?`, or null once another selection has
+   * left them behind. They are untrusted text from the viewer, undecoded,
+   * and may be anything printable but `#` (REQ-1693 item 6).
+   */
+  parameters?(session: number, page: number, parameters: string | null, context: Context): void;
   /** The session's viewer opened one of this application's pages. */
   opened?(session: number, page: number, context: Context): void;
   /** The session's viewer left one of this application's pages. */

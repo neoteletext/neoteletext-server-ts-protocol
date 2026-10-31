@@ -10,7 +10,8 @@
 
 import type { Fault } from "./fault.ts";
 import { type ValidationFault, type Validator, program, server } from "./generated/validators.js";
-import type { ProgramMessage, WireServerMessage } from "./protocol.ts";
+import type { ProgramMessage } from "./protocol.ts";
+import type { WireServerMessage } from "./server-wire.ts";
 import { checkText } from "./text-rules.ts";
 
 /** A message the program was about to write broke the protocol: nothing of it was written. */

@@ -3,10 +3,10 @@
 // engine's limits, and the server's budgets. The kit writes none of those
 // figures: a program that needs one asks the context for it.
 
-import type { WireBudgets, WireStandard } from "./protocol.ts";
+import type { WireBudgets, WireStandard } from "./server-wire.ts";
 
 /** The protocol's version, in `start` (DEC-1482). */
-export const PROTOCOL = 3;
+export const PROTOCOL = 4;
 
 /**
  * The longest line either side may send (docs/applications.md section 1):

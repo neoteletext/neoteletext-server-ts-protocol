@@ -15,7 +15,7 @@ const FIXTURES = join(import.meta.dirname, "fixtures");
 
 test("the kit's fixture channel answers a connection and its selections with the lines kept", () => {
   const start = [
-    '{"type":"start","protocol":3,"epoch_ms":0,"standard":{"magazines":8,"pages":2022,"pages_per_magazine":253,"pages_in_magazine_1":251,"keyable_pages":800,"subpages":8190,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120,"author_log_bytes":200,"log_characters":1000,"named_connections":4096,"reply_limit_ms":5000}}',
+    '{"type":"start","protocol":4,"epoch_ms":0,"standard":{"magazines":8,"pages":2022,"pages_per_magazine":253,"pages_in_magazine_1":251,"keyable_pages":800,"subpages":8190,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120,"author_log_bytes":200,"log_characters":1000,"named_connections":4096,"reply_limit_ms":5000}}',
     '{"type":"connected","connection":1,"session":1,"cookies":[],"selection":null}',
     '{"type":"left","connection":1,"page":"100"}',
     '{"type":"selected","connection":1,"page":"101","sub":"3F7F"}',

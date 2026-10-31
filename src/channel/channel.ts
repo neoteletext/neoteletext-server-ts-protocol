@@ -11,10 +11,11 @@
 import type { Application, PageEntry } from "./application.ts";
 import { type AnswerParts, answerConnected, answerSelected, followClick, viewOf } from "./answers.ts";
 import { Applications } from "./applications.ts";
-import { type Connection, Connections } from "./connections.ts";
+import { Connections } from "./connections.ts";
 import type { Context, Host } from "./context.ts";
 import { Copies, type Owner } from "./copies.ts";
 import { makeHost } from "./host.ts";
+import { type PageCalls, tellLeft, tellOpened, tellParameters } from "./page-calls.ts";
 import { Sender } from "./sender.ts";
 import { ANY_SUB } from "./wire-page.ts";
 import type { Input } from "../input/input.ts";
@@ -58,6 +59,7 @@ export class Channel implements ServerEvents {
   readonly #navigation: Navigation;
   readonly #host: Host;
   readonly #answers: AnswerParts;
+  readonly #calls: PageCalls;
   /** The connection the call being run came from, if any. */
   #current: number | null = null;
   #epochAtStart = 0;
@@ -94,6 +96,12 @@ export class Channel implements ServerEvents {
       index: (): WireMagazine[] => this.#applications.index(this.#copies, this.#app.limits()),
       errors: this.#errors,
     };
+    this.#calls = {
+      connections: this.#connections,
+      callOwner: (page, run): void => {
+        this.#callOwner(page, run);
+      },
+    };
     this.#epochAtStart = Date.now() - this.#clock.now();
   }
 
@@ -127,7 +135,14 @@ export class Channel implements ServerEvents {
     });
   }
 
-  connected(connection: number, session: number, selection: Selection | null, _cookies: readonly CookiePair[], query: string | null = null): void {
+  connected(
+    connection: number,
+    session: number,
+    selection: Selection | null,
+    _cookies: readonly CookiePair[],
+    query: string | null = null,
+    parameters: string | null = null,
+  ): void {
     this.#applications.know(this.#sessions, session, this.#host, this.#clock.now());
     const state = this.#connections.add(connection, session);
     if (query !== null) {
@@ -139,12 +154,13 @@ export class Channel implements ServerEvents {
     const page = asked?.page ?? this.#applications.initialPage();
     this.#answering(connection, () => {
       state.page = page ?? null;
-      this.#open(connection, state);
+      tellParameters(this.#calls, state, asked === null ? null : parameters);
+      tellOpened(this.#calls, connection, state);
       answerConnected(this.#answers, connection, state, page, asked?.sub ?? ANY_SUB, selection?.page);
     });
   }
 
-  selected(connection: number, selection: Selection): void {
+  selected(connection: number, selection: Selection, parameters: string | null = null): void {
     const state = this.#connections.get(connection);
     if (state === undefined) {
       this.#errors(`selected on connection ${connection}, which never connected`);
@@ -154,10 +170,13 @@ export class Channel implements ServerEvents {
     const newPage = state.page !== page;
     this.#answering(connection, () => {
       if (newPage) {
-        this.#leave(connection, state);
+        tellLeft(this.#calls, connection, state);
         state.page = page;
         this.#navigation.reset(connection);
-        this.#open(connection, state);
+        tellParameters(this.#calls, state, parameters);
+        tellOpened(this.#calls, connection, state);
+      } else {
+        tellParameters(this.#calls, state, parameters);
       }
       answerSelected(this.#answers, connection, state, page, sub, newPage);
     });
@@ -168,7 +187,7 @@ export class Channel implements ServerEvents {
     if (state?.page !== page) {
       return;
     }
-    this.#leave(connection, state);
+    tellLeft(this.#calls, connection, state);
     state.page = null;
     state.sub = null;
   }
@@ -243,28 +262,6 @@ export class Channel implements ServerEvents {
   }
 
   // Sessions and connections.
-
-  /** The connection's selection came to its page: the page's application is told, for the session's first connection there. */
-  #open(connection: number, state: Connection): void {
-    const { page, session } = state;
-    if (page === null || this.#connections.otherOn(connection, session, page)) {
-      return;
-    }
-    this.#callOwner(page, (application, context) => {
-      application.opened?.(session, page, context);
-    });
-  }
-
-  /** The connection's selection left its page: the page's application is told, for the session's last connection there. */
-  #leave(connection: number, state: Connection): void {
-    const { page, session } = state;
-    if (page === null || this.#connections.otherOn(connection, session, page)) {
-      return;
-    }
-    this.#callOwner(page, (application, context) => {
-      application.leftPage?.(session, page, context);
-    });
-  }
 
   /** Runs `answer` for `connection`, held back from every other sending until the answer is sent; a failure is reported. */
   #answering(connection: number, answer: () => void): void {

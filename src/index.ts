@@ -5,6 +5,7 @@
 
 export { PROTOCOL, LONGEST_LINE, readLimits } from "./wire/limits.ts";
 export type * from "./wire/protocol.ts";
+export type * from "./wire/server-wire.ts";
 export { ProtocolError, checkProgram, checkServer } from "./wire/validate.ts";
 export type { Fault } from "./wire/fault.ts";
 export type { Budgets, Limits, Standard } from "./wire/limits.ts";

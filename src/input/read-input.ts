@@ -2,7 +2,7 @@
 // (validate.ts), as the kit's own Input.
 
 import { Button, Held, type Input } from "./input.ts";
-import type { WireButtons, WireInputEvent } from "../wire/protocol.ts";
+import type { WireButtons, WireInputEvent } from "../wire/server-wire.ts";
 
 /** The buttons a move says are held, as bits ({@link Held}). */
 function heldOf(buttons: WireButtons | null | undefined): number {

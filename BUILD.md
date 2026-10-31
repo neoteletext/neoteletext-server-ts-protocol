@@ -11,16 +11,16 @@ consumer takes the JavaScript and declarations in `dist/`.
 - **TypeScript 7.0.2**, the latest release, and the quality tools (oxlint
   with oxlint-tsgolint, Prettier, Knip), all pinned in `package-lock.json`.
 - **Ajv 8**, pinned, at build only: `scripts/validators.ts` compiles the
-  server's schema (`schema/protocol-3.json`, a copy of the server's
-  `protocol/schema-3.json`) with Ajv's standalone mode into
+  server's schema (`schema/protocol-4.json`, a copy of the server's
+  `protocol/schema-4.json`) with Ajv's standalone mode into
   `src/wire/generated/`, which every check and build makes again and git
   never holds. The release ships those plain functions, with Ajv's two
   run-time helpers written in, so it needs nothing of Ajv when it runs.
   A new schema from the server is taken by copying it over
-  `schema/protocol-3.json` and naming the server's commit it is from in
+  `schema/protocol-4.json` and naming the server's commit it is from in
   `scripts/check.sh` (`SCHEMA_FROM`): the commit gate, and
   `scripts/check.sh schema`, fail when the copy differs from the server's
-  `protocol/schema-3.json` at that commit, read from the server's
+  `protocol/schema-4.json` at that commit, read from the server's
   repository at `~/devel/neoteletext-app-server` (or `NEOTELETEXT_SERVER`).
 
 ## Check

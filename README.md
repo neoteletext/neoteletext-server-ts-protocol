@@ -3,10 +3,10 @@
 The NeoTeletext server's channel protocol for programs in TypeScript: the
 reference kit of teletext-server's `docs/applications.md` section 5. A
 channel is a program the server starts; they talk in lines of JSON on its
-standard input and output. This package speaks protocol version 3
+standard input and output. This package speaks protocol version 4
 (DEC-1482): every message in both directions is checked against the
-server's published JSON Schema (`schema/protocol-3.json`, the server's
-`protocol/schema-3.json`) by validators Ajv 8 compiles from it at build, in
+server's published JSON Schema (`schema/protocol-4.json`, the server's
+`protocol/schema-4.json`) by validators Ajv 8 compiles from it at build, in
 standalone mode, so nothing compiles a schema at run time, and then held
 to the server's rules of text the schema cannot state: no control or
 bidirectional formatting character, Unicode normalisation form C, and a
@@ -46,7 +46,7 @@ await runChannel([hello]);
 
 `runChannel` serves the server's lines and resolves when the server closes
 standard input. Each application is called with what happened (`start`,
-`joined`, `query`, `opened`, `leftPage`, `input`, `wake`, `ended`, `stats`) and
+`joined`, `query`, `parameters`, `opened`, `leftPage`, `input`, `wake`, `ended`, `stats`) and
 answers through its `Context`: publish a page for everyone or for one
 viewer, send a viewer to a page, retitle a page, play a sound, write to
 the viewer's console (`authorLog`) or the server's log, set a cookie,

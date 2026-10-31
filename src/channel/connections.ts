@@ -9,6 +9,8 @@ export interface Connection {
   readonly session: number;
   page: number | null;
   sub: number | null;
+  /** The page parameters of its selection (REQ-1693 item 6). */
+  parameters: string | null;
   /** Its answer is being made: nothing else goes to it until that is sent. */
   pending: boolean;
 }
@@ -22,7 +24,7 @@ export class Connections {
   }
 
   add(connection: number, session: number): Connection {
-    const state: Connection = { session, page: null, sub: null, pending: true };
+    const state: Connection = { session, page: null, sub: null, parameters: null, pending: true };
     this.#open.set(connection, state);
     return state;
   }

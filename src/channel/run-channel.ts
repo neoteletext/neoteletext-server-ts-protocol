@@ -44,12 +44,12 @@ function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
       channel.start(epochMs, limits);
       schedule();
     },
-    connected(connection, session, selection, cookies, query): void {
-      channel.connected(connection, session, selection, cookies, query);
+    connected(connection, session, selection, cookies, query, parameters): void {
+      channel.connected(connection, session, selection, cookies, query, parameters);
       schedule();
     },
-    selected(connection, selection): void {
-      channel.selected(connection, selection);
+    selected(connection, selection, parameters): void {
+      channel.selected(connection, selection, parameters);
       schedule();
     },
     input(connection, page, sub, input): void {

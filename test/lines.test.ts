@@ -89,7 +89,7 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
     },
   });
   input.write(
-    '{"type":"start","protocol":3,"epoch_ms":5,"standard":{"magazines":8,"pages":2022,"pages_per_magazine":253,"pages_in_magazine_1":251,"keyable_pages":800,"subpages":8190,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120,"author_log_bytes":200,"log_characters":1000,"named_connections":4096,"reply_limit_ms":5000}}\n{"type":"connected","connection":3,"session":1,"cookies":[],"selection":null}\nnonsense\n',
+    '{"type":"start","protocol":4,"epoch_ms":5,"standard":{"magazines":8,"pages":2022,"pages_per_magazine":253,"pages_in_magazine_1":251,"keyable_pages":800,"subpages":8190,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120,"author_log_bytes":200,"log_characters":1000,"named_connections":4096,"reply_limit_ms":5000}}\n{"type":"connected","connection":3,"session":1,"cookies":[],"selection":null}\nnonsense\n',
   );
   input.write(`{"type":"selected","connection":3,"page":"100","sub":"3F7F"}\n${FOCUS_LINE}\n`);
   input.write('{"type":"stats","server":{"uptime_s":10},"channel":{"viewers":1}}\n{"type":"selected","connection":3,"page":"100","sub":"3F7F","view":0}\n');
