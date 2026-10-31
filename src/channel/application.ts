@@ -30,11 +30,12 @@ export interface Application {
   /** The session's viewer left one of this application's pages. */
   leftPage?(session: number, page: number, context: Context): void;
   /**
-   * Input on one of this application's pages, open with the keys, that
-   * navigation did not take. Answer true for a click the page took; any
-   * other click follows the Fastext prompt or the page number it is on.
+   * Input on the sub-page `sub` of one of this application's pages, the
+   * one the viewer was looking at, that navigation did not take. Answer
+   * true for a click the page took; any other click follows the Fastext
+   * prompt or the page number it is on.
    */
-  input?(session: number, page: number, input: Input, context: Context): boolean | void;
+  input?(session: number, page: number, input: Input, context: Context, sub: number): boolean | void;
   /** The time asked for with {@link Context.wakeAt} has come. */
   wake?(context: Context): void;
   /** The session ended: forget it. */

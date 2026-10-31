@@ -110,7 +110,7 @@ export class Harness {
     if (page === undefined) {
       throw new Error(`session ${session} has no page open`);
     }
-    this.channel.input(session, page, input);
+    this.channel.input(session, page, ANY_SUB, input);
   }
 
   /** Raw text, as an input method or a phone commits it (INPUT.md section 5.3). */

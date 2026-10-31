@@ -149,8 +149,8 @@ test("an application that fails is reported, and the channel goes on", () => {
   assert.match(harness.errors[0] ?? "", /no application serves 101/u);
   assert.match(harness.errors[1] ?? "", /broken/u);
   assert.ok(shows(harness.shared(0x100), "up"));
-  harness.channel.input(1, 0x150, { kind: "focus" });
-  assert.match(harness.errors[2] ?? "", /no application serves/u);
+  harness.channel.input(1, 0x150, 0, { kind: "focus" });
+  assert.equal(harness.errors.length, 2, "input on a page no application serves is not a fault: the keys still select pages");
 });
 
 test("random numbers are the runtime's xorshift64*", () => {

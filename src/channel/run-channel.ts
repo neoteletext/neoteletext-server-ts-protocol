@@ -52,8 +52,8 @@ function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
       channel.selected(connection, selection);
       schedule();
     },
-    input(connection, page, input): void {
-      channel.input(connection, page, input);
+    input(connection, page, sub, input): void {
+      channel.input(connection, page, sub, input);
       schedule();
     },
     left(connection, page): void {

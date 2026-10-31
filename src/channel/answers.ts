@@ -11,7 +11,8 @@ import type { Copies } from "./copies.ts";
 import type { Copy } from "./copy.ts";
 import type { Sender } from "./sender.ts";
 import { ANY_SUB, wirePage } from "./wire-page.ts";
-import type { PageView } from "../navigation/clicked-link.ts";
+import { clicked, type Input } from "../input/input.ts";
+import { clickedLink, type PageView } from "../navigation/clicked-link.ts";
 import { rowsOf } from "../page/content.ts";
 import { PAGE_RADIX, pageText } from "../page/page-numbers.ts";
 import type { WireMagazine } from "../wire/protocol.ts";
@@ -38,15 +39,49 @@ function resolve(copy: Copy | undefined, sub: number): number | undefined {
   return copy.subpages.has(sub) ? sub : undefined;
 }
 
-/** The reply to `connected`: the index, and the sub-page `sub` of `page` selects, or none; then the page's list. */
-export function answerConnected(parts: AnswerParts, connection: number, state: Connection, page: number | undefined, sub: number): void {
+/**
+ * The reply to `connected`: the index and the sub-page `sub` of `page`
+ * selects, then the page's list. `asked` is the page the server holds as the
+ * connection's selection, if any.
+ *
+ * The server refuses a reply whose page its index does not list, and shows a
+ * connection only its selection, so a viewer still gets a page when the reply
+ * cannot carry it (DEC-1543 item 2): the reply goes with none, then the
+ * sub-page goes on its own, or the page is moved to, whose first sub-page then
+ * answers.
+ */
+export function answerConnected(
+  parts: AnswerParts,
+  connection: number,
+  state: Connection,
+  page: number | undefined,
+  sub: number,
+  asked: number | undefined,
+): void {
   const copy = page === undefined ? undefined : parts.copies.seen(state.session, page);
   const shown = resolve(copy, sub);
   state.sub = shown ?? null;
-  const selected = page === undefined || shown === undefined || copy === undefined ? null : wirePage(page, shown, copy);
-  parts.sender.send({ type: "reply", connection, magazines: parts.index(), selected });
-  if (selected !== null && page !== undefined && copy !== undefined) {
+  const magazines = parts.index();
+  if (page === undefined || copy === undefined) {
+    parts.sender.send({ type: "reply", connection, magazines, selected: null });
+    parts.errors(`connection ${connection}: no application has published ${page === undefined ? "a page" : pageText(page)}`);
+    return;
+  }
+  const text = pageText(page);
+  const listed = magazines.some((magazine) => magazine.pages.some((entry) => entry.page === text));
+  const holds = asked === undefined || asked === page;
+  if (shown !== undefined && listed && holds) {
+    parts.sender.send({ type: "reply", connection, magazines, selected: wirePage(page, shown, copy) });
     parts.sender.list([connection], page, copy);
+    return;
+  }
+  parts.sender.send({ type: "reply", connection, magazines, selected: null });
+  if (shown !== undefined && asked === page) {
+    parts.sender.page([connection], page, shown, copy);
+    parts.sender.list([connection], page, copy);
+  } else {
+    state.sub = null;
+    parts.sender.goto(connection, page, ANY_SUB);
   }
 }
 
@@ -68,11 +103,21 @@ export function answerSelected(parts: AnswerParts, connection: number, state: Co
   }
 }
 
-/** What the connection sees of `page`: the rows and the Fastext links of the sub-page it was sent. */
-export function viewOf(copies: Copies, state: Connection, page: number): PageView {
+/** A click the page did not take: the Fastext prompt or the page number it is on is followed. */
+export function followClick(sender: Sender, connection: number, input: Input, view: PageView): void {
+  if (clicked(input) && input.kind === "mouse") {
+    const link = clickedLink(view, input.column, input.row);
+    if (link !== null) {
+      sender.goto(connection, link, ANY_SUB);
+    }
+  }
+}
+
+/** What the connection sees of `page`: the rows and the Fastext links of `sub`, or for 3F7F of the sub-page it was sent. */
+export function viewOf(copies: Copies, state: Connection, page: number, sub: number): PageView {
   const copy = copies.seen(state.session, page);
-  const sub = state.sub ?? copy?.first();
-  const content = sub === undefined ? undefined : copy?.subpages.get(sub)?.content;
+  const shown = sub === ANY_SUB ? (state.sub ?? copy?.first()) : sub;
+  const content = shown === undefined ? undefined : copy?.subpages.get(shown)?.content;
   if (content === undefined) {
     return { rows: [], links: [null, null, null, null] };
   }

@@ -41,7 +41,7 @@ export type ServerMessage =
       readonly selection: Selection | null;
     }
   | { readonly type: "selected"; readonly connection: number; readonly selection: Selection }
-  | { readonly type: "input"; readonly connection: number; readonly page: number; readonly input: Input }
+  | { readonly type: "input"; readonly connection: number; readonly page: number; readonly sub: number; readonly input: Input }
   | { readonly type: "left"; readonly connection: number; readonly page: number }
   | { readonly type: "closed"; readonly session: number }
   | { readonly type: "stats"; readonly stats: ServerStats }
@@ -102,7 +102,13 @@ function messageOf(message: WireServerMessage): ServerMessage | string {
     return { type: "selected", connection: message.connection, selection: { page: pageOf(message.page), sub: subOf(message.sub) } };
   }
   if (message.type === "input") {
-    return { type: "input", connection: message.connection, page: pageOf(message.page), input: readInput(message.event) };
+    return {
+      type: "input",
+      connection: message.connection,
+      page: pageOf(message.page),
+      sub: subOf(message.sub),
+      input: readInput(message.event, message.lost),
+    };
   }
   if (message.type === "left") {
     return { type: "left", connection: message.connection, page: pageOf(message.page) };

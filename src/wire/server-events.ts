@@ -12,7 +12,8 @@ export interface ServerEvents {
   connected(connection: number, session: number, selection: Selection | null, cookies: readonly CookiePair[]): void;
   /** The connection selected a page (sub-code 3F7F) or one sub-page: answer with one sub-page (REQ-1472). */
   selected(connection: number, selection: Selection): void;
-  input(connection: number, page: number, input: Input): void;
+  /** Input on the sub-page the viewer was looking at (REQ-1557). */
+  input(connection: number, page: number, sub: number, input: Input): void;
   /** The connection's selection left `page`, or the connection closed. */
   left(connection: number, page: number): void;
   /** The session ended: forget it. */
@@ -37,7 +38,7 @@ export function dispatch(message: ServerMessage, events: ServerEvents): void {
       return;
     }
     case "input": {
-      events.input(message.connection, message.page, message.input);
+      events.input(message.connection, message.page, message.sub, message.input);
       return;
     }
     case "left": {

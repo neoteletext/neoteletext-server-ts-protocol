@@ -34,6 +34,12 @@ export class Copies {
   readonly #copies = new Map<Owner, Map<number, Copy>>();
   /** How many times each owner's copy of each page changed: for tests. */
   readonly #changes = new Map<string, number>();
+  /**
+   * The last list version of each page, whoever's copy changed: the server
+   * skips a list whose version a connection holds, so two copies of one
+   * page must never give two lists the same version (DEC-1543 item 3).
+   */
+  readonly #versions = new Map<number, number>();
 
   get(owner: Owner, page: number): Copy | undefined {
     return this.#copies.get(owner)?.get(page);
@@ -102,7 +108,9 @@ export class Copies {
   #changed(owner: Owner, page: number, copy: Copy, before: string, countBefore: number, changed: ReadonlySet<number>): Change {
     const listChanged = copy.listKey() !== before;
     if (listChanged) {
-      copy.version = copy.version === LAST_VERSION ? 0 : copy.version + 1;
+      const last = this.#versions.get(page) ?? 0;
+      copy.version = last === LAST_VERSION ? 0 : last + 1;
+      this.#versions.set(page, copy.version);
     }
     if (listChanged || changed.size > 0) {
       const key = `${String(owner)}:${page}`;

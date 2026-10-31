@@ -5,7 +5,7 @@ import { Button, character, clicked, decimalDigit, Held, type Input, Key, presse
 
 /** An input event as the server's line carries it, read whole. */
 function read(event: unknown): Input | string {
-  const message = readMessage(JSON.stringify({ type: "input", connection: 1, page: "100", event }));
+  const message = readMessage(JSON.stringify({ type: "input", connection: 1, page: "100", sub: "0000", lost: false, event }));
   if (typeof message === "string") {
     return message;
   }

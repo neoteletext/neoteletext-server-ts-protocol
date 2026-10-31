@@ -275,7 +275,14 @@ export type WireServerMessage =
       readonly selection?: WireSelection | null;
     }
   | { readonly type: "selected"; readonly connection: number; readonly page: WirePageNumber; readonly sub: WireSubCode }
-  | { readonly type: "input"; readonly connection: number; readonly page: WirePageNumber; readonly event: WireInputEvent }
+  | {
+      readonly type: "input";
+      readonly connection: number;
+      readonly page: WirePageNumber;
+      readonly sub: WireSubCode;
+      readonly lost: boolean;
+      readonly event: WireInputEvent;
+    }
   | { readonly type: "left"; readonly connection: number; readonly page: WirePageNumber }
   | { readonly type: "closed"; readonly session: number }
   | { readonly type: "stats"; readonly server: unknown; readonly channel: unknown }

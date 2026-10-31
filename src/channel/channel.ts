@@ -9,7 +9,7 @@
 
 // oxlint-disable import/max-dependencies -- the channel is where the protocol's parts meet: the wire, input, navigation, pages and applications
 import type { Application, PageEntry } from "./application.ts";
-import { type AnswerParts, answerConnected, answerSelected, viewOf } from "./answers.ts";
+import { type AnswerParts, answerConnected, answerSelected, followClick, viewOf } from "./answers.ts";
 import { Applications } from "./applications.ts";
 import { type Connection, Connections } from "./connections.ts";
 import type { Context, Host } from "./context.ts";
@@ -17,8 +17,8 @@ import { Copies, type Owner } from "./copies.ts";
 import { makeHost } from "./host.ts";
 import { Sender } from "./sender.ts";
 import { ANY_SUB } from "./wire-page.ts";
-import { type Input, clicked } from "../input/input.ts";
-import { type PageView, clickedLink } from "../navigation/clicked-link.ts";
+import type { Input } from "../input/input.ts";
+import type { PageView } from "../navigation/clicked-link.ts";
 import { Navigation } from "../navigation/navigation.ts";
 import type { SubPageContent } from "../page/content.ts";
 import { pageText } from "../page/page-numbers.ts";
@@ -135,7 +135,7 @@ export class Channel implements ServerEvents {
     this.#answering(connection, () => {
       state.page = page ?? null;
       this.#open(connection, state);
-      answerConnected(this.#answers, connection, state, page, asked?.sub ?? ANY_SUB);
+      answerConnected(this.#answers, connection, state, page, asked?.sub ?? ANY_SUB, selection?.page);
     });
   }
 
@@ -168,18 +168,19 @@ export class Channel implements ServerEvents {
     state.sub = null;
   }
 
-  input(connection: number, page: number, input: Input): void {
+  input(connection: number, page: number, sub: number, input: Input): void {
     const state = this.#connections.get(connection);
-    const entry = this.#entries.get(page);
-    if (state === undefined || entry === undefined) {
-      this.#errors(`input on page ${pageText(page)} from connection ${connection}, which no application serves`);
+    if (state === undefined) {
+      this.#errors(`input on page ${pageText(page)} from connection ${connection}, which never connected`);
       return;
     }
+    // On a page the channel does not serve, the keys still select pages (DEC-1543 item 4).
+    const entry = this.#entries.get(page);
     const { session } = state;
-    const view = (): PageView => viewOf(this.#copies, state, page);
+    const view = (): PageView => viewOf(this.#copies, state, page, sub);
     this.#current = connection;
     try {
-      const navigated = this.#navigation.take(connection, input, entry, view().links);
+      const navigated = this.#navigation.take(connection, input, entry ?? {}, view().links);
       if (navigated.taken) {
         if (navigated.goto !== null) {
           this.#sender.goto(connection, navigated.goto, ANY_SUB);
@@ -187,14 +188,13 @@ export class Channel implements ServerEvents {
         return;
       }
       let taken = false;
-      this.#callOwner(page, (application, context) => {
-        taken = application.input?.(session, page, input, context) === true;
-      });
-      if (!taken && clicked(input) && input.kind === "mouse") {
-        const link = clickedLink(view(), input.column, input.row);
-        if (link !== null) {
-          this.#sender.goto(connection, link, ANY_SUB);
-        }
+      if (entry !== undefined) {
+        this.#callOwner(page, (application, context) => {
+          taken = application.input?.(session, page, input, context, sub) === true;
+        });
+      }
+      if (!taken) {
+        followClick(this.#sender, connection, input, view());
       }
     } finally {
       this.#current = null;

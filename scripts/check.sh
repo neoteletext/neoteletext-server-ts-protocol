@@ -29,7 +29,7 @@ readonly CHECKED_PATHS=(.)
 # schema/protocol-2.json is a copy of: a new schema is taken by copying it
 # and naming its commit here.
 server="${NEOTELETEXT_SERVER:-$HOME/devel/neoteletext-app-server}"
-readonly SCHEMA_FROM="165a2c16b374f87e50d5ad11bfd7c461df267395"
+readonly SCHEMA_FROM="b97697b6b665f7e81e0593f4097976d3872f4b55"
 
 . scripts/gate.sh
 
