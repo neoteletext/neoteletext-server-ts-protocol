@@ -13,6 +13,11 @@ function inputLine(fields: Record<string, unknown>): string {
   return JSON.stringify({ type: "input", connection: 1, page: "100", event: { kind: "focus" }, ...fields });
 }
 
+/** A sub-page with `text` on it and no links. */
+function blank(text: string): { readonly screen: ReturnType<typeof screen> } {
+  return { screen: screen(text, [null, null, null, null]) };
+}
+
 test("input carries its sub-code and whether the page lost it, and the schema asks for both", () => {
   const message = readMessage(inputLine({ sub: "0002", lost: true, event: { kind: "key", action: "release", key: "a", text: null, base: null } }));
   assert.ok(typeof message !== "string" && message.type === "input");
@@ -58,22 +63,21 @@ test("two copies of a page never give two lists the same version", () => {
   const own: Application = {
     pages: (): PageEntry[] => [{ page: 0x100, title: "Index" }],
     start: (context): void => {
-      context.publishSubpages("channel", 0x100, [{ screen: screen("one", [null, null, null, null]) }, { screen: screen("two", [null, null, null, null]) }]);
+      context.publishSubpages("channel", 0x100, [blank("one"), blank("two")]);
     },
     opened: (session, page, context): void => {
-      context.publishSubpages(session, page, [
-        { screen: screen("mine", [null, null, null, null]) },
-        { screen: screen("too", [null, null, null, null]) },
-        { screen: screen("three", [null, null, null, null]) },
-      ]);
+      context.publishSubpages(session, page, [blank("mine"), blank("too"), blank("three")]);
+    },
+    input: (session, page, _input, context): void => {
+      context.release(session, page);
     },
   };
   const harness = new Harness([own]);
   harness.join(1, 0x100);
-  const versions = harness.sent.filter((message) => message["type"] === "subpages").map((message) => message["version"]);
-  assert.ok(versions.length > 0);
-  assert.equal(new Set(versions).size, versions.length, `versions ${JSON.stringify(versions)}`);
-  assert.notEqual(harness.channel.copy("channel", 0x100), undefined);
+  harness.typeText(1, "x");
+  const lists = harness.sent.filter((message) => message["type"] === "subpages");
+  assert.equal(lists.length, 2, "the session's list, then the channel's when it is released");
+  assert.notEqual(lists[0]?.["version"], lists[1]?.["version"], "the server skips a list whose version the connection holds");
 });
 
 test("the keys still select pages on a page the channel does not serve", () => {
