@@ -9,4 +9,4 @@ export interface PageKeys {
 }
 
 /** What navigation made of an input: not its, or taken, with the page to go to if it chose one. */
-export type Navigated = { readonly taken: false } | { readonly taken: true; readonly goto: number | null };
+export type Navigated = { readonly taken: false } | { readonly taken: true; readonly redirect: number | null };

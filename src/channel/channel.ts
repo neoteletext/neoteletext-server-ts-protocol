@@ -1,4 +1,4 @@
-// A channel's applications in one program, on protocol version 2
+// A channel's applications in one program, on protocol version 3
 // (DEC-1482): one connection a browser tab, one selection a connection
 // (DEC-1527). Each `connected` and `selected` is answered with one
 // sub-page (answers.ts); what an application publishes is kept (copies.ts)
@@ -182,8 +182,8 @@ export class Channel implements ServerEvents {
     try {
       const navigated = this.#navigation.take(connection, input, entry ?? {}, view().links);
       if (navigated.taken) {
-        if (navigated.goto !== null) {
-          this.#sender.goto(connection, navigated.goto, ANY_SUB);
+        if (navigated.redirect !== null) {
+          this.#sender.redirect(connection, navigated.redirect, ANY_SUB);
         }
         return;
       }

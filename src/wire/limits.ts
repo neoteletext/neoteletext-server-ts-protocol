@@ -6,7 +6,7 @@
 import type { WireBudgets, WireStandard } from "./protocol.ts";
 
 /** The protocol's version, in `start` (DEC-1482). */
-export const PROTOCOL = 2;
+export const PROTOCOL = 3;
 
 /**
  * The longest line either side may send (docs/applications.md section 1):

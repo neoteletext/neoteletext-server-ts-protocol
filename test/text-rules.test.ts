@@ -47,8 +47,33 @@ function tripletLine(designation: number): unknown {
   return { type: "page", connections: [1], page: { ...PAGE, packets: [{ packet: "x27", designation, triplets: TRIPLETS }] } };
 }
 
-function goto(connection: number): unknown {
-  return { type: "goto", connection, page: "100", sub: "3F7F" };
+/** A redirect of connection 1 with `fields`. */
+function redirectWith(fields: object): unknown {
+  return { type: "redirect", connection: 1, ...fields };
+}
+
+test("REQ-1688: a redirect names a page and its sub-code, or an address, in the fault's own place", () => {
+  const address = "https://elsewhere.example/channel/#302";
+  assert.equal(checkProgram(redirectWith({ page: "100", sub: "3F7F" })), null);
+  assert.equal(checkProgram(redirectWith({ address })), null);
+  const faults: readonly (readonly [object, string, string])[] = [
+    [{}, "page", "missing_field"],
+    [{ sub: "3F7F" }, "page", "missing_field"],
+    [{ page: "100" }, "sub", "missing_field"],
+    [{ page: "100", sub: "3F7F", address }, "page", "unknown_field"],
+    [{ sub: "3F7F", address }, "sub", "unknown_field"],
+    [{ address: "" }, "address", "forbidden_character"],
+    [{ address: "https://elsewhere.example/a b" }, "address", "forbidden_character"],
+    [{ address: "https://élsewhere.example/" }, "address", "forbidden_character"],
+  ];
+  for (const [fields, path, rule] of faults) {
+    const fault = checkProgram(redirectWith(fields));
+    assert.deepEqual([fault?.path, fault?.rule], [path, rule], JSON.stringify(fields));
+  }
+});
+
+function redirect(connection: number): unknown {
+  return { type: "redirect", connection, page: "100", sub: "3F7F" };
 }
 
 function pageFor(connection: number): unknown {
@@ -141,12 +166,12 @@ test("REQ-1475: X/27 carries nibbles at designation codes 1 to 3 and triplets at
 
 test("REQ-1475: a connection's number is 1 to 2^53 less one, alone or named in a list", () => {
   for (const connection of [1, SAFE_LIMIT]) {
-    assert.equal(checkProgram(goto(connection)), null, `${connection}`);
+    assert.equal(checkProgram(redirect(connection)), null, `${connection}`);
     assert.equal(checkProgram(pageFor(connection)), null, `${connection}`);
   }
   for (const connection of [0, SAFE_LIMIT + 1]) {
-    assert.equal(checkProgram(goto(connection))?.path, "connection", `${connection}`);
-    assert.equal(checkProgram(goto(connection))?.rule, "out_of_range", `${connection}`);
+    assert.equal(checkProgram(redirect(connection))?.path, "connection", `${connection}`);
+    assert.equal(checkProgram(redirect(connection))?.rule, "out_of_range", `${connection}`);
     assert.equal(checkProgram(pageFor(connection))?.path, "connections[0]", `${connection}`);
     assert.equal(checkProgram(pageFor(connection))?.rule, "out_of_range", `${connection}`);
   }

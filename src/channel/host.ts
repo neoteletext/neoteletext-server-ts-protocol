@@ -96,17 +96,17 @@ function publishing(parts: HostParts): PublishingHost {
   };
 }
 
-type MessagingHost = Pick<Host, "goto" | "sound" | "authorLog" | "log" | "cookie" | "packets">;
+type MessagingHost = Pick<Host, "redirect" | "sound" | "authorLog" | "log" | "cookie" | "packets">;
 
 /** The messages an application sends to the connections it names. */
 function messaging(parts: HostParts): MessagingHost {
   const { app, connections, sender } = parts;
   return {
-    goto: (session, page, sub): void => {
+    redirect: (session, to, sub): void => {
       const current = parts.current();
       const named = current !== null && connections.get(current)?.session === session ? [current] : connections.ofSession(session);
       for (const connection of named) {
-        sender.goto(connection, page, sub ?? ANY_SUB);
+        sender.redirectTo(connection, to, sub ?? ANY_SUB);
       }
     },
     sound: (to, member): void => {

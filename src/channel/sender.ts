@@ -79,8 +79,17 @@ export class Sender {
   }
 
   /** Sends the connection to `page` and `sub`: a selection, which the server then tells the program of. */
-  goto(connection: number, page: number, sub: number): void {
-    this.send({ type: "goto", connection, page: pageText(page), sub: subText(sub) });
+  redirect(connection: number, page: number, sub: number): void {
+    this.send({ type: "redirect", connection, page: pageText(page), sub: subText(sub) });
+  }
+
+  /** Sends the connection's viewer to a page, or to another channel's address, which changes no selection (REQ-1688). */
+  redirectTo(connection: number, to: number | string, sub: number): void {
+    if (typeof to === "string") {
+      this.send({ type: "redirect", connection, address: to });
+    } else {
+      this.redirect(connection, to, sub);
+    }
   }
 
   /** Sends `build`'s message to the connections `to` names. */
@@ -114,7 +123,7 @@ export class Sender {
       if (state.sub === null || !copy.subpages.has(state.sub)) {
         // What it showed went: the page again, whose first sub-page then answers.
         state.sub = null;
-        this.goto(connection, page, ANY_SUB);
+        this.redirect(connection, page, ANY_SUB);
         continue;
       }
       if (change.changed.has(state.sub)) {

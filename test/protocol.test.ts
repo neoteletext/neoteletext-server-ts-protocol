@@ -1,4 +1,4 @@
-// Protocol version 2 (DEC-1482): the kit's types against the server's
+// Protocol version 3 (DEC-1482): the kit's types against the server's
 // schema, through the precompiled validators, and the channel's answers to
 // `connected` and `selected`, one sub-page each (REQ-1471, REQ-1472,
 // REQ-1501, REQ-1502, REQ-1503).
@@ -42,7 +42,7 @@ test("a valid value of each program message passes the server's schema", () => {
       ],
     },
     { type: "index", connections: [1], magazines: [] },
-    { type: "goto", connection: 1, page: "1A0", sub: "3F7F" },
+    { type: "redirect", connection: 1, page: "1A0", sub: "3F7F" },
     { type: "sound", connections: [1], kind: "stop", channel: 0, fade_ms: 0 },
     { type: "cookie", connection: 1, name: "seen", value: "1", path: "/", max_age: 60, same_site: "Lax", secure: true, http_only: true },
     { type: "author_log", connections: "all", level: "I", text: "hello", page: null },
@@ -63,7 +63,7 @@ test("what the server refuses is refused by the kit, with the path and the rule"
     [{ type: "subpages", connections: [1], page: "100", version: 0, subpages: [] }, "subpages", "too_short"],
     [{ type: "subpages", connections: [1], page: "100", version: 0, subpages: Array.from({ length: 8191 }, () => ({ sub: "0001" })) }, "subpages", "too_long"],
     [{ type: "subpages", connections: [1], page: "100", version: 0, subpages: [{ sub: "0001", title: "x".repeat(41) }] }, "subpages[0].title", "too_long"],
-    [{ type: "goto", connection: 1, page: "900", sub: "3F7F" }, "page", "wrong_type"],
+    [{ type: "redirect", connection: 1, page: "900", sub: "3F7F" }, "page", "wrong_type"],
     [{ type: "publish", page: "100" }, "type", "not_listed"],
   ];
   for (const [message, path, rule] of faults) {
@@ -87,10 +87,10 @@ test("a message that is not valid is never written", () => {
   });
   app.started(SERVER_LIMITS);
   assert.throws(() => {
-    app.send({ type: "goto", connection: 0, page: "100", sub: "3F7F" });
+    app.send({ type: "redirect", connection: 0, page: "100", sub: "3F7F" });
   }, ProtocolError);
   assert.deepEqual(lines, []);
-  app.send({ type: "goto", connection: 1, page: "100", sub: "3F7F" });
+  app.send({ type: "redirect", connection: 1, page: "100", sub: "3F7F" });
   assert.equal(lines.length, 1);
 });
 

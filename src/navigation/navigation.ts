@@ -31,7 +31,7 @@ const LAST_MAGAZINE = 8;
 
 const NOT_TAKEN: Navigated = { taken: false };
 
-const TAKEN: Navigated = { taken: true, goto: null };
+const TAKEN: Navigated = { taken: true, redirect: null };
 
 /** Each session's digits typed towards a page number. */
 export class Navigation {
@@ -48,7 +48,7 @@ export class Navigation {
     if (keys.ownsColourKeys !== true && input.kind === "key") {
       const link = COLOUR_KEYS.get(input.key);
       if (link !== undefined) {
-        return { taken: true, goto: input.action === "press" ? (links[link] ?? null) : null };
+        return { taken: true, redirect: input.action === "press" ? (links[link] ?? null) : null };
       }
     }
     if (keys.ownsDigits === true) {
@@ -59,11 +59,11 @@ export class Navigation {
       if (digits.length === 0 || digits.some((digit) => digit === undefined)) {
         return NOT_TAKEN;
       }
-      let goto: number | null = null;
+      let redirect: number | null = null;
       for (const digit of digits) {
-        goto = this.#digit(session, digit ?? 0) ?? goto;
+        redirect = this.#digit(session, digit ?? 0) ?? redirect;
       }
-      return { taken: true, goto };
+      return { taken: true, redirect };
     }
     // A digit's key, or the keypad's, whose text is its digit (INPUT.md section 5.7 rule 8).
     if (input.kind === "key" && (isCharacterKey(input.key) || input.text !== undefined)) {
@@ -71,7 +71,7 @@ export class Navigation {
       if (digit === undefined) {
         return NOT_TAKEN;
       }
-      return input.action === "press" ? { taken: true, goto: this.#digit(session, digit) } : TAKEN;
+      return input.action === "press" ? { taken: true, redirect: this.#digit(session, digit) } : TAKEN;
     }
     return NOT_TAKEN;
   }

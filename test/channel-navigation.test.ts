@@ -17,9 +17,9 @@ test("digits and colour keys navigate on a page that does not use them, and reac
   const harness = new Harness([index, games]);
   harness.join(1, 0x100);
   harness.typeText(1, "200");
-  assert.deepEqual(harness.gotos(1), [0x200]);
+  assert.deepEqual(harness.redirects(1), [0x200]);
   harness.press(1, Key.F2);
-  assert.deepEqual(harness.gotos(1), [0x200, 0x101], "green follows the page's green link");
+  assert.deepEqual(harness.redirects(1), [0x200, 0x101], "green follows the page's green link");
   assert.ok(
     index.heard.every((line) => !line.startsWith("input")),
     "navigation took them",
@@ -30,7 +30,7 @@ test("digits and colour keys navigate on a page that does not use them, and reac
   harness.open(1, 0x200);
   harness.typeText(1, "101");
   assert.equal(games.heard.at(-1), `input 1 200 {"kind":"text","text":"101"}`, "the page's own digits");
-  assert.deepEqual(harness.gotos(1), [0x200, 0x101]);
+  assert.deepEqual(harness.redirects(1), [0x200, 0x101]);
 });
 
 test("colour keys follow the links of the copy the viewer sees", () => {
@@ -47,7 +47,7 @@ test("colour keys follow the links of the copy the viewer sees", () => {
   harness.join(1, 0x100);
   harness.join(2, 0x100);
   harness.press(1, Key.Red);
-  assert.deepEqual(harness.gotos(1), [0x102]);
+  assert.deepEqual(harness.redirects(1), [0x102]);
   assert.ok(shows(harness.own(1, 0x100), "own"));
   assert.ok(shows(harness.shared(0x100), "shared"));
   harness.close(1);
@@ -84,7 +84,7 @@ test("a released copy leaves the viewer the channel's, its links with it", () =>
   assert.equal(harness.ownPages(1, 0x100), undefined);
   assert.ok(shows(harness.seen(1, 0x100).rows, "shared"));
   harness.press(1, Key.Red);
-  assert.deepEqual(harness.gotos(1), [0x101], "red follows the channel's link now");
+  assert.deepEqual(harness.redirects(1), [0x101], "red follows the channel's link now");
 });
 
 test("a click the page does not take follows the prompt or page number it is on", () => {
@@ -117,11 +117,11 @@ test("a click the page does not take follows the prompt or page number it is on"
   harness.clickLeft(1, 0, 1);
   harness.click(1, Button.Right, 6, 1);
   harness.move(1, Held.Left, 6, 1);
-  assert.deepEqual(harness.gotos(1), [0x200, 0x101], "the number, then the green prompt; never the page's own click, a right click or a move");
+  assert.deepEqual(harness.redirects(1), [0x200, 0x101], "the number, then the green prompt; never the page's own click, a right click or a move");
   assert.deepEqual(taken, ["press", "release"]);
   harness.open(1, 0x200);
   harness.clickLeft(1, 9, 3);
-  assert.deepEqual(harness.gotos(1).slice(2), [0x100], "a page published from TTI, its rows read back");
+  assert.deepEqual(harness.redirects(1).slice(2), [0x100], "a page published from TTI, its rows read back");
 });
 
 test("a page published from TTI keeps its Fastext links for the coloured keys", () => {
@@ -136,6 +136,23 @@ test("a page published from TTI keeps its Fastext links for the coloured keys", 
   harness.join(1, 0x601);
   harness.press(1, Key.Red);
   harness.press(1, Key.Blue);
-  assert.deepEqual(harness.gotos(1), [0x602, 0x600]);
+  assert.deepEqual(harness.redirects(1), [0x602, 0x600]);
   assert.deepEqual(harness.errors, []);
+});
+
+test("REQ-1688: a program may send a viewer to another channel, which changes no selection here", () => {
+  const away: Application = {
+    pages: () => [{ page: 0x100, title: "Front" }],
+    start: (context) => {
+      context.publish("channel", 0x100, screen("front", [null, null, null, null]));
+    },
+    opened: (session, _page, context) => {
+      context.redirect(session, "https://elsewhere.example/channel/");
+    },
+  };
+  const harness = new Harness([away]);
+  harness.join(1, 0x100);
+  assert.deepEqual(harness.addressRedirects(1), ["https://elsewhere.example/channel/"]);
+  assert.deepEqual(harness.redirects(1), [], "no page redirect");
+  assert.equal(harness.at(1), 0x100, "still where it was");
 });

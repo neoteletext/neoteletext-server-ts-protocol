@@ -35,7 +35,7 @@ export interface Host {
   release(session: number, page: number): void;
   titleOf(page: number): string | undefined;
   title(page: number, title: string): void;
-  goto(session: number, page: number, sub: number | null): void;
+  redirect(session: number, to: number | string, sub: number | null): void;
   sound(to: Audience, member: SoundMember): void;
   authorLog(to: Audience, level: WireAuthorLevel, text: string, page: number | null): void;
   log(text: string): void;
@@ -98,12 +98,16 @@ export class Context {
   }
 
   /**
-   * Sends the session's viewer to `page`, and sub-page `sub` when given
-   * (INPUT.md section 7.1): the connection the call came from when it is
-   * the session's, otherwise each of the session's connections.
+   * Sends the session's viewer elsewhere (INPUT.md section 7.11): to
+   * `page`, and sub-page `sub` when given, or to another channel's
+   * `address`, which the viewer's receiver shows a notice for and then
+   * opens by its own rules. It goes to the connection the call came from
+   * when it is the session's, otherwise each of the session's connections.
    */
-  goto(session: number, page: number, sub?: number): void {
-    this.#host.goto(session, page, sub ?? null);
+  redirect(session: number, page: number, sub?: number): void;
+  redirect(session: number, address: string): void;
+  redirect(session: number, to: number | string, sub?: number): void {
+    this.#host.redirect(session, to, sub ?? null);
   }
 
   /** The title the channel's index lists one of its pages under now, if it has the page. */

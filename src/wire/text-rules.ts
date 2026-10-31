@@ -3,7 +3,7 @@
 // crates/teletext-runtime/src/protocol/check.rs, REQ-1475 item 6): no
 // control and no bidirectional formatting character, Unicode normalisation
 // form C, a cookie's fields and an author's log line bounded in bytes, and
-// a cookie's name not the server's.
+// a cookie's name not the server's; and a redirect's one form.
 // Each field is checked in the order the server checks it, and a fault is
 // named at the path the server names it.
 
@@ -99,6 +99,34 @@ function subpagesFault(subpages: readonly WireSubPageEntry[]): Fault | null {
   return firstOf(subpages, (entry, index) => (entry.title === undefined || entry.title === null ? null : textFault(`subpages[${index}].title`, entry.title)));
 }
 
+/** The characters of an address in a redirect: printable ASCII with no space (the engine's records::redirect). */
+const ADDRESS_FIRST = 0x21;
+const ADDRESS_LAST = 0x7e;
+const REDIRECT_FORMS = "a redirect names a page and its sub-code, or an address";
+
+/** Whether an optional field was given. */
+function named(field: unknown): boolean {
+  return field !== undefined && field !== null;
+}
+
+/** A redirect names a page and its sub-code, or an address, in the order the server's check_redirect asks. */
+function redirectFault(message: Extract<ProgramMessage, { type: "redirect" }>): Fault | null {
+  if (!named(message.address)) {
+    if (!named(message.page)) {
+      return { path: "page", rule: "missing_field", detail: REDIRECT_FORMS };
+    }
+    return named(message.sub) ? null : { path: "sub", rule: "missing_field", detail: REDIRECT_FORMS };
+  }
+  for (const path of ["page", "sub"] as const) {
+    if (named(message[path])) {
+      return { path, rule: "unknown_field", detail: "a redirect names a page or an address, never both" };
+    }
+  }
+  const address = Buffer.from(message.address ?? "");
+  const printable = address.length > 0 && address.every((byte) => byte >= ADDRESS_FIRST && byte <= ADDRESS_LAST);
+  return printable ? null : { path: "address", rule: "forbidden_character", detail: "an address is printable ASCII with no space" };
+}
+
 /** The first fault of a message's text, which the schema has passed; null when it has none. */
 export function checkText(message: ProgramMessage): Fault | null {
   let fault: Fault | null;
@@ -138,7 +166,10 @@ export function checkText(message: ProgramMessage): Fault | null {
       fault = textFault("text", message.text);
       break;
     }
-    case "goto":
+    case "redirect": {
+      fault = redirectFault(message);
+      break;
+    }
     case "sound":
     case "packets": {
       fault = null;

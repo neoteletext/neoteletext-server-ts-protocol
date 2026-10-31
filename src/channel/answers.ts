@@ -81,7 +81,7 @@ export function answerConnected(
     parts.sender.list([connection], page, copy);
   } else {
     state.sub = null;
-    parts.sender.goto(connection, page, ANY_SUB);
+    parts.sender.redirect(connection, page, ANY_SUB);
   }
 }
 
@@ -94,7 +94,7 @@ export function answerSelected(parts: AnswerParts, connection: number, state: Co
     parts.errors(`selected ${pageText(page)}: no application has published it`);
   } else if (shown === undefined) {
     // A sub-page the page does not have: the page instead, whose first sub-page then answers.
-    parts.sender.goto(connection, page, ANY_SUB);
+    parts.sender.redirect(connection, page, ANY_SUB);
   } else {
     parts.sender.page([connection], page, shown, copy);
     if (sub === ANY_SUB || newPage) {
@@ -108,7 +108,7 @@ export function followClick(sender: Sender, connection: number, input: Input, vi
   if (clicked(input) && input.kind === "mouse") {
     const link = clickedLink(view, input.column, input.row);
     if (link !== null) {
-      sender.goto(connection, link, ANY_SUB);
+      sender.redirect(connection, link, ANY_SUB);
     }
   }
 }

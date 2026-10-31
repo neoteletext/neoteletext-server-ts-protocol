@@ -40,7 +40,7 @@ test("a coloured key follows the links of the sub-page the input names", () => {
   const harness = new Harness([twoSubPages]);
   harness.join(1, 0x100);
   harness.channel.input(1, 0x100, 2, { kind: "key", action: "press", key: Key.Red });
-  assert.deepEqual(harness.gotos(1), [0x102]);
+  assert.deepEqual(harness.redirects(1), [0x102]);
 });
 
 test("a selection of a sub-page the page lacks gets a reply with none, then the page", () => {
@@ -48,7 +48,7 @@ test("a selection of a sub-page the page lacks gets a reply with none, then the 
   harness.channel.connected(5, 5, { page: 0x100, sub: 0x0009 }, []);
   const reply = harness.sent.find((message) => message["type"] === "reply" && message["connection"] === 5);
   assert.equal(reply?.["selected"], null);
-  assert.deepEqual(harness.gotos(5), [0x100]);
+  assert.deepEqual(harness.redirects(5), [0x100]);
 });
 
 test("a selection of a page no application serves gets a reply with none, then the initial page", () => {
@@ -56,7 +56,7 @@ test("a selection of a page no application serves gets a reply with none, then t
   harness.channel.connected(6, 6, { page: 0x777, sub: ANY_SUB }, []);
   const reply = harness.sent.find((message) => message["type"] === "reply" && message["connection"] === 6);
   assert.equal(reply?.["selected"], null, "the server holds 777 as the selection, and would show this connection nothing else");
-  assert.deepEqual(harness.gotos(6), [0x100]);
+  assert.deepEqual(harness.redirects(6), [0x100]);
 });
 
 test("two copies of a page never give two lists the same version", () => {
@@ -91,6 +91,6 @@ test("the keys still select pages on a page the channel does not serve", () => {
   for (const digit of "200") {
     harness.channel.input(1, 0x777, ANY_SUB, { kind: "text", text: digit });
   }
-  assert.deepEqual(harness.gotos(1), [0x200]);
+  assert.deepEqual(harness.redirects(1), [0x200]);
   assert.deepEqual(harness.errors, []);
 });

@@ -1,4 +1,4 @@
-// Driving a channel as the server drives it, on protocol version 2, for
+// Driving a channel as the server drives it, on protocol version 3, for
 // tests: sessions that connect (one connection each, numbered as the
 // session), select pages, type, press keys, click and turn the wheel, a
 // clock the test moves, and what the program wrote, every line checked
@@ -62,7 +62,7 @@ export class Harness {
   #record(line: string): void {
     const message = parseSent(line);
     this.sent.push(message);
-    if (message["type"] === "goto" && typeof message["connection"] === "number") {
+    if (message["type"] === "redirect" && typeof message["connection"] === "number" && message["address"] === undefined) {
       const page = pageOf(message["page"]);
       if (page !== undefined) {
         this.#went.set(message["connection"], page);
@@ -260,8 +260,17 @@ export class Harness {
   }
 
   /** The pages `session`'s connection was sent to, in order. */
-  gotos(session: number): number[] {
-    return this.sent.filter((message) => message["type"] === "goto" && message["connection"] === session).map((message) => pageOf(message["page"]) ?? 0);
+  redirects(session: number): number[] {
+    return this.sent
+      .filter((message) => message["type"] === "redirect" && message["connection"] === session && message["address"] === undefined)
+      .map((message) => pageOf(message["page"]) ?? 0);
+  }
+
+  /** The addresses `session`'s connection was sent to, in order. */
+  addressRedirects(session: number): string[] {
+    return this.sent
+      .filter((message) => message["type"] === "redirect" && message["connection"] === session)
+      .flatMap((message) => (typeof message["address"] === "string" ? [message["address"]] : []));
   }
 
   /** The sound lines for `session`'s connection, in order. */
