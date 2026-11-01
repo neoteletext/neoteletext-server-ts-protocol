@@ -47,6 +47,10 @@ function tripletLine(designation: number): unknown {
   return { type: "page", connections: [1], page: { ...PAGE, packets: [{ packet: "x27", designation, triplets: TRIPLETS }] } };
 }
 
+function withCursor(row: number): unknown {
+  return { type: "page", connections: [1], page: { ...PAGE, cursor: { row, column: 0, block: false } } };
+}
+
 /** A redirect of connection 1 with `fields`. */
 function redirectWith(fields: object): unknown {
   return { type: "redirect", connection: 1, request: 1, ...fields };
@@ -95,6 +99,13 @@ function everyTextField(text: string): [unknown, string][] {
     [{ type: "log", level: "info", event: "application", text }, "text"],
   ];
 }
+
+test("the validators are the server's: a cursor on row 0 or 24 is refused, and one on rows 1 to 23 is not (INPUT.md section 7.1)", () => {
+  assert.equal(checkProgram(withCursor(1)), null);
+  assert.equal(checkProgram(withCursor(23)), null);
+  assert.notEqual(checkProgram(withCursor(0)), null);
+  assert.notEqual(checkProgram(withCursor(24)), null);
+});
 
 test("REQ-1475: text not in normalisation form C is refused not_nfc at its path, in every text field; the same text composed passes", () => {
   for (const [message, path] of everyTextField(`x${DECOMPOSED}`)) {

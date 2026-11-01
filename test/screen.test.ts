@@ -7,6 +7,8 @@ import {
   COLUMNS,
   CursorFlag,
   decimalSubcode,
+  FIRST_CURSOR_ROW,
+  LAST_CURSOR_ROW,
   mosaicColour,
   pageText,
   readTti,
@@ -146,6 +148,21 @@ test("the cursor is a CU line, and a page has no IM line: it asks for no input (
   assert.ok(!all.some((line) => line.startsWith("IM,")), all.join("\n"));
   const [read] = readTti(screen.toTti(0x201, 0));
   assert.deepEqual(read?.cursor, { row: 5, column: 14, flags: 4 });
+});
+
+test("a cursor stays on rows 1 to 23, which the server takes (INPUT.md section 7.1)", () => {
+  const screen = new Screen();
+  screen.cursor(FIRST_CURSOR_ROW, 0, 0);
+  screen.cursor(LAST_CURSOR_ROW, 0, 0);
+  for (const row of [FIRST_CURSOR_ROW - 1, LAST_CURSOR_ROW + 1]) {
+    assert.throws(
+      () => {
+        screen.cursor(row, 0, 0);
+      },
+      /INPUT\.md section 7\.1/u,
+      `row ${row}`,
+    );
+  }
 });
 
 test("several sub-pages are one TTI text, each from its PN line", () => {

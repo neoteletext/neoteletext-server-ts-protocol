@@ -4,7 +4,7 @@
 // teletext-server's crates/teletext-runtime/src/screen.rs.
 
 import { Attribute, Colour, textColour } from "./colours.ts";
-import { CursorFlag, type Cursor } from "./cursor.ts";
+import { CursorFlag, FIRST_CURSOR_ROW, LAST_CURSOR_ROW, type Cursor } from "./cursor.ts";
 import { type FastextLinks, NO_LINKS } from "./fastext.ts";
 import { CODE_MASK, COLUMNS, HEADER_TEXT_COLUMN, ROWS, SPACE } from "./geometry.ts";
 import { isPageNumber, pageText } from "./page-numbers.ts";
@@ -182,8 +182,10 @@ export class Screen {
 
   /** Places the cursor at `row`, `column`, with `flags` (INPUT.md section 7.1). */
   cursor(row: number, column: number, flags: number): void {
-    if (!within(row, ROWS - 1) || !within(column, COLUMNS - 1) || !within(flags, ALL_FLAGS) || (flags & ~ALL_FLAGS) !== 0) {
-      throw new RangeError(`cursor: row ${row}, column ${column} and flags ${flags} must be on the page`);
+    if (row < FIRST_CURSOR_ROW || !within(row, LAST_CURSOR_ROW) || !within(column, COLUMNS - 1) || !within(flags, ALL_FLAGS) || (flags & ~ALL_FLAGS) !== 0) {
+      throw new RangeError(
+        `cursor: row ${row}, column ${column} and flags ${flags} must be on rows ${FIRST_CURSOR_ROW} to ${LAST_CURSOR_ROW} of the page (INPUT.md section 7.1)`,
+      );
     }
     this.#cursor = { row, column, flags };
   }

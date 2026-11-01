@@ -30,7 +30,7 @@ export { decimalDigit } from "./input/decimal-digit.ts";
 export { ROWS, COLUMNS, HEADER_TEXT_COLUMN, SPACE } from "./page/geometry.ts";
 export { FIRST_PAGE, LAST_PAGE, pageText, isPageNumber } from "./page/page-numbers.ts";
 export { Colour, textColour, mosaicColour, Attribute } from "./page/colours.ts";
-export { CursorFlag } from "./page/cursor.ts";
+export { CursorFlag, FIRST_CURSOR_ROW, LAST_CURSOR_ROW } from "./page/cursor.ts";
 export type { Cursor } from "./page/cursor.ts";
 export { NO_LINKS } from "./page/fastext.ts";
 export type { FastextLinks } from "./page/fastext.ts";

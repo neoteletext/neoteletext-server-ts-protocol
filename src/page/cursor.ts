@@ -11,6 +11,10 @@ export const CursorFlag = {
   Block: 4,
 } as const;
 
+/** The rows a cursor may be on (INPUT.md section 7.1): the server refuses a page with one on the header or the Fastext row. */
+export const FIRST_CURSOR_ROW = 1;
+export const LAST_CURSOR_ROW = 23;
+
 /** The input cursor (INPUT.md section 7.1): its cell and its flags. */
 export interface Cursor {
   readonly row: number;
