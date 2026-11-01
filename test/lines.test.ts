@@ -52,6 +52,9 @@ test("a line too long, or not UTF-8, is dropped whole and reported", () => {
   assert.match(faults[1] ?? "", /UTF-8/u);
 });
 
+/** An event this test does not listen for. */
+const ignored = (): void => undefined;
+
 test("the line loop hands on each valid line, reports each bad one, and ends with its input", async () => {
   const input = new PassThrough();
   const errors: string[] = [];
@@ -81,6 +84,7 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
     refused: (refusal) => {
       heard.push(`refused ${refusal.rule}`);
     },
+    describe: ignored,
   };
   const served = serveLines(events, {
     input,
@@ -90,7 +94,7 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
     },
   });
   input.write(
-    '{"type":"start","protocol":6,"epoch_ms":5,"standard":{"magazines":8,"pages":2022,"pages_per_magazine":253,"pages_in_magazine_1":251,"keyable_pages":800,"subpages":8190,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120,"author_log_bytes":200,"log_characters":1000,"named_connections":4096,"reply_limit_ms":5000}}\n{"type":"connected","connection":3,"session":1,"request":1,"cookies":[],"selection":null}\nnonsense\n',
+    '{"type":"start","protocol":6,"epoch_ms":5,"standard":{"magazines":8,"pages":2022,"pages_per_magazine":253,"pages_in_magazine_1":251,"keyable_pages":800,"subpages":8190,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120,"author_log_bytes":200,"log_characters":1000,"named_connections":4096,"reply_limit_ms":5000,"description_text_characters":16000,"description_limit_ms":2000}}\n{"type":"connected","connection":3,"session":1,"request":1,"cookies":[],"selection":null}\nnonsense\n',
   );
   input.write(`${SELECTED_LINE}\n${FOCUS_LINE}\n`);
   input.write(`{"type":"stats","server":{"uptime_s":10},"channel":{"viewers":1}}\n${SELECTED_LINE.replace("}", ',"view":0}')}\n`);

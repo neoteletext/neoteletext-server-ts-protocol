@@ -11,9 +11,11 @@
 import type { Application, PageEntry } from "./application.ts";
 import { type AnswerParts, answerConnected, answerSelected, followClick, viewOf } from "./answers.ts";
 import { Applications } from "./applications.ts";
+import type { ChannelOptions, Clock } from "./channel-options.ts";
 import { type Connection, Connections } from "./connections.ts";
 import type { Context, Host } from "./context.ts";
 import { Copies, type Owner } from "./copies.ts";
+import { descriptionMessage } from "./description.ts";
 import { makeHost } from "./host.ts";
 import { type PageCalls, tellLeft, tellOpened, tellRequest, tellRequestEnded } from "./page-calls.ts";
 import { type PageRequest, cookiesByName, pageRequest } from "./request.ts";
@@ -32,18 +34,6 @@ import type { CookiePair, Refusal, Selection } from "../wire/server-message.ts";
 import type { ServerStats } from "../wire/stats.ts";
 
 export { ANY_SUB };
-
-/** The channel's clock: milliseconds since the program started, never going back. */
-export interface Clock {
-  now(): number;
-}
-
-export interface ChannelOptions {
-  readonly clock: Clock;
-  readonly seed: bigint;
-  /** Where a failing application is reported: standard error. */
-  readonly errors: (text: string) => void;
-}
 
 /** The request a selection of `path` with `query` makes on `state`. */
 function requestOf(state: Connection, path: string, query: string | null): PageRequest {
@@ -252,6 +242,11 @@ export class Channel implements ServerEvents {
     this.#each((application, context) => {
       application.stats?.(stats, context);
     });
+  }
+
+  /** A web visitor is at the page's address: its description, with no session in scope (REQ-1728). */
+  describe(page: number): void {
+    this.#app.send(descriptionMessage(page, this.#applications.describe(page), this.#copies.get("channel", page), this.#app.limits()));
   }
 
   refused(refusal: Refusal): void {

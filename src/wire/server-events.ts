@@ -29,6 +29,8 @@ export interface ServerEvents {
   stats(stats: ServerStats): void;
   /** A line the program sent was refused whole. */
   refused(refusal: Refusal): void;
+  /** A web visitor is at the page's address: answer with `description`. Nothing here says who, because nothing in the answer may depend on it (REQ-1728). */
+  describe(page: number): void;
 }
 
 export function dispatch(message: ServerMessage, events: ServerEvents): void {
@@ -63,6 +65,10 @@ export function dispatch(message: ServerMessage, events: ServerEvents): void {
     }
     case "refused": {
       events.refused(message.refusal);
+      return;
+    }
+    case "describe": {
+      events.describe(message.page);
     }
   }
 }

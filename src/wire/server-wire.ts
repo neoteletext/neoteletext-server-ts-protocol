@@ -20,6 +20,8 @@ export interface WireBudgets {
   readonly log_characters: number;
   readonly named_connections: number;
   readonly reply_limit_ms: number;
+  readonly description_text_characters: number;
+  readonly description_limit_ms: number;
 }
 
 export interface WireButtons {
@@ -85,4 +87,5 @@ export type WireServerMessage =
   | { readonly type: "left"; readonly connection: number; readonly page: WirePageNumber }
   | { readonly type: "closed"; readonly session: number }
   | { readonly type: "stats"; readonly server: unknown; readonly channel: unknown }
-  | { readonly type: "refused"; readonly message?: string | null; readonly path: string; readonly rule: string; readonly detail: string };
+  | { readonly type: "refused"; readonly message?: string | null; readonly path: string; readonly rule: string; readonly detail: string }
+  | { readonly type: "describe"; readonly page: WirePageNumber };

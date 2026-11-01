@@ -47,6 +47,10 @@ export interface Budgets {
   readonly namedConnections: number;
   /** How long the server waits for an answer to `connected` or `selected`, in milliseconds. */
   readonly replyLimitMs: number;
+  /** The longest text of a page's description, in characters. */
+  readonly descriptionTextCharacters: number;
+  /** How long the server waits for a page's description, in milliseconds. */
+  readonly descriptionLimitMs: number;
 }
 
 /** What `start` tells a program of the limits it works within. */
@@ -73,6 +77,8 @@ export function readLimits(standard: WireStandard, budgets: WireBudgets): Limits
       authorLogBytes: budgets.author_log_bytes,
       logCharacters: budgets.log_characters,
       namedConnections: budgets.named_connections,
+      descriptionTextCharacters: budgets.description_text_characters,
+      descriptionLimitMs: budgets.description_limit_ms,
       replyLimitMs: budgets.reply_limit_ms,
     },
   };

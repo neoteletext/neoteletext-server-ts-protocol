@@ -61,7 +61,9 @@ export type ServerMessage =
   | { readonly type: "left"; readonly connection: number; readonly page: number }
   | { readonly type: "closed"; readonly session: number }
   | { readonly type: "stats"; readonly stats: ServerStats }
-  | { readonly type: "refused"; readonly refusal: Refusal };
+  | { readonly type: "refused"; readonly refusal: Refusal }
+  /** A web visitor is at a page's address: the page number and nothing else (REQ-1728). */
+  | { readonly type: "describe"; readonly page: number };
 
 /** Whether `value` is a session as the protocol writes it: a whole number below 2^53. */
 export function isSession(value: unknown): value is number {
@@ -100,22 +102,26 @@ function statsOf(server: unknown, channel: unknown): ServerStats | string {
   return isObject(server) && isObject(channel) ? { server, channel } : "stats: server and channel are objects";
 }
 
+function connectedOf(message: Extract<WireServerMessage, { type: "connected" }>): ServerMessage {
+  const selection = message.selection ?? null;
+  return {
+    type: "connected",
+    connection: message.connection,
+    session: message.session,
+    request: message.request,
+    cookies: message.cookies,
+    selection: selection === null ? null : { page: pageOf(selection.page), sub: subOf(selection.sub) },
+    path: message.path ?? null,
+    query: message.query ?? null,
+  };
+}
+
 function messageOf(message: WireServerMessage): ServerMessage | string {
   if (message.type === "start") {
     return { type: "start", protocol: message.protocol, epochMs: message.epoch_ms, limits: readLimits(message.standard, message.budgets) };
   }
   if (message.type === "connected") {
-    const selection = message.selection ?? null;
-    return {
-      type: "connected",
-      connection: message.connection,
-      session: message.session,
-      request: message.request,
-      cookies: message.cookies,
-      selection: selection === null ? null : { page: pageOf(selection.page), sub: subOf(selection.sub) },
-      path: message.path ?? null,
-      query: message.query ?? null,
-    };
+    return connectedOf(message);
   }
   if (message.type === "selected") {
     return {
@@ -145,6 +151,9 @@ function messageOf(message: WireServerMessage): ServerMessage | string {
   if (message.type === "stats") {
     const stats = statsOf(message.server, message.channel);
     return typeof stats === "string" ? stats : { type: "stats", stats };
+  }
+  if (message.type === "describe") {
+    return { type: "describe", page: pageOf(message.page) };
   }
   return { type: "refused", refusal: { message: message.message ?? null, path: message.path, rule: message.rule, detail: message.detail } };
 }

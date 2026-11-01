@@ -1,6 +1,6 @@
 // A clock a test moves.
 
-import type { Clock } from "../channel/channel.ts";
+import type { Clock } from "../channel/channel-options.ts";
 
 export class ManualClock implements Clock {
   time = 0;

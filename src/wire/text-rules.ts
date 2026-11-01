@@ -95,6 +95,16 @@ function pageFault(path: string, page: WirePage): Fault | null {
   );
 }
 
+/** A description's title, text and sub-page, those it gives. */
+function descriptionFault(message: Extract<ProgramMessage, { type: "description" }>): Fault | null {
+  const { title, text, content } = message;
+  return (
+    (title === undefined || title === null ? null : textFault("title", title)) ??
+    (text === undefined || text === null ? null : textFault("text", text)) ??
+    (content === undefined || content === null ? null : pageFault("content", content))
+  );
+}
+
 function subpagesFault(subpages: readonly WireSubPageEntry[]): Fault | null {
   return firstOf(subpages, (entry, index) => (entry.title === undefined || entry.title === null ? null : textFault(`subpages[${index}].title`, entry.title)));
 }
@@ -132,6 +142,16 @@ function authorLogFault(text: string): Fault | null {
   return bytesFault("text", text, AUTHOR_LOG_BYTES) ?? textFault("text", text);
 }
 
+/** A cookie's fields, in the order the server's check_cookie asks. */
+function cookieMessageFault(message: Extract<ProgramMessage, { type: "cookie" }>): Fault | null {
+  return (
+    cookieFault("name", message.name) ??
+    (message.name.startsWith(SERVER_COOKIE_PREFIX) ? { path: "name", rule: "reserved", detail: "names starting _ are the server's" } : null) ??
+    cookieFault("value", message.value) ??
+    (message.path === undefined || message.path === null ? null : cookieFault("path", message.path))
+  );
+}
+
 /** The first fault of a message's text, which the schema has passed; null when it has none. */
 export function checkText(message: ProgramMessage): Fault | null {
   let fault: Fault | null;
@@ -155,11 +175,7 @@ export function checkText(message: ProgramMessage): Fault | null {
       break;
     }
     case "cookie": {
-      fault =
-        cookieFault("name", message.name) ??
-        (message.name.startsWith(SERVER_COOKIE_PREFIX) ? { path: "name", rule: "reserved", detail: "names starting _ are the server's" } : null) ??
-        cookieFault("value", message.value) ??
-        (message.path === undefined || message.path === null ? null : cookieFault("path", message.path));
+      fault = cookieMessageFault(message);
       break;
     }
     case "author_log": {
@@ -172,6 +188,10 @@ export function checkText(message: ProgramMessage): Fault | null {
     }
     case "redirect": {
       fault = redirectFault(message);
+      break;
+    }
+    case "description": {
+      fault = descriptionFault(message);
       break;
     }
     case "sound":

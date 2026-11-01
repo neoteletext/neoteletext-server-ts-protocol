@@ -18,6 +18,21 @@ export interface PageEntry extends PageKeys {
   readonly section?: string;
 }
 
+/**
+ * What a program says of one of its pages for the web (REQ-1728). A page is
+ * public only when its program gives this, and everything in it, and all the
+ * page shows, is then readable by anyone: its title and text are in the bytes
+ * of the page's address for anyone who looks.
+ */
+export interface PageDescription {
+  /** Marking a page public is never automatic: it is said, here, in so many words. */
+  readonly public: true;
+  /** Its title, plain text. */
+  readonly title: string;
+  /** Its text, plain text. */
+  readonly text: string;
+}
+
 /** A program behind some of a channel's pages. */
 export interface Application {
   /** The pages it serves, for the channel's contents and to route input. */
@@ -50,4 +65,11 @@ export interface Application {
   ended?(session: number, context: Context): void;
   /** The server's figures, every 10 seconds (docs/applications.md section 7), for a page to show. */
   stats?(stats: ServerStats, context: Context): void;
+  /**
+   * What `page` shows on the web, or nothing for a page that is not public,
+   * which is what an application without this method says of every page. It
+   * is given the page number and nothing else: no session and no context,
+   * because the answer goes to everyone, so it cannot hold one viewer's data.
+   */
+  describe?(page: number): PageDescription | null | undefined;
 }

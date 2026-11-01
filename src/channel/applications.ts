@@ -3,7 +3,7 @@
 // to wake, and each call into one, a failure reported and the channel
 // going on.
 
-import type { Application, PageEntry } from "./application.ts";
+import type { Application, PageDescription, PageEntry } from "./application.ts";
 import { channelIndex, isReserved } from "./channel-index.ts";
 import { Context, type Host } from "./context.ts";
 import type { Copies } from "./copies.ts";
@@ -98,6 +98,18 @@ export class Applications {
     const index = this.#owners.get(page);
     if (index !== undefined) {
       this.call(host, now, index, run);
+    }
+  }
+
+  /** What the application that serves `page` says of it for the web; a failure is reported, and the page is then not public. */
+  describe(page: number): PageDescription | null {
+    const index = this.#owners.get(page);
+    const application = index === undefined ? undefined : this.#applications[index];
+    try {
+      return application?.describe?.(page) ?? null;
+    } catch (error) {
+      this.#errors(`describing ${pageText(page)} failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
+      return null;
     }
   }
 

@@ -270,6 +270,7 @@ test("the server's lines reach the events with their path and query", () => {
     closed: ignored,
     stats: ignored,
     refused: ignored,
+    describe: ignored,
     connected: (_connection, _session, request, selection, _cookies, path, query) => {
       heard.push(["connected", request, selection, path, query]);
     },

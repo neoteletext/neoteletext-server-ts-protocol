@@ -1,7 +1,8 @@
 // A channel run as this process: the server's lines in, the program's out.
 
 import type { Application } from "./application.ts";
-import { Channel, type Clock } from "./channel.ts";
+import { Channel } from "./channel.ts";
+import type { Clock } from "./channel-options.ts";
 import { App } from "../wire/app.ts";
 import type { ServerEvents } from "../wire/server-events.ts";
 import { type Streams, processStreams, serveLines } from "../wire/streams.ts";
@@ -70,6 +71,10 @@ function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
     },
     refused(refusal): void {
       channel.refused(refusal);
+      schedule();
+    },
+    describe(page): void {
+      channel.describe(page);
       schedule();
     },
   };

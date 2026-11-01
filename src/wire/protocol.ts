@@ -1,4 +1,4 @@
-// The protocol's messages as they travel, version 5 (DEC-1482; the
+// The protocol's messages as they travel, version 6 (DEC-1482; the
 // server's docs/applications.md sections 2 and 3): hand-written to match
 // the server's published schema (schema/protocol-6.json), which the
 // precompiled validators check every message against (validate.ts), so the
@@ -211,6 +211,14 @@ export type ProgramMessage =
       readonly address?: string | null;
     }
   | { readonly type: "denied"; readonly connection: number; readonly request: number; readonly status: WireDeniedStatus }
+  | {
+      readonly type: "description";
+      readonly page: WirePageNumber;
+      readonly public: boolean;
+      readonly title?: string | null;
+      readonly text?: string | null;
+      readonly content?: WirePage | null;
+    }
   | ({ readonly type: "sound"; readonly connections: WireConnections } & WireSound)
   | {
       readonly type: "cookie";
