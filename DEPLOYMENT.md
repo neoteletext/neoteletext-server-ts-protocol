@@ -15,11 +15,6 @@ On a clean tree it runs the checks and the build, packs
 `tmp/release/neoteletext-server-ts-protocol-<version>.tgz` and tags the commit
 `v<version>`. A version already tagged is refused.
 
-`test/fixtures/hello.jsonl` must stay the same as teletext-server's
-`crates/teletext-native/tests/fixtures/kit-channel.jsonl`, which the
-server's end-to-end test replays (teletext-server's decision 13, item 3):
-a release that changes what the kit writes changes both.
-
 ## What the host needs
 
 A program that sends sound through `ffmpegOpus` runs ffmpeg built with
@@ -33,8 +28,10 @@ Each consumer commits the release under its own `vendor/`:
 - **neoteletext-server-ts-ui-components**, as its peer dependency and, for its
   tests, a development dependency (its `BUILD.md`, "A new release of the
   protocol"). It then releases a version built against this one.
-- **neoteletext-server-channels** (kitchensink and showcase) and
-  **neoteletext-server-channel-hackaday**, as a dependency:
+- **The four TypeScript channels,** neoteletext-server-channel-demosite,
+  neoteletext-server-channel-uicomponentsdemo,
+  neoteletext-server-channel-home-www.neoteletext.com and
+  neoteletext-server-channel-hackaday, as a dependency:
 
       cp tmp/release/neoteletext-server-ts-protocol-<version>.tgz <consumer>/vendor/
       git -C <consumer> rm vendor/neoteletext-server-ts-protocol-<old version>.tgz
@@ -50,6 +47,6 @@ The package exports `neoteletext-server-ts-protocol` and
 
 ## To the host
 
-teletext-server's `scripts/deploy.sh` copies neoteletext-server-channels
-to the host and runs `npm ci --omit=dev` there, which installs the release
-from its `vendor/`. That repository's `DEPLOYMENT.md` has the rest.
+neoteletext-app-server's `deploy/ionos/deploy.sh` copies the channels to the
+host and runs `npm ci --omit=dev` there, which installs the release from each
+one's `vendor/`.

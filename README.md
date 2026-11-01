@@ -21,7 +21,7 @@ the server that is not valid is reported and never acted on.
 The package is released as a built tarball, not to a registry. Commit the
 release under your `vendor/` and depend on it:
 
-    npm install ./vendor/neoteletext-server-ts-protocol-1.0.0.tgz
+    npm install --save-exact ./vendor/neoteletext-server-ts-protocol-<version>.tgz
 
 It needs Node 22.18 or later.
 
@@ -46,8 +46,8 @@ await runChannel([hello]);
 
 `runChannel` serves the server's lines and resolves when the server closes
 standard input. Each application is called with what happened (`start`,
-`joined`, `request`, `opened`, `leftPage`, `input`, `wake`, `ended`, `stats`) and
-answers through its `Context`: publish a page for everyone or for one
+`joined`, `request`, `opened`, `leftPage`, `input`, `wake`, `ended`, `stats`,
+`describe`) and answers through its `Context`: publish a page for everyone or for one
 viewer, send a viewer to a page, end a selection without a page (`deny`,
 with 403, 404, 429 or 503), retitle a page, play a sound, write to the
 viewer's console (`authorLog`) or the server's log, set a cookie, ask to be
@@ -62,6 +62,15 @@ the query as written, for when the repeats matter; `cookies` are those the
 connection opened with. It is called again when the query changes, and with
 null once a selection without one has left it behind, the viewer leaving
 the page included. All of it is untrusted, from the viewer.
+
+**A page is public only when a program says so** (REQ-1728). A web visitor at
+a page's address makes the server send `describe`, with the page number and
+nothing else. The kit answers with the application's `describe(page)`,
+`{ public: true, title, text }` for a page anyone may read, with the channel's
+copy of it, and otherwise says it is not public. The server also asks once
+when the program starts, for the page viewers arrive at, and the channel is
+ready at `/readyz` from the first answer: so a program answers as soon as it
+has loaded, and an application needs do nothing for that.
 
 **How the kit answers the server.** One connection is one browser tab,
 with one selection (DEC-1527). The kit keeps every page the applications
@@ -79,6 +88,11 @@ sub-code in ascending order, and answers the server for them:
   it); any other sub-code with that sub-page alone. A page selection also
   sends the page's `subpages` list. Nothing rotates: a page's sub-pages
   are sent one at a time, each only when it is selected.
+- A selection of a page no application has published is answered with
+  `denied` 404. An application ends a selection itself with
+  `context.deny(session, status)`, 403, 404, 429 or 503: from `request` or
+  `opened` that is the selection's answer in place of the page, and the
+  connection stays open.
 - A page published again sends each connection whose selection shows it
   the changed sub-page, to the connections named; a changed list sends the
   list again, and a changed count the index.
@@ -99,7 +113,7 @@ most 40 characters).
 
 - **Pages:** `Screen`, a page drawn as a terminal draws its screen (text
   and colour at a row and column, double height, backgrounds, Fastext and
-  index links, a cursor, and the Link Extension's `keyLink`, `numberLink`
+  index links, a cursor on rows 1 to 23, and the Link Extension's `keyLink`, `numberLink`
   and `textLink`), written as the typed sub-page the protocol carries
   (`Screen.content()`: rows as base64 of 40 seven-bit codes, the six
   links, the named control bits, the character set, enhancement packets,
