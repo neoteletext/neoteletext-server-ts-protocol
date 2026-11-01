@@ -5,8 +5,8 @@ reference kit of teletext-server's `docs/applications.md` section 5. A
 channel is a program the server starts; they talk in lines of JSON on its
 standard input and output. This package speaks protocol version 5
 (DEC-1482): every message in both directions is checked against the
-server's published JSON Schema (`schema/protocol-5.json`, the server's
-`protocol/schema-5.json`) by validators Ajv 8 compiles from it at build, in
+server's published JSON Schema (`schema/protocol-6.json`, the server's
+`protocol/schema-6.json`) by validators Ajv 8 compiles from it at build, in
 standalone mode, so nothing compiles a schema at run time, and then held
 to the server's rules of text the schema cannot state: no control or
 bidirectional formatting character, Unicode normalisation form C, and a

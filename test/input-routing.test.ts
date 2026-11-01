@@ -45,7 +45,7 @@ test("a coloured key follows the links of the sub-page the input names", () => {
 
 test("a selection of a sub-page the page lacks gets a reply with none, then the page", () => {
   const harness = new Harness([new Recorder([{ page: 0x100, title: "Index" }])]);
-  harness.channel.connected(5, 5, { page: 0x100, sub: 0x0009 }, []);
+  harness.channel.connected(5, 5, 1, { page: 0x100, sub: 0x0009 }, []);
   const reply = harness.sent.find((message) => message["type"] === "reply" && message["connection"] === 5);
   assert.equal(reply?.["selected"], null);
   assert.deepEqual(harness.redirects(5), [0x100]);
@@ -53,7 +53,7 @@ test("a selection of a sub-page the page lacks gets a reply with none, then the 
 
 test("a selection of a page no application serves gets a reply with none, then the initial page", () => {
   const harness = new Harness([new Recorder([{ page: 0x100, title: "Index" }])]);
-  harness.channel.connected(6, 6, { page: 0x777, sub: ANY_SUB }, []);
+  harness.channel.connected(6, 6, 1, { page: 0x777, sub: ANY_SUB }, []);
   const reply = harness.sent.find((message) => message["type"] === "reply" && message["connection"] === 6);
   assert.equal(reply?.["selected"], null, "the server holds 777 as the selection, and would show this connection nothing else");
   assert.deepEqual(harness.redirects(6), [0x100]);

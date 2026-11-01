@@ -1,6 +1,6 @@
 // The protocol's messages as they travel, version 5 (DEC-1482; the
 // server's docs/applications.md sections 2 and 3): hand-written to match
-// the server's published schema (schema/protocol-5.json), which the
+// the server's published schema (schema/protocol-6.json), which the
 // precompiled validators check every message against (validate.ts), so the
 // two cannot drift apart unnoticed: test/protocol.test.ts holds a valid
 // value of each type to the schema.
@@ -134,6 +134,8 @@ export interface WireSubPageEntry {
 export type WireAuthorLevel = "E" | "W" | "I";
 export type WireOperatorLevel = "error" | "warn" | "info" | "debug";
 export type WireSameSite = "Strict" | "Lax" | "None";
+/** What DENIED carries (the server's DENIED_STATUSES): 403 not allowed, 404 no such page, 429 a limit, 503 not answering. */
+export type WireDeniedStatus = 403 | 404 | 429 | 503;
 export type WireSampleRate = 8000 | 11025 | 16000 | 22050 | 24000 | 32000 | 44100 | 48000;
 
 /** A sound message's own fields, by its `kind`. */
@@ -182,11 +184,18 @@ export type WireSound =
 
 /** A message a program sends (the schema's $defs/ProgramMessage). */
 export type ProgramMessage =
-  | { readonly type: "reply"; readonly connection: number; readonly magazines: readonly WireMagazine[]; readonly selected?: WirePage | null }
-  | { readonly type: "page"; readonly connections: WireConnections; readonly page: WirePage }
+  | {
+      readonly type: "reply";
+      readonly connection: number;
+      readonly request: number;
+      readonly magazines: readonly WireMagazine[];
+      readonly selected?: WirePage | null;
+    }
+  | { readonly type: "page"; readonly connections: WireConnections; readonly request?: number | null; readonly page: WirePage }
   | {
       readonly type: "subpages";
       readonly connections: WireConnections;
+      readonly request?: number | null;
       readonly page: WirePageNumber;
       readonly version: number;
       readonly subpages: readonly WireSubPageEntry[];
@@ -195,10 +204,13 @@ export type ProgramMessage =
   | {
       readonly type: "redirect";
       readonly connection: number;
+      readonly request: number;
       readonly page?: WirePageNumber | null;
       readonly sub?: WireSubCode | null;
+      readonly query?: string | null;
       readonly address?: string | null;
     }
+  | { readonly type: "denied"; readonly connection: number; readonly request: number; readonly status: WireDeniedStatus }
   | ({ readonly type: "sound"; readonly connections: WireConnections } & WireSound)
   | {
       readonly type: "cookie";

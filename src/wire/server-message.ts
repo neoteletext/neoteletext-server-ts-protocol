@@ -37,6 +37,8 @@ export type ServerMessage =
       readonly type: "connected";
       readonly connection: number;
       readonly session: number;
+      /** The selection's number, which the answer carries back (DEC-1759 lesson 13). */
+      readonly request: number;
       readonly cookies: readonly CookiePair[];
       readonly selection: Selection | null;
       /** `selection`'s place, as an address names it (DEC-1730). */
@@ -47,6 +49,8 @@ export type ServerMessage =
   | {
       readonly type: "selected";
       readonly connection: number;
+      /** The selection's number, which the answer carries back (DEC-1759 lesson 13). */
+      readonly request: number;
       readonly selection: Selection;
       /** The place selected, as an address names it (DEC-1730). */
       readonly path: string;
@@ -106,6 +110,7 @@ function messageOf(message: WireServerMessage): ServerMessage | string {
       type: "connected",
       connection: message.connection,
       session: message.session,
+      request: message.request,
       cookies: message.cookies,
       selection: selection === null ? null : { page: pageOf(selection.page), sub: subOf(selection.sub) },
       path: message.path ?? null,
@@ -116,6 +121,7 @@ function messageOf(message: WireServerMessage): ServerMessage | string {
     return {
       type: "selected",
       connection: message.connection,
+      request: message.request,
       selection: { page: pageOf(message.page), sub: subOf(message.sub) },
       path: message.path,
       query: message.query ?? null,

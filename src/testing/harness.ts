@@ -42,6 +42,8 @@ export class Harness {
   /** What the channel reported on standard error. */
   readonly errors: string[] = [];
   readonly #open = new Map<number, number>();
+  /** The number of each connection's selection, as the server gives them. */
+  readonly #requests = new Map<number, number>();
   readonly #went = new Map<number, number>();
   /** How many changes of each page's shared copy were counted. */
   readonly #counted = new Map<number, number>();
@@ -80,7 +82,8 @@ export class Harness {
   join(session: number, page: number): void {
     this.#open.set(session, page);
     this.#went.delete(session);
-    this.channel.connected(session, session, { page, sub: ANY_SUB }, []);
+    this.#requests.set(session, 1);
+    this.channel.connected(session, session, 1, { page, sub: ANY_SUB }, []);
   }
 
   /** The session's connection selects `page`, or sub-page `sub` of it, leaving the page it had, as the server says. */
@@ -91,7 +94,9 @@ export class Harness {
     }
     this.#open.set(session, page);
     this.#went.delete(session);
-    this.channel.selected(session, { page, sub }, pathOf({ page, sub }), query);
+    const request = (this.#requests.get(session) ?? 0) + 1;
+    this.#requests.set(session, request);
+    this.channel.selected(session, request, { page, sub }, pathOf({ page, sub }), query);
   }
 
   /** The session's connection closes, and the session ends. */

@@ -59,6 +59,7 @@ export type WireServerMessage =
       readonly type: "connected";
       readonly connection: number;
       readonly session: number;
+      readonly request: number;
       readonly cookies: readonly { readonly name: string; readonly value: string }[];
       readonly selection?: WireSelection | null;
       readonly path?: string | null;
@@ -67,6 +68,7 @@ export type WireServerMessage =
   | {
       readonly type: "selected";
       readonly connection: number;
+      readonly request: number;
       readonly path: string;
       readonly page: WirePageNumber;
       readonly sub: WireSubCode;

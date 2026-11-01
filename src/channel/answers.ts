@@ -19,6 +19,8 @@ import type { WireMagazine } from "../wire/protocol.ts";
 
 /** The four Fastext links of X/27/0's six (EN 300 706 clause 9.6). */
 const FASTEXT_KEYS = 4;
+/** DENIED's status for a page the channel does not have (`INPUT.md` section 7.12). */
+const NOT_FOUND = 404;
 
 /** What an answer is made from. */
 export interface AnswerParts {
@@ -62,8 +64,10 @@ export function answerConnected(
   const shown = resolve(copy, sub);
   state.sub = shown ?? null;
   const magazines = parts.index();
+  const { request } = state;
   if (page === undefined || copy === undefined) {
-    parts.sender.send({ type: "reply", connection, magazines, selected: null });
+    parts.sender.send({ type: "reply", connection, request, magazines, selected: null });
+    parts.sender.send({ type: "denied", connection, request, status: NOT_FOUND });
     parts.errors(`connection ${connection}: no application has published ${page === undefined ? "a page" : pageText(page)}`);
     return;
   }
@@ -71,17 +75,17 @@ export function answerConnected(
   const listed = magazines.some((magazine) => magazine.pages.some((entry) => entry.page === text));
   const holds = asked === undefined || asked === page;
   if (shown !== undefined && listed && holds) {
-    parts.sender.send({ type: "reply", connection, magazines, selected: wirePage(page, shown, copy) });
-    parts.sender.list([connection], page, copy);
+    parts.sender.send({ type: "reply", connection, request, magazines, selected: wirePage(page, shown, copy) });
+    parts.sender.list([connection], page, copy, false, request);
     return;
   }
-  parts.sender.send({ type: "reply", connection, magazines, selected: null });
+  parts.sender.send({ type: "reply", connection, request, magazines, selected: null });
   if (shown !== undefined && asked === page) {
-    parts.sender.page([connection], page, shown, copy);
-    parts.sender.list([connection], page, copy);
+    parts.sender.page([connection], page, shown, copy, request);
+    parts.sender.list([connection], page, copy, false, request);
   } else {
     state.sub = null;
-    parts.sender.redirect(connection, page, ANY_SUB);
+    parts.sender.redirect(connection, page, ANY_SUB, asked === page ? state.query : null);
   }
 }
 
@@ -91,14 +95,15 @@ export function answerSelected(parts: AnswerParts, connection: number, state: Co
   const shown = resolve(copy, sub);
   state.sub = shown ?? null;
   if (copy === undefined) {
+    parts.sender.send({ type: "denied", connection, request: state.request, status: NOT_FOUND });
     parts.errors(`selected ${pageText(page)}: no application has published it`);
   } else if (shown === undefined) {
-    // A sub-page the page does not have: the page instead, whose first sub-page then answers.
-    parts.sender.redirect(connection, page, ANY_SUB);
+    // A sub-page the page does not have: the page instead, whose first sub-page then answers, with the query kept.
+    parts.sender.redirect(connection, page, ANY_SUB, state.query);
   } else {
-    parts.sender.page([connection], page, shown, copy);
+    parts.sender.page([connection], page, shown, copy, state.request);
     if (sub === ANY_SUB || newPage) {
-      parts.sender.list([connection], page, copy);
+      parts.sender.list([connection], page, copy, false, state.request);
     }
   }
 }

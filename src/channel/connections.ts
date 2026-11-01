@@ -11,8 +11,12 @@ export interface Connection {
   sub: number | null;
   /** The cookies it opened with, which every request of its selections carries (DEC-1730 item 8). */
   readonly cookies: Readonly<Record<string, string>>;
+  /** The number of its selection, which what answers it carries back (DEC-1759 lesson 13). */
+  request: number;
   /** The query of its selection (DEC-1730). */
   query: string | null;
+  /** Its page's application has been told of a request of its selection, and is to be told when it ends. */
+  requested: boolean;
   /** Its answer is being made: nothing else goes to it until that is sent. */
   pending: boolean;
 }
@@ -25,8 +29,8 @@ export class Connections {
     return this.#open.get(connection);
   }
 
-  add(connection: number, session: number, cookies: Readonly<Record<string, string>>): Connection {
-    const state: Connection = { session, page: null, sub: null, cookies, query: null, pending: true };
+  add(connection: number, session: number, request: number, cookies: Readonly<Record<string, string>>): Connection {
+    const state: Connection = { session, page: null, sub: null, request, cookies, query: null, requested: false, pending: true };
     this.#open.set(connection, state);
     return state;
   }

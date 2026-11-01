@@ -8,7 +8,7 @@ import { test } from "node:test";
 import { figure, LineSplitter, LONGEST_LINE, serveLines, type ServerEvents } from "../src/index.ts";
 
 /** The keyboard's focus coming to page 100, as the server writes it. */
-const SELECTED_LINE = '{"type":"selected","connection":3,"path":"100","page":"100","sub":"3F7F"}';
+const SELECTED_LINE = '{"type":"selected","connection":3,"request":2,"path":"100","page":"100","sub":"3F7F"}';
 const FOCUS_LINE = '{"type":"input","connection":3,"page":"100","sub":"3F7F","lost":false,"event":{"kind":"focus"}}';
 
 test("lines are split across chunks, a return before the newline dropped", () => {
@@ -60,10 +60,10 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
     start: (epochMs) => {
       heard.push(`start ${epochMs}`);
     },
-    connected: (connection, session, selection) => {
+    connected: (connection, session, _request, selection) => {
       heard.push(`connected ${connection} ${session} ${selection === null ? "none" : selection.page.toString(16)}`);
     },
-    selected: (connection, selection) => {
+    selected: (connection, _request, selection) => {
       heard.push(`selected ${connection} ${selection.page.toString(16)} ${selection.sub.toString(16)}`);
     },
     left: (connection, page) => {
@@ -90,7 +90,7 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
     },
   });
   input.write(
-    '{"type":"start","protocol":5,"epoch_ms":5,"standard":{"magazines":8,"pages":2022,"pages_per_magazine":253,"pages_in_magazine_1":251,"keyable_pages":800,"subpages":8190,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120,"author_log_bytes":200,"log_characters":1000,"named_connections":4096,"reply_limit_ms":5000}}\n{"type":"connected","connection":3,"session":1,"cookies":[],"selection":null}\nnonsense\n',
+    '{"type":"start","protocol":6,"epoch_ms":5,"standard":{"magazines":8,"pages":2022,"pages_per_magazine":253,"pages_in_magazine_1":251,"keyable_pages":800,"subpages":8190,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120,"author_log_bytes":200,"log_characters":1000,"named_connections":4096,"reply_limit_ms":5000}}\n{"type":"connected","connection":3,"session":1,"request":1,"cookies":[],"selection":null}\nnonsense\n',
   );
   input.write(`${SELECTED_LINE}\n${FOCUS_LINE}\n`);
   input.write(`{"type":"stats","server":{"uptime_s":10},"channel":{"viewers":1}}\n${SELECTED_LINE.replace("}", ',"view":0}')}\n`);

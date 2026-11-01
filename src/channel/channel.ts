@@ -1,4 +1,4 @@
-// A channel's applications in one program, on protocol version 5
+// A channel's applications in one program, on protocol version 6
 // (DEC-1482): one connection a browser tab, one selection a connection
 // (DEC-1527). Each `connected` and `selected` is answered with one
 // sub-page (answers.ts); what an application publishes is kept (copies.ts)
@@ -15,7 +15,7 @@ import { type Connection, Connections } from "./connections.ts";
 import type { Context, Host } from "./context.ts";
 import { Copies, type Owner } from "./copies.ts";
 import { makeHost } from "./host.ts";
-import { type PageCalls, tellLeft, tellOpened, tellRequest } from "./page-calls.ts";
+import { type PageCalls, tellLeft, tellOpened, tellRequest, tellRequestEnded } from "./page-calls.ts";
 import { type PageRequest, cookiesByName, pageRequest } from "./request.ts";
 import { Sender } from "./sender.ts";
 import { ANY_SUB, pathOf } from "./wire-page.ts";
@@ -45,9 +45,9 @@ export interface ChannelOptions {
   readonly errors: (text: string) => void;
 }
 
-/** The request a selection of `path` with `query` makes on `state`; none without a query. */
-function requestOf(state: Connection, path: string, query: string | null): PageRequest | null {
-  return query === null ? null : pageRequest(path, query, state.cookies);
+/** The request a selection of `path` with `query` makes on `state`. */
+function requestOf(state: Connection, path: string, query: string | null): PageRequest {
+  return pageRequest(path, query ?? "", state.cookies);
 }
 
 /** The channel: its applications, the sessions and connections it has, and every page it keeps. */
@@ -144,24 +144,28 @@ export class Channel implements ServerEvents {
   connected(
     connection: number,
     session: number,
+    request: number,
     selection: Selection | null,
     cookies: readonly CookiePair[],
     path: string | null = null,
     query: string | null = null,
   ): void {
     this.#applications.know(this.#sessions, session, this.#host, this.#clock.now());
-    const state = this.#connections.add(connection, session, cookiesByName(cookies));
+    const state = this.#connections.add(connection, session, request, cookiesByName(cookies));
     const asked = selection !== null && this.#entries.has(selection.page) ? selection : null;
     const page = asked?.page ?? this.#applications.initialPage();
     this.#answering(connection, () => {
       state.page = page ?? null;
-      tellRequest(this.#calls, state, asked === null ? null : requestOf(state, path ?? pathOf(asked), query));
+      if (page !== undefined) {
+        const made = asked === null ? requestOf(state, pathOf({ page, sub: ANY_SUB }), null) : requestOf(state, path ?? pathOf(asked), query);
+        tellRequest(this.#calls, state, made);
+      }
       tellOpened(this.#calls, connection, state);
       answerConnected(this.#answers, connection, state, page, asked?.sub ?? ANY_SUB, selection?.page);
     });
   }
 
-  selected(connection: number, selection: Selection, path: string, query: string | null = null): void {
+  selected(connection: number, request: number, selection: Selection, path: string, query: string | null = null): void {
     const state = this.#connections.get(connection);
     if (state === undefined) {
       this.#errors(`selected on connection ${connection}, which never connected`);
@@ -169,17 +173,18 @@ export class Channel implements ServerEvents {
     }
     const { page, sub } = selection;
     const newPage = state.page !== page;
+    state.request = request;
     this.#answering(connection, () => {
-      const request = requestOf(state, path, query);
+      const made = requestOf(state, path, query);
       if (newPage) {
-        tellRequest(this.#calls, state, null);
+        tellRequestEnded(this.#calls, state);
         tellLeft(this.#calls, connection, state);
         state.page = page;
         this.#navigation.reset(connection);
-        tellRequest(this.#calls, state, request);
+        tellRequest(this.#calls, state, made);
         tellOpened(this.#calls, connection, state);
       } else {
-        tellRequest(this.#calls, state, request);
+        tellRequest(this.#calls, state, made);
       }
       answerSelected(this.#answers, connection, state, page, sub, newPage);
     });
@@ -190,7 +195,7 @@ export class Channel implements ServerEvents {
     if (state?.page !== page) {
       return;
     }
-    tellRequest(this.#calls, state, null);
+    tellRequestEnded(this.#calls, state);
     tellLeft(this.#calls, connection, state);
     state.page = null;
     state.sub = null;

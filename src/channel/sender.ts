@@ -14,6 +14,8 @@ import type { Audience } from "../sound/members.ts";
 import type { App } from "../wire/app.ts";
 import type { ProgramMessage, WireConnections, WireMagazine } from "../wire/protocol.ts";
 
+/** The number a redirect carries for a connection this program does not hold, which the server drops: the protocol wants one. */
+const NO_CONNECTION_REQUEST = 1;
 /** A sub-page's title in its page's list: at most a row's 40 characters (REQ-1503). */
 const SUBPAGE_TITLE_CHARACTERS = 40;
 
@@ -45,15 +47,15 @@ export class Sender {
     return chunks;
   }
 
-  /** Sub-page `sub` of the copy to `connections`. */
-  page(connections: readonly number[], page: number, sub: number, copy: Copy): void {
+  /** Sub-page `sub` of the copy to `connections`; `request` is the one selection it answers, none for a change. */
+  page(connections: readonly number[], page: number, sub: number, copy: Copy, request: number | null = null): void {
     for (const chunk of this.#chunks(connections)) {
-      this.send({ type: "page", connections: chunk, page: wirePage(page, sub, copy) });
+      this.send({ type: "page", connections: chunk, request, page: wirePage(page, sub, copy) });
     }
   }
 
-  /** The page's sub-page list to `connections`, when the page has more than one sub-page or `always` (REQ-1503). */
-  list(connections: readonly number[], page: number, copy: Copy, always = false): void {
+  /** The page's sub-page list to `connections`, when the page has more than one sub-page or `always` (REQ-1503); `request` as for a sub-page. */
+  list(connections: readonly number[], page: number, copy: Copy, always = false, request: number | null = null): void {
     if (connections.length === 0 || copy.subpages.size === 0 || (copy.subpages.size < 2 && !always)) {
       return;
     }
@@ -62,7 +64,7 @@ export class Sender {
       return { sub: subText(sub), title: title === null ? null : fitText(title, SUBPAGE_TITLE_CHARACTERS) };
     });
     for (const chunk of this.#chunks(connections)) {
-      this.send({ type: "subpages", connections: chunk, page: pageText(page), version: copy.version, subpages });
+      this.send({ type: "subpages", connections: chunk, request, page: pageText(page), version: copy.version, subpages });
     }
   }
 
@@ -78,15 +80,20 @@ export class Sender {
     }
   }
 
-  /** Sends the connection to `page` and `sub`: a selection, which the server then tells the program of. */
-  redirect(connection: number, page: number, sub: number): void {
-    this.send({ type: "redirect", connection, page: pageText(page), sub: subText(sub) });
+  /** The number of the connection's selection, which a redirect moves. */
+  #request(connection: number): number {
+    return this.#connections.get(connection)?.request ?? NO_CONNECTION_REQUEST;
+  }
+
+  /** Sends the connection to `page` and `sub`, with a query it keeps: a selection, which the server then tells the program of. */
+  redirect(connection: number, page: number, sub: number, query: string | null = null): void {
+    this.send({ type: "redirect", connection, request: this.#request(connection), page: pageText(page), sub: subText(sub), query });
   }
 
   /** Sends the connection's viewer to a page, or to another channel's address, which changes no selection (REQ-1688). */
   redirectTo(connection: number, to: number | string, sub: number): void {
     if (typeof to === "string") {
-      this.send({ type: "redirect", connection, address: to });
+      this.send({ type: "redirect", connection, request: this.#request(connection), address: to });
     } else {
       this.redirect(connection, to, sub);
     }

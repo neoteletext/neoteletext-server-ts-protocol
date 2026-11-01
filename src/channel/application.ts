@@ -27,12 +27,10 @@ export interface Application {
   /** A session began: a viewer connected. */
   joined?(session: number, context: Context): void;
   /**
-   * The query of the viewer's selection of one of this application's pages
-   * changed, before the page opens: the request of the address selected, or
-   * null for that page once a selection without a query has left the last
-   * one behind, the viewer leaving it included. A selection with no query
-   * and none to leave behind is not heard, nor is one that only repeats the
-   * query, whatever its path (DEC-1730 item 9).
+   * The viewer made a selection of one of this application's pages, before
+   * the page opens: every selection, so that `request.path` is never stale,
+   * with no query as an empty one (DEC-1730 item 9, TODO-1731 item 4). Null
+   * for that page once the viewer leaves it.
    */
   request?(session: number, page: number, request: PageRequest | null, context: Context): void;
   /** The session's viewer opened one of this application's pages. */

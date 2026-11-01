@@ -127,6 +127,11 @@ function redirectFault(message: Extract<ProgramMessage, { type: "redirect" }>): 
   return printable ? null : { path: "address", rule: "forbidden_character", detail: "an address is printable ASCII with no space" };
 }
 
+/** The engine's log::check first, its bytes then its characters, then the form (the server's check_author_log). */
+function authorLogFault(text: string): Fault | null {
+  return bytesFault("text", text, AUTHOR_LOG_BYTES) ?? textFault("text", text);
+}
+
 /** The first fault of a message's text, which the schema has passed; null when it has none. */
 export function checkText(message: ProgramMessage): Fault | null {
   let fault: Fault | null;
@@ -158,8 +163,7 @@ export function checkText(message: ProgramMessage): Fault | null {
       break;
     }
     case "author_log": {
-      // The engine's log::check first, its bytes then its characters, then the form (the server's check_author_log).
-      fault = bytesFault("text", message.text, AUTHOR_LOG_BYTES) ?? textFault("text", message.text);
+      fault = authorLogFault(message.text);
       break;
     }
     case "log": {
@@ -171,7 +175,8 @@ export function checkText(message: ProgramMessage): Fault | null {
       break;
     }
     case "sound":
-    case "packets": {
+    case "packets":
+    case "denied": {
       fault = null;
       break;
     }

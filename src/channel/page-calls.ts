@@ -23,16 +23,29 @@ export function tellOpened(calls: PageCalls, connection: number, state: Connecti
   });
 }
 
-/** The connection's selection made this request, or none: the page's application is told when its query changes. */
-export function tellRequest(calls: PageCalls, state: Connection, request: PageRequest | null): void {
+/** The connection made a selection: the page's application is told of every one, so that `request.path` is never stale (TODO-1731 item 4). */
+export function tellRequest(calls: PageCalls, state: Connection, request: PageRequest): void {
   const { page, session } = state;
-  const query = request?.queryText ?? null;
-  if (page === null || query === state.query) {
+  if (page === null) {
     return;
   }
-  state.query = query;
+  state.query = request.queryText === "" ? null : request.queryText;
+  state.requested = true;
   calls.callOwner(page, (application, context) => {
     application.request?.(session, page, request, context);
+  });
+}
+
+/** The connection's selection left its page: the page's application is told its request ended. */
+export function tellRequestEnded(calls: PageCalls, state: Connection): void {
+  const { page, session, requested } = state;
+  state.query = null;
+  state.requested = false;
+  if (page === null || !requested) {
+    return;
+  }
+  calls.callOwner(page, (application, context) => {
+    application.request?.(session, page, null, context);
   });
 }
 

@@ -49,7 +49,7 @@ function tripletLine(designation: number): unknown {
 
 /** A redirect of connection 1 with `fields`. */
 function redirectWith(fields: object): unknown {
-  return { type: "redirect", connection: 1, ...fields };
+  return { type: "redirect", connection: 1, request: 1, ...fields };
 }
 
 test("REQ-1688: a redirect names a page and its sub-code, or an address, in the fault's own place", () => {
@@ -73,7 +73,7 @@ test("REQ-1688: a redirect names a page and its sub-code, or an address, in the 
 });
 
 function redirect(connection: number): unknown {
-  return { type: "redirect", connection, page: "100", sub: "3F7F" };
+  return { type: "redirect", connection, request: 1, page: "100", sub: "3F7F" };
 }
 
 function pageFor(connection: number): unknown {
@@ -106,6 +106,7 @@ test("REQ-1475: text not in normalisation form C is refused not_nfc at its path,
   const reply = {
     type: "reply",
     connection: 1,
+    request: 1,
     magazines: [{ magazine: 1, name: "News", pages: [{ page: "100", title: "Index", section: null, subpages: 1 }] }],
     selected: labelled(DECOMPOSED),
   };
