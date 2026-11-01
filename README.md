@@ -48,9 +48,10 @@ await runChannel([hello]);
 standard input. Each application is called with what happened (`start`,
 `joined`, `request`, `opened`, `leftPage`, `input`, `wake`, `ended`, `stats`) and
 answers through its `Context`: publish a page for everyone or for one
-viewer, send a viewer to a page, retitle a page, play a sound, write to
-the viewer's console (`authorLog`) or the server's log, set a cookie,
-ask to be woken.
+viewer, send a viewer to a page, end a selection without a page (`deny`,
+with 403, 404, 429 or 503), retitle a page, play a sound, write to the
+viewer's console (`authorLog`) or the server's log, set a cookie, ask to be
+woken.
 
 **A selection is a request** (DEC-1730). An address's query always comes
 with a selection, never with the connection, and `request` hears it before

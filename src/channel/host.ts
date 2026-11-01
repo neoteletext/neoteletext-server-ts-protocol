@@ -96,19 +96,37 @@ function publishing(parts: HostParts): PublishingHost {
   };
 }
 
-type MessagingHost = Pick<Host, "redirect" | "sound" | "authorLog" | "log" | "cookie" | "packets">;
+type SelectionHost = Pick<Host, "redirect" | "deny">;
 
-/** The messages an application sends to the connections it names. */
-function messaging(parts: HostParts): MessagingHost {
-  const { app, connections, sender } = parts;
+type MessagingHost = Pick<Host, "sound" | "authorLog" | "log" | "cookie" | "packets">;
+
+/** The connections a call about `session` means: the one it came from when that is the session's, otherwise each of the session's. */
+function sessionsConnections(parts: HostParts, session: number): number[] {
+  const current = parts.current();
+  return current !== null && parts.connections.get(current)?.session === session ? [current] : parts.connections.ofSession(session);
+}
+
+/** What an application does with a viewer's selection. */
+function selecting(parts: HostParts): SelectionHost {
+  const { sender } = parts;
   return {
     redirect: (session, to, sub): void => {
-      const current = parts.current();
-      const named = current !== null && connections.get(current)?.session === session ? [current] : connections.ofSession(session);
-      for (const connection of named) {
+      for (const connection of sessionsConnections(parts, session)) {
         sender.redirectTo(connection, to, sub ?? ANY_SUB);
       }
     },
+    deny: (session, status): void => {
+      for (const connection of sessionsConnections(parts, session)) {
+        sender.deny(connection, status);
+      }
+    },
+  };
+}
+
+/** The messages an application sends to the connections it names. */
+function messaging(parts: HostParts): MessagingHost {
+  const { app, sender } = parts;
+  return {
     sound: (to, member): void => {
       const fields = soundFields(member);
       sender.toAudience(to, (named) => ({ type: "sound", connections: named, ...fields }));
@@ -158,6 +176,7 @@ export function makeHost(parts: HostParts): Host {
     epochAtStart: parts.epochAtStart,
     wakeAt: parts.wakeAt,
     ...publishing(parts),
+    ...selecting(parts),
     ...messaging(parts),
     connection: parts.current,
     connectionsOf: (session): number[] => parts.connections.ofSession(session),

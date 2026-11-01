@@ -275,6 +275,7 @@ export class Channel implements ServerEvents {
       return;
     }
     state.pending = true;
+    state.denied = null;
     this.#current = connection;
     try {
       answer();

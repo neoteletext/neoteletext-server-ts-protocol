@@ -2,7 +2,7 @@
 // session and its one selection (DEC-1527), and what it was last sent.
 
 import type { Audience } from "../sound/members.ts";
-import type { WireConnections } from "../wire/protocol.ts";
+import type { WireConnections, WireDeniedStatus } from "../wire/protocol.ts";
 
 /** One browser tab showing the channel: its session, the page its selection is on and the sub-page it was sent. */
 export interface Connection {
@@ -19,6 +19,8 @@ export interface Connection {
   requested: boolean;
   /** Its answer is being made: nothing else goes to it until that is sent. */
   pending: boolean;
+  /** An application denied the selection being answered: the answer is this status, not a page. */
+  denied: WireDeniedStatus | null;
 }
 
 /** Every connection open, by its number. */
@@ -30,7 +32,7 @@ export class Connections {
   }
 
   add(connection: number, session: number, request: number, cookies: Readonly<Record<string, string>>): Connection {
-    const state: Connection = { session, page: null, sub: null, request, cookies, query: null, requested: false, pending: true };
+    const state: Connection = { session, page: null, sub: null, request, cookies, query: null, requested: false, pending: true, denied: null };
     this.#open.set(connection, state);
     return state;
   }

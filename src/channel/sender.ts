@@ -12,7 +12,7 @@ import { ANY_SUB, subText, wirePage } from "./wire-page.ts";
 import { pageText } from "../page/page-numbers.ts";
 import type { Audience } from "../sound/members.ts";
 import type { App } from "../wire/app.ts";
-import type { ProgramMessage, WireConnections, WireMagazine } from "../wire/protocol.ts";
+import type { ProgramMessage, WireConnections, WireDeniedStatus, WireMagazine } from "../wire/protocol.ts";
 
 /** The number a redirect carries for a connection this program does not hold, which the server drops: the protocol wants one. */
 const NO_CONNECTION_REQUEST = 1;
@@ -96,6 +96,19 @@ export class Sender {
       this.send({ type: "redirect", connection, request: this.#request(connection), address: to });
     } else {
       this.redirect(connection, to, sub);
+    }
+  }
+
+  /** Ends the connection's selection with `status`: as its answer when one is being made, which then holds no page, otherwise at once. */
+  deny(connection: number, status: WireDeniedStatus): void {
+    const state = this.#connections.get(connection);
+    if (state === undefined) {
+      return;
+    }
+    if (state.pending) {
+      state.denied = status;
+    } else {
+      this.send({ type: "denied", connection, request: state.request, status });
     }
   }
 

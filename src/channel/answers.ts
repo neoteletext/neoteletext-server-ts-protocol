@@ -65,6 +65,12 @@ export function answerConnected(
   state.sub = shown ?? null;
   const magazines = parts.index();
   const { request } = state;
+  if (state.denied !== null) {
+    state.sub = null;
+    parts.sender.send({ type: "reply", connection, request, magazines, selected: null });
+    parts.sender.send({ type: "denied", connection, request, status: state.denied });
+    return;
+  }
   if (page === undefined || copy === undefined) {
     parts.sender.send({ type: "reply", connection, request, magazines, selected: null });
     parts.sender.send({ type: "denied", connection, request, status: NOT_FOUND });
@@ -94,7 +100,10 @@ export function answerSelected(parts: AnswerParts, connection: number, state: Co
   const copy = parts.copies.seen(state.session, page);
   const shown = resolve(copy, sub);
   state.sub = shown ?? null;
-  if (copy === undefined) {
+  if (state.denied !== null) {
+    state.sub = null;
+    parts.sender.send({ type: "denied", connection, request: state.request, status: state.denied });
+  } else if (copy === undefined) {
     parts.sender.send({ type: "denied", connection, request: state.request, status: NOT_FOUND });
     parts.errors(`selected ${pageText(page)}: no application has published it`);
   } else if (shown === undefined) {

@@ -11,7 +11,7 @@ import type { Subpage } from "../page/subpage.ts";
 import type { Audience, SoundMember } from "../sound/members.ts";
 import type { App } from "../wire/app.ts";
 import type { Limits } from "../wire/limits.ts";
-import type { WireAuthorLevel, WireSameSite } from "../wire/protocol.ts";
+import type { WireAuthorLevel, WireDeniedStatus, WireSameSite } from "../wire/protocol.ts";
 
 /** A cookie's attributes (RFC 6265bis), each typed (docs/applications.md section 3). */
 export interface CookieOptions {
@@ -36,6 +36,7 @@ export interface Host {
   titleOf(page: number): string | undefined;
   title(page: number, title: string): void;
   redirect(session: number, to: number | string, sub: number | null): void;
+  deny(session: number, status: WireDeniedStatus): void;
   sound(to: Audience, member: SoundMember): void;
   authorLog(to: Audience, level: WireAuthorLevel, text: string, page: number | null): void;
   log(text: string): void;
@@ -108,6 +109,18 @@ export class Context {
   redirect(session: number, address: string): void;
   redirect(session: number, to: number | string, sub?: number): void {
     this.#host.redirect(session, to, sub ?? null);
+  }
+
+  /**
+   * Ends the viewer's selection without a page (`INPUT.md` section 7.12):
+   * 403 not allowed, 404 no such page, 429 a limit, 503 not answering. The
+   * viewer stays where they were and the connection stays open. It goes to
+   * the connection the call came from when it is the session's, otherwise
+   * each of the session's connections. Called from `request` or `opened`,
+   * it is the selection's answer, in place of the page.
+   */
+  deny(session: number, status: WireDeniedStatus): void {
+    this.#host.deny(session, status);
   }
 
   /** The title the channel's index lists one of its pages under now, if it has the page. */
