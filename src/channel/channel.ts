@@ -140,8 +140,9 @@ export class Channel implements ServerEvents {
     path: string | null = null,
     query: string | null = null,
   ): void {
-    this.#applications.know(this.#sessions, session, this.#host, this.#clock.now());
+    // Added first: what `joined` sends goes to the connections open.
     const state = this.#connections.add(connection, session, request, cookiesByName(cookies));
+    this.#applications.know(this.#sessions, session, this.#host, this.#clock.now());
     const asked = selection !== null && this.#entries.has(selection.page) ? selection : null;
     const page = asked?.page ?? this.#applications.initialPage();
     this.#answering(connection, () => {

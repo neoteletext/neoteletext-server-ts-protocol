@@ -162,3 +162,21 @@ test("random numbers are the runtime's xorshift64*", () => {
     assert.ok(random.below(3) < 3);
   }
 });
+
+test("what an application sends in `joined` reaches the viewer who joined", () => {
+  const greeter: Application = {
+    pages: (): PageEntry[] => [{ page: 0x100, title: "Index" }],
+    start: (context): void => {
+      context.publish("channel", 0x100, screen("index"));
+    },
+    joined: (session, context): void => {
+      context.sound({ session }, { play: { channel: 1, handle: 20, generation: 1, gain: 80, fadeMs: 5 } });
+    },
+  };
+  const harness = new Harness([greeter]);
+  harness.join(1, 0x100);
+  const sound = harness.sent.find((message) => message["type"] === "sound");
+  assert.deepEqual(sound?.["connections"], [1]);
+  const types = harness.sent.map((message) => message["type"]);
+  assert.ok(types.indexOf("sound") < types.indexOf("reply"), "it goes with the session's start, before the answer");
+});
