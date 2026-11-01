@@ -9,8 +9,10 @@ export interface Connection {
   readonly session: number;
   page: number | null;
   sub: number | null;
-  /** The page parameters of its selection (REQ-1693 item 6). */
-  parameters: string | null;
+  /** The cookies it opened with, which every request of its selections carries (DEC-1730 item 8). */
+  readonly cookies: Readonly<Record<string, string>>;
+  /** The query of its selection (DEC-1730). */
+  query: string | null;
   /** Its answer is being made: nothing else goes to it until that is sent. */
   pending: boolean;
 }
@@ -23,8 +25,8 @@ export class Connections {
     return this.#open.get(connection);
   }
 
-  add(connection: number, session: number): Connection {
-    const state: Connection = { session, page: null, sub: null, parameters: null, pending: true };
+  add(connection: number, session: number, cookies: Readonly<Record<string, string>>): Connection {
+    const state: Connection = { session, page: null, sub: null, cookies, query: null, pending: true };
     this.#open.set(connection, state);
     return state;
   }

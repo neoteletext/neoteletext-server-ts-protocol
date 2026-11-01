@@ -53,7 +53,7 @@ function redirectWith(fields: object): unknown {
 }
 
 test("REQ-1688: a redirect names a page and its sub-code, or an address, in the fault's own place", () => {
-  const address = "https://elsewhere.example/channel/#302";
+  const address = "https://elsewhere.example/channel/302";
   assert.equal(checkProgram(redirectWith({ page: "100", sub: "3F7F" })), null);
   assert.equal(checkProgram(redirectWith({ address })), null);
   const faults: readonly (readonly [object, string, string])[] = [

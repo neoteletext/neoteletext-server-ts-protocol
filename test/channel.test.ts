@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ANY_SUB, type Application, type PageEntry, Random } from "../src/index.ts";
+import { type Application, type PageEntry, Random } from "../src/index.ts";
 import { Harness, shows } from "../src/testing/index.ts";
 import { Recorder, screen } from "./recorder.ts";
 
@@ -161,66 +161,4 @@ test("random numbers are the runtime's xorshift64*", () => {
   for (let draw = 0; draw < 1_000; draw += 1) {
     assert.ok(random.below(3) < 3);
   }
-});
-
-test("an application hears the query of the address its viewer opened, as it came, before the page opens", () => {
-  const heard: string[] = [];
-  const application: Application = {
-    pages: () => [{ page: 0x100, title: "Index" }],
-    start: (context) => {
-      context.publish("channel", 0x100, screen("Index"));
-    },
-    query: (session, query) => {
-      heard.push(`query ${session} ${query}`);
-    },
-    opened: (session) => {
-      heard.push(`opened ${session}`);
-    },
-  };
-  const harness = new Harness([application]);
-  harness.channel.connected(1, 1, null, [], "id=7&b=%20x");
-  harness.channel.connected(2, 2, null, [], null);
-  assert.deepEqual(heard, ["query 1 id=7&b=%20x", "opened 1", "opened 2"]);
-});
-
-test("an application hears a selection's page parameters before the page opens, and when another selection leaves them behind", () => {
-  const heard: string[] = [];
-  const application: Application = {
-    pages: () => [0x100, 0x302, 0x303].map((page): PageEntry => ({ page, title: "Page" })),
-    start: (context) => {
-      for (const { page: number } of application.pages()) {
-        context.publish("channel", number, screen("Page"));
-      }
-    },
-    parameters: (session, number, parameters) => {
-      heard.push(`parameters ${session} ${number.toString(16)} ${parameters}`);
-    },
-    opened: (session, number) => {
-      heard.push(`opened ${session} ${number.toString(16)}`);
-    },
-  };
-  const harness = new Harness([application]);
-  harness.join(1, 0x100);
-  heard.length = 0;
-  harness.open(1, 0x302, ANY_SUB, "a=1&b=%20x");
-  harness.open(1, 0x302, ANY_SUB, "a=1&b=%20x");
-  harness.open(1, 0x302, ANY_SUB, "a=2");
-  harness.open(1, 0x303);
-  assert.deepEqual(heard, ["parameters 1 302 a=1&b=%20x", "opened 1 302", "parameters 1 302 a=2", "parameters 1 302 null", "opened 1 303"]);
-});
-
-test("a program that starts again hears the page parameters of a connection's selection", () => {
-  const heard: (string | null)[] = [];
-  const application: Application = {
-    pages: () => [{ page: 0x302, title: "Page" }],
-    start: (context) => {
-      context.publish("channel", 0x302, screen("Page"));
-    },
-    parameters: (_session, _page, parameters) => {
-      heard.push(parameters);
-    },
-  };
-  const harness = new Harness([application]);
-  harness.channel.connected(1, 1, { page: 0x302, sub: ANY_SUB }, [], null, "a=1");
-  assert.deepEqual(heard, ["a=1"]);
 });

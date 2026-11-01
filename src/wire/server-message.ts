@@ -39,12 +39,20 @@ export type ServerMessage =
       readonly session: number;
       readonly cookies: readonly CookiePair[];
       readonly selection: Selection | null;
-      /** The query of the address the viewer opened: untrusted text (REQ-1674). */
+      /** `selection`'s place, as an address names it (DEC-1730). */
+      readonly path: string | null;
+      /** The query of `selection`: untrusted text (DEC-1730). */
       readonly query: string | null;
-      /** The page parameters of `selection`: untrusted text (REQ-1693 item 6). */
-      readonly parameters: string | null;
     }
-  | { readonly type: "selected"; readonly connection: number; readonly selection: Selection; readonly parameters: string | null }
+  | {
+      readonly type: "selected";
+      readonly connection: number;
+      readonly selection: Selection;
+      /** The place selected, as an address names it (DEC-1730). */
+      readonly path: string;
+      /** The query of the address selected: untrusted text (DEC-1730). */
+      readonly query: string | null;
+    }
   | { readonly type: "input"; readonly connection: number; readonly page: number; readonly sub: number; readonly input: Input }
   | { readonly type: "left"; readonly connection: number; readonly page: number }
   | { readonly type: "closed"; readonly session: number }
@@ -100,8 +108,8 @@ function messageOf(message: WireServerMessage): ServerMessage | string {
       session: message.session,
       cookies: message.cookies,
       selection: selection === null ? null : { page: pageOf(selection.page), sub: subOf(selection.sub) },
+      path: message.path ?? null,
       query: message.query ?? null,
-      parameters: message.parameters ?? null,
     };
   }
   if (message.type === "selected") {
@@ -109,7 +117,8 @@ function messageOf(message: WireServerMessage): ServerMessage | string {
       type: "selected",
       connection: message.connection,
       selection: { page: pageOf(message.page), sub: subOf(message.sub) },
-      parameters: message.parameters ?? null,
+      path: message.path,
+      query: message.query ?? null,
     };
   }
   if (message.type === "input") {

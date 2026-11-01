@@ -77,6 +77,7 @@ export { OggOpusReader, oggCrc } from "./sound/ogg-opus.ts";
 export { pcmBase64, soundFields } from "./sound/sound-fields.ts";
 export { channelIndex, fitText, isReserved } from "./channel/channel-index.ts";
 export type { PageEntry, Application } from "./channel/application.ts";
+export type { PageRequest } from "./channel/request.ts";
 export { Random } from "./channel/random.ts";
 export { Context } from "./channel/context.ts";
 export type { CookieOptions } from "./channel/context.ts";

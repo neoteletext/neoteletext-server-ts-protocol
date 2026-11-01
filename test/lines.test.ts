@@ -8,6 +8,7 @@ import { test } from "node:test";
 import { figure, LineSplitter, LONGEST_LINE, serveLines, type ServerEvents } from "../src/index.ts";
 
 /** The keyboard's focus coming to page 100, as the server writes it. */
+const SELECTED_LINE = '{"type":"selected","connection":3,"path":"100","page":"100","sub":"3F7F"}';
 const FOCUS_LINE = '{"type":"input","connection":3,"page":"100","sub":"3F7F","lost":false,"event":{"kind":"focus"}}';
 
 test("lines are split across chunks, a return before the newline dropped", () => {
@@ -89,10 +90,10 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
     },
   });
   input.write(
-    '{"type":"start","protocol":4,"epoch_ms":5,"standard":{"magazines":8,"pages":2022,"pages_per_magazine":253,"pages_in_magazine_1":251,"keyable_pages":800,"subpages":8190,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120,"author_log_bytes":200,"log_characters":1000,"named_connections":4096,"reply_limit_ms":5000}}\n{"type":"connected","connection":3,"session":1,"cookies":[],"selection":null}\nnonsense\n',
+    '{"type":"start","protocol":5,"epoch_ms":5,"standard":{"magazines":8,"pages":2022,"pages_per_magazine":253,"pages_in_magazine_1":251,"keyable_pages":800,"subpages":8190,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120,"author_log_bytes":200,"log_characters":1000,"named_connections":4096,"reply_limit_ms":5000}}\n{"type":"connected","connection":3,"session":1,"cookies":[],"selection":null}\nnonsense\n',
   );
-  input.write(`{"type":"selected","connection":3,"page":"100","sub":"3F7F"}\n${FOCUS_LINE}\n`);
-  input.write('{"type":"stats","server":{"uptime_s":10},"channel":{"viewers":1}}\n{"type":"selected","connection":3,"page":"100","sub":"3F7F","view":0}\n');
+  input.write(`${SELECTED_LINE}\n${FOCUS_LINE}\n`);
+  input.write(`{"type":"stats","server":{"uptime_s":10},"channel":{"viewers":1}}\n${SELECTED_LINE.replace("}", ',"view":0}')}\n`);
   input.end('{"type":"left","connection":3,"page":"100"}\n{"type":"closed","session":1}');
   await served;
   assert.deepEqual(heard, ["start 5", "connected 3 1 none", "selected 3 100 3f7f", "input 3 100 focus", "stats 10", "left 3 100", "closed 1"]);

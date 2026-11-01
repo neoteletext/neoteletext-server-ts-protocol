@@ -1,4 +1,4 @@
-// Driving a channel as the server drives it, on protocol version 3, for
+// Driving a channel as the server drives it, on protocol version 5, for
 // tests: sessions that connect (one connection each, numbered as the
 // session), select pages, type, press keys, click and turn the wheel, a
 // clock the test moves, and what the program wrote, every line checked
@@ -14,6 +14,7 @@ import type { Cursor } from "../page/cursor.ts";
 import { ManualClock } from "./manual-clock.ts";
 import { isFor, last, pageOf, parseSent, type Sent } from "./sent.ts";
 import { ANY_SUB } from "../channel/channel.ts";
+import { pathOf } from "../channel/wire-page.ts";
 import type { Owner } from "../channel/copies.ts";
 import { type ReadPage, readBack } from "../page/content.ts";
 import type { Rows } from "../tti/read-tti.ts";
@@ -83,14 +84,14 @@ export class Harness {
   }
 
   /** The session's connection selects `page`, or sub-page `sub` of it, leaving the page it had, as the server says. */
-  open(session: number, page: number, sub: number = ANY_SUB, parameters: string | null = null): void {
+  open(session: number, page: number, sub: number = ANY_SUB, query: string | null = null): void {
     const before = this.#open.get(session);
     if (before !== undefined && before !== page) {
       this.channel.left(session, before);
     }
     this.#open.set(session, page);
     this.#went.delete(session);
-    this.channel.selected(session, { page, sub }, parameters);
+    this.channel.selected(session, { page, sub }, pathOf({ page, sub }), query);
   }
 
   /** The session's connection closes, and the session ends. */

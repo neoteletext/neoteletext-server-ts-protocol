@@ -3,10 +3,10 @@
 The NeoTeletext server's channel protocol for programs in TypeScript: the
 reference kit of teletext-server's `docs/applications.md` section 5. A
 channel is a program the server starts; they talk in lines of JSON on its
-standard input and output. This package speaks protocol version 4
+standard input and output. This package speaks protocol version 5
 (DEC-1482): every message in both directions is checked against the
-server's published JSON Schema (`schema/protocol-4.json`, the server's
-`protocol/schema-4.json`) by validators Ajv 8 compiles from it at build, in
+server's published JSON Schema (`schema/protocol-5.json`, the server's
+`protocol/schema-5.json`) by validators Ajv 8 compiles from it at build, in
 standalone mode, so nothing compiles a schema at run time, and then held
 to the server's rules of text the schema cannot state: no control or
 bidirectional formatting character, Unicode normalisation form C, and a
@@ -46,11 +46,21 @@ await runChannel([hello]);
 
 `runChannel` serves the server's lines and resolves when the server closes
 standard input. Each application is called with what happened (`start`,
-`joined`, `query`, `parameters`, `opened`, `leftPage`, `input`, `wake`, `ended`, `stats`) and
+`joined`, `request`, `opened`, `leftPage`, `input`, `wake`, `ended`, `stats`) and
 answers through its `Context`: publish a page for everyone or for one
 viewer, send a viewer to a page, retitle a page, play a sound, write to
 the viewer's console (`authorLog`) or the server's log, set a cookie,
 ask to be woken.
+
+**A selection is a request** (DEC-1730). An address's query always comes
+with a selection, never with the connection, and `request` hears it before
+the page opens, as `{ method: "GET", path: "302/0002", query: { a: "1" },
+queryText: "a=1", cookies: { ... } }`: `PageRequest`. `query` is what
+`URLSearchParams` reads, the last value of a name given twice; `queryText` is
+the query as written, for when the repeats matter; `cookies` are those the
+connection opened with. It is called again when the query changes, and with
+null once a selection without one has left it behind, the viewer leaving
+the page included. All of it is untrusted, from the viewer.
 
 **How the kit answers the server.** One connection is one browser tab,
 with one selection (DEC-1527). The kit keeps every page the applications

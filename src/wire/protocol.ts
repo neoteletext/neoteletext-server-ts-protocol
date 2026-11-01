@@ -1,6 +1,6 @@
-// The protocol's messages as they travel, version 4 (DEC-1482; the
+// The protocol's messages as they travel, version 5 (DEC-1482; the
 // server's docs/applications.md sections 2 and 3): hand-written to match
-// the server's published schema (schema/protocol-4.json), which the
+// the server's published schema (schema/protocol-5.json), which the
 // precompiled validators check every message against (validate.ts), so the
 // two cannot drift apart unnoticed: test/protocol.test.ts holds a valid
 // value of each type to the schema.

@@ -61,15 +61,16 @@ export type WireServerMessage =
       readonly session: number;
       readonly cookies: readonly { readonly name: string; readonly value: string }[];
       readonly selection?: WireSelection | null;
+      readonly path?: string | null;
       readonly query?: string | null;
-      readonly parameters?: string | null;
     }
   | {
       readonly type: "selected";
       readonly connection: number;
+      readonly path: string;
       readonly page: WirePageNumber;
       readonly sub: WireSubCode;
-      readonly parameters?: string | null;
+      readonly query?: string | null;
     }
   | {
       readonly type: "input";

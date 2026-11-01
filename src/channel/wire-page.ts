@@ -15,6 +15,11 @@ export function subText(sub: number): string {
   return hex(sub, SUBCODE_DIGITS);
 }
 
+/** A selection as an address names its place: `302`, or `302/0002` for one sub-page. */
+export function pathOf({ page, sub }: { readonly page: number; readonly sub: number }): string {
+  return sub === ANY_SUB ? pageText(page) : `${pageText(page)}/${subText(sub)}`;
+}
+
 /** Sub-page `sub` of the copy as the protocol carries it; blank if the copy has none of that sub-code. */
 export function wirePage(page: number, sub: number, copy: Copy): WirePage {
   const content = copy.subpages.get(sub)?.content ?? blankContent();

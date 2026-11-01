@@ -5,6 +5,7 @@
 // (docs/applications.md section 4).
 
 import { Context } from "./context.ts";
+import type { PageRequest } from "./request.ts";
 import type { Input } from "../input/input.ts";
 import type { PageKeys } from "../navigation/page-keys.ts";
 import type { ServerStats } from "../wire/stats.ts";
@@ -26,20 +27,14 @@ export interface Application {
   /** A session began: a viewer connected. */
   joined?(session: number, context: Context): void;
   /**
-   * The session's viewer opened the channel at an address with a query,
-   * given without its `?`, before any page opens. It is untrusted text from
-   * the viewer, undecoded, and may be anything printable (REQ-1674).
+   * The query of the viewer's selection of one of this application's pages
+   * changed, before the page opens: the request of the address selected, or
+   * null for that page once a selection without a query has left the last
+   * one behind, the viewer leaving it included. A selection with no query
+   * and none to leave behind is not heard, nor is one that only repeats the
+   * query, whatever its path (DEC-1730 item 9).
    */
-  query?(session: number, query: string, context: Context): void;
-  /**
-   * The page parameters of the viewer's selection of one of this
-   * application's pages changed, before the page opens: those of the address
-   * selected, given without their `?`, or null for that page once a
-   * selection without them has left them behind, the viewer leaving it
-   * included. They are untrusted text from the viewer, undecoded, and may be
-   * anything printable but `#` (REQ-1693 item 6).
-   */
-  parameters?(session: number, page: number, parameters: string | null, context: Context): void;
+  request?(session: number, page: number, request: PageRequest | null, context: Context): void;
   /** The session's viewer opened one of this application's pages. */
   opened?(session: number, page: number, context: Context): void;
   /** The session's viewer left one of this application's pages. */

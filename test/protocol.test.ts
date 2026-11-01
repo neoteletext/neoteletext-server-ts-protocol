@@ -1,4 +1,4 @@
-// Protocol version 3 (DEC-1482): the kit's types against the server's
+// Protocol version 5 (DEC-1482): the kit's types against the server's
 // schema, through the precompiled validators, and the channel's answers to
 // `connected` and `selected`, one sub-page each (REQ-1471, REQ-1472,
 // REQ-1501, REQ-1502, REQ-1503).
@@ -76,8 +76,8 @@ test("what the server refuses is refused by the kit, with the path and the rule"
     null,
     "8,190 sub-pages are the schema's bound",
   );
-  assert.equal(checkServer({ type: "selected", connection: 1, page: "100", sub: "3F7F" }), null);
-  assert.equal(checkServer({ type: "selected", connection: 1, page: "100", sub: "3F7F", view: 0 })?.rule, "unknown_field");
+  assert.equal(checkServer({ type: "selected", connection: 1, path: "100", page: "100", sub: "3F7F" }), null);
+  assert.equal(checkServer({ type: "selected", connection: 1, path: "100", page: "100", sub: "3F7F", view: 0 })?.rule, "unknown_field");
 });
 
 test("a message that is not valid is never written", () => {
