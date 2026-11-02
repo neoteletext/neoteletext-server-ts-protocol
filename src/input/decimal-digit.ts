@@ -10,7 +10,7 @@ const DECIMAL_DIGIT = /^\p{Nd}$/u;
 
 /**
  * The value of a decimal digit of any script, Unicode's general category
- * Nd (INPUT.md section 5.7 rule 8), or undefined for any other
+ * Nd (DOC-1937), or undefined for any other
  * character. Every Nd character is one of a run of ten, zero to nine in
  * order, and runs that touch begin at a zero, so a digit's value is its
  * distance from the start of its range, modulo ten.

@@ -99,7 +99,7 @@ export class Context {
   }
 
   /**
-   * Sends the session's viewer elsewhere (INPUT.md section 7.11): to
+   * Sends the session's viewer elsewhere (DOC-1960): to
    * `page`, and sub-page `sub` when given, or to another channel's
    * `address`, which the viewer's receiver shows a notice for and then
    * opens by its own rules. It goes to the connection the call came from
@@ -112,7 +112,7 @@ export class Context {
   }
 
   /**
-   * Ends the viewer's selection without a page (`INPUT.md` section 7.12):
+   * Ends the viewer's selection without a page (DOC-1961):
    * 403 not allowed, 404 no such page, 429 a limit, 503 not answering. The
    * viewer stays where they were and the connection stays open. It goes to
    * the connection the call came from when it is the session's, otherwise
@@ -153,7 +153,7 @@ export class Context {
     this.#host.cookie(connection, name, value, options);
   }
 
-  /** Raw packets, whole 42-byte packets back to back (`SERVER.md` section 7.4). */
+  /** Raw packets, whole 42-byte packets back to back (DOC-1970). */
   packets(to: Audience, packets: Uint8Array): void {
     this.#host.packets(to, packets);
   }

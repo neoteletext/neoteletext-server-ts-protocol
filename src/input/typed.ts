@@ -1,11 +1,11 @@
-// What an input typed. Typing comes two ways (INPUT.md sections 5.3 and
-// 6.3): a key's press carries the text it produced, and raw text carries
+// What an input typed. Typing comes two ways (DOC-1930 and DOC-1935):
+// a key's press carries the text it produced, and raw text carries
 // what no key did; a paste is data, never typing.
 
 import type { Input } from "./input.ts";
 import type { KeyAction } from "./keys.ts";
 
-/** Control characters, C0, DEL and C1 (Unicode's `Cc`): never text (INPUT.md section 5.3). */
+/** Control characters, C0, DEL and C1 (Unicode's `Cc`): never text (DOC-1930). */
 export const CONTROL_CHARACTER = /\p{Cc}/u;
 
 /** The text a key's press or repeat produced, if it typed any: a release types nothing, and a key whose text is a control character (Enter, Tab) is a key, not typing. */
@@ -14,8 +14,8 @@ export function keyText(action: KeyAction, text: string | undefined): string | u
 }
 
 /**
- * The text this input typed, if any. Typing comes two ways (INPUT.md
- * sections 5.3 and 6.3): a key's press or repeat carries the text it
+ * The text this input typed, if any. Typing comes two ways (DOC-1930 and DOC-1935):
+ * a key's press or repeat carries the text it
  * produced, and raw text carries what no key did, an input method's or a
  * phone's. A paste is data, never typing.
  */

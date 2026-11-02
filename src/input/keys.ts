@@ -1,9 +1,8 @@
-// Keys as the server names them: W3C `KeyboardEvent.key` names (INPUT.md
-// section 5.6).
+// Keys as the server names them: W3C `KeyboardEvent.key` names (DOC-1936).
 
 import type { Input } from "./input.ts";
 
-/** Key names: W3C `KeyboardEvent.key` names, as INPUT.md section 5.6 names the functional keys. */
+/** Key names: W3C `KeyboardEvent.key` names, as DOC-1936 names the functional keys. */
 export const Key = {
   Up: "ArrowUp",
   Down: "ArrowDown",

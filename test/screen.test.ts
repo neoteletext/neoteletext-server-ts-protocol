@@ -140,7 +140,7 @@ test("a page with no links has no FL line unless its row 24 is to show", () => {
   assert.ok(lines(screen, 0x100, 0).includes("FL,8FF,8FF,8FF,8FF,8FF,8FF"));
 });
 
-test("the cursor is a CU line, and a page has no IM line: it asks for no input (INPUT.md section 6.3)", () => {
+test("the cursor is a CU line, and a page has no IM line: it asks for no input (DOC-1922)", () => {
   const screen = new Screen();
   screen.cursor(5, 14, CursorFlag.Block);
   const all = lines(screen, 0x201, 0);
@@ -150,7 +150,7 @@ test("the cursor is a CU line, and a page has no IM line: it asks for no input (
   assert.deepEqual(read?.cursor, { row: 5, column: 14, flags: 4 });
 });
 
-test("a cursor stays on rows 1 to 23, which the server takes (INPUT.md section 7.1)", () => {
+test("a cursor stays on rows 1 to 23, which the server takes (DOC-1954)", () => {
   const screen = new Screen();
   screen.cursor(FIRST_CURSOR_ROW, 0, 0);
   screen.cursor(LAST_CURSOR_ROW, 0, 0);
@@ -159,7 +159,7 @@ test("a cursor stays on rows 1 to 23, which the server takes (INPUT.md section 7
       () => {
         screen.cursor(row, 0, 0);
       },
-      /INPUT\.md section 7\.1/u,
+      /DOC-1954/u,
       `row ${row}`,
     );
   }

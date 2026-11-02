@@ -19,7 +19,7 @@ import type { WireMagazine } from "../wire/protocol.ts";
 
 /** The four Fastext links of X/27/0's six (EN 300 706 clause 9.6). */
 const FASTEXT_KEYS = 4;
-/** DENIED's status for a page the channel does not have (`INPUT.md` section 7.12). */
+/** DENIED's status for a page the channel does not have (DOC-1961). */
 const NOT_FOUND = 404;
 
 /** What an answer is made from. */

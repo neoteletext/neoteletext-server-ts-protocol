@@ -74,7 +74,7 @@ test("presses, releases and characters are as the runtime's Input reads them", (
   assert.equal(character({ kind: "paste", text: "a" }), undefined);
 });
 
-test("typing comes from a key's press or repeat with its text, and from raw text, never a paste (INPUT.md section 6.3)", () => {
+test("typing comes from a key's press or repeat with its text, and from raw text, never a paste (DOC-1930 and DOC-1935)", () => {
   assert.equal(typed({ kind: "key", action: "press", key: "e", text: "\u00E9" }), "\u00E9", "a dead key's composed character");
   assert.equal(typed({ kind: "key", action: "press", key: "e", text: "\u00B4e" }), "\u00B4e", "a dead key that did not compose: both characters");
   assert.equal(typed({ kind: "text", text: "\u4F60\u597D" }), "\u4F60\u597D", "an input method's committed text");
@@ -83,7 +83,7 @@ test("typing comes from a key's press or repeat with its text, and from raw text
   assert.equal(typed({ kind: "paste", text: "a" }), undefined);
 });
 
-test("the decimal digits of every script are 0 to 9 (INPUT.md section 5.7 rule 8)", () => {
+test("the decimal digits of every script are 0 to 9 (DOC-1937)", () => {
   assert.equal(decimalDigit("7"), 7);
   assert.equal(decimalDigit("0"), 0);
   assert.equal(decimalDigit("٣"), 3, "Arabic-Indic");

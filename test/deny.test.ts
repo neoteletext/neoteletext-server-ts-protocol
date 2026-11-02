@@ -1,5 +1,5 @@
-// A program that will not answer a selection with a page (`INPUT.md` section
-// 7.12): what `Context.deny` sends, and that nothing else answers it.
+// A program that will not answer a selection with a page (DOC-1961):
+// what `Context.deny` sends, and that nothing else answers it.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";

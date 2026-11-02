@@ -1,6 +1,6 @@
-// Page selection, which a channel does itself (INPUT.md section 9.4):
+// Page selection, which a channel does itself (DOC-1974):
 // while keys go to a channel every key goes, digits and colour keys
-// included (section 9.1), so the receiver selects nothing. On a page that
+// included (DOC-1928), so the receiver selects nothing. On a page that
 // has no use of its own for them, three digits go to that page and the
 // coloured keys follow the page's own Fastext links, as a television's
 // remote does.
@@ -12,7 +12,7 @@ import { Key, isCharacterKey } from "../input/keys.ts";
 import type { Navigated, PageKeys } from "./page-keys.ts";
 import type { FastextLinks } from "../page/fastext.ts";
 
-/** The keys that follow each Fastext link: F1 to F4 and the remote's coloured keys (INPUT.md section 5.6, codes 92 to 95). */
+/** The keys that follow each Fastext link: F1 to F4 and the remote's coloured keys (DOC-1936, codes 92 to 95). */
 const COLOUR_KEYS: ReadonlyMap<string, number> = new Map([
   [Key.F1, 0],
   [Key.Red, 0],
@@ -65,7 +65,7 @@ export class Navigation {
       }
       return { taken: true, redirect };
     }
-    // A digit's key, or the keypad's, whose text is its digit (INPUT.md section 5.7 rule 8).
+    // A digit's key, or the keypad's, whose text is its digit (DOC-1937).
     if (input.kind === "key" && (isCharacterKey(input.key) || input.text !== undefined)) {
       const digit = decimalDigit(input.text ?? input.key);
       if (digit === undefined) {

@@ -180,11 +180,11 @@ export class Screen {
     this.#fastextRow = true;
   }
 
-  /** Places the cursor at `row`, `column`, with `flags` (INPUT.md section 7.1). */
+  /** Places the cursor at `row`, `column`, with `flags` (DOC-1954). */
   cursor(row: number, column: number, flags: number): void {
     if (row < FIRST_CURSOR_ROW || !within(row, LAST_CURSOR_ROW) || !within(column, COLUMNS - 1) || !within(flags, ALL_FLAGS) || (flags & ~ALL_FLAGS) !== 0) {
       throw new RangeError(
-        `cursor: row ${row}, column ${column} and flags ${flags} must be on rows ${FIRST_CURSOR_ROW} to ${LAST_CURSOR_ROW} of the page (INPUT.md section 7.1)`,
+        `cursor: row ${row}, column ${column} and flags ${flags} must be on rows ${FIRST_CURSOR_ROW} to ${LAST_CURSOR_ROW} of the page (DOC-1954)`,
       );
     }
     this.#cursor = { row, column, flags };

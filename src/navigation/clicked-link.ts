@@ -1,4 +1,4 @@
-// Every page is sent its own clicks (INPUT.md section 6.3), so a click the
+// Every page is sent its own clicks (DOC-1938), so a click the
 // page does not take follows what it is on, as the browser would: a
 // Fastext prompt in row 24, or a page number.
 

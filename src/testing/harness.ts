@@ -129,12 +129,12 @@ export class Harness {
     this.channel.input(session, page, ANY_SUB, input);
   }
 
-  /** Raw text, as an input method or a phone commits it (INPUT.md section 5.3). */
+  /** Raw text, as an input method or a phone commits it (DOC-1930). */
   typeText(session: number, typed: string): void {
     this.send(session, { kind: "text", text: typed });
   }
 
-  /** Types `typed` on the keyboard, as the browser sends it: each character a key's press with its text, then its release (INPUT.md section 6.3). */
+  /** Types `typed` on the keyboard, as the browser sends it: each character a key's press with its text, then its release (DOC-1935). */
   typeKeys(session: number, typed: string): void {
     for (const typedCharacter of typed) {
       this.send(session, { kind: "key", action: "press", key: typedCharacter, text: typedCharacter });
@@ -146,7 +146,7 @@ export class Harness {
     this.send(session, { kind: "paste", text: pasted });
   }
 
-  /** One key event by its INPUT.md name; a character key's press or repeat carries the character as its text, as a key pressed alone does. */
+  /** One key event by its DOC-1936 name; a character key's press or repeat carries the character as its text, as a key pressed alone does. */
   key(session: number, key: string, action: KeyAction): void {
     this.send(session, { kind: "key", action, key, ...(isCharacterKey(key) && action !== "release" ? { text: key } : {}) });
   }
@@ -172,7 +172,7 @@ export class Harness {
     this.send(session, { kind: "mouse", action: "move", buttons, column, row });
   }
 
-  /** The pointer enters or leaves the control whose first cell is `column`, `row` (INPUT.md section 5.4, HOVER). */
+  /** The pointer enters or leaves the control whose first cell is `column`, `row` (DOC-1940). */
   hover(session: number, action: HoverAction, column: number, row: number): void {
     this.send(session, { kind: "hover", action, column, row });
   }

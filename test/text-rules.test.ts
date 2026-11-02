@@ -101,7 +101,7 @@ function everyTextField(text: string): [unknown, string][] {
   ];
 }
 
-test("the validators are the server's: a cursor on row 0 or 24 is refused, and one on rows 1 to 23 is not (INPUT.md section 7.1)", () => {
+test("the validators are the server's: a cursor on row 0 or 24 is refused, and one on rows 1 to 23 is not (DOC-1954)", () => {
   assert.equal(checkProgram(withCursor(1)), null);
   assert.equal(checkProgram(withCursor(23)), null);
   assert.notEqual(checkProgram(withCursor(0)), null);
