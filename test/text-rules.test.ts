@@ -56,6 +56,7 @@ function redirectWith(fields: object): unknown {
   return { type: "redirect", connection: 1, request: 1, ...fields };
 }
 
+// REQ-1688 item 1: a page and its sub-code, or an address.
 test("REQ-1688: a redirect names a page and its sub-code, or an address, in the fault's own place", () => {
   const address = "https://elsewhere.example/channel/302";
   assert.equal(checkProgram(redirectWith({ page: "100", sub: "3F7F" })), null);

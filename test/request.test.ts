@@ -64,6 +64,7 @@ function requestFor(query: string): PageRequest {
   return request;
 }
 
+// REQ-1674: the query reaches the application with the selection.
 test("DEC-1730 item 9: an application hears a selection as a request, with its path, query and cookies", () => {
   const heard: (PageRequest | null | undefined)[] = [];
   const harness = new Harness([
@@ -82,6 +83,7 @@ test("DEC-1730 item 9: an application hears a selection as a request, with its p
   assert.deepEqual(heard, [null, { method: "GET", path: "302/0002", query: { a: "1" }, queryText: "a=1", cookies: { theme: "dark", seen: "1" } }]);
 });
 
+// REQ-1674 item 4: the kit parses it with the standard URL parsers.
 test("DEC-1730 item 9: a query is read as URLSearchParams reads it, and kept as written", () => {
   const written = "a=1&b=%20x&c+d=e+f&empty&=no+name&r=%C3%A9&bad=%zz&broken=%ff&a=2";
   const request = requestFor(written);
@@ -162,6 +164,7 @@ test("TODO-1731 item 4: every selection is heard, so request.path is never stale
   assert.deepEqual(paths, ["302/0001 a=1", "302/0002 a=1", "302/0002 "]);
 });
 
+// REQ-1688: a redirect keeps the query it is given.
 test("TODO-1731 item 5: a sub-page the page lacks moves the viewer to the page, with its query", () => {
   const harness = new Harness([hearing(() => {})]);
   harness.join(1, 0x100);

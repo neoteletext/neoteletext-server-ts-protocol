@@ -91,6 +91,15 @@ test("a title or a text with nothing in it is no public page", () => {
   assert.deepEqual(described(() => ({ ...PUBLIC, text: "\n" })).describe(PAGE), NOT_PUBLIC);
 });
 
+// REQ-1033: a program takes its limits from `start`, and holds none of its own.
+test("what `start` says is the limit a program keeps to", () => {
+  const titleCharacters = 7;
+  const limits = { ...SERVER_LIMITS, budgets: { ...SERVER_LIMITS.budgets, titleCharacters } };
+  const story = Object.assign(new Story(), { describe: (): PageDescription => ({ ...PUBLIC, title: "a title over seven" }) });
+  const title = String(new Harness([story], { limits }).describe(PAGE)["title"]);
+  assert.ok(title.length > 0 && Array.from(title).length <= titleCharacters, title);
+});
+
 test("a title and a text are fitted to what the server takes: one line, form C, no controls, within its bounds", () => {
   const long = "é ".repeat(SERVER_LIMITS.budgets.descriptionTextCharacters);
   const answer = described(() => ({ public: true, title: `line\nbreak‮${long}`, text: `tab\there  ${long}` })).describe(PAGE);
