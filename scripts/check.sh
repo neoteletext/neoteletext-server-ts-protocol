@@ -33,6 +33,10 @@ readonly SCHEMA_FROM="c6cb25004dcd6b9f827b13fc1f73c0063551ba11"
 
 . scripts/gate.sh
 
+# Git in the server's repository. A hook in a linked worktree inherits GIT_DIR
+# and its neighbours, which would override -C and read this repository.
+server_git() { env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE git -C "$server" "$@"; }
+
 sha256_of() {
     if command -v sha256sum >/dev/null; then
         sha256sum "$1" | cut -d' ' -f1
@@ -43,7 +47,7 @@ sha256_of() {
 
 stage() {
     step "Node $NODE_LEAST or later"
-    command -v node >/dev/null || fail "node is not installed; the checks need Node $NODE_LEAST or later"
+    need_tool node "the checks need Node $NODE_LEAST or later; install it with nvm"
     local version
     version="$(node --version)"
     node -e '
@@ -99,9 +103,9 @@ build() {
 # this machine, not on the Linux host, whose steps (stage) do not ask it.
 schema() {
     step "schema/protocol-6.json is the server's protocol/schema-6.json at ${SCHEMA_FROM:0:7}"
-    git -C "$server" rev-parse --git-dir >/dev/null 2>&1 || fail "the server's repository is needed at $server (or NEOTELETEXT_SERVER) to check the schema's copy"
-    git -C "$server" cat-file -e "$SCHEMA_FROM:protocol/schema-6.json" 2>/dev/null || fail "$server has no protocol/schema-6.json at $SCHEMA_FROM"
-    cmp -s schema/protocol-6.json <(git -C "$server" show "$SCHEMA_FROM:protocol/schema-6.json") ||
+    server_git rev-parse --git-dir >/dev/null 2>&1 || fail "the server's repository is needed at $server (or NEOTELETEXT_SERVER) to check the schema's copy"
+    server_git cat-file -e "$SCHEMA_FROM:protocol/schema-6.json" 2>/dev/null || fail "$server has no protocol/schema-6.json at $SCHEMA_FROM"
+    cmp -s schema/protocol-6.json <(server_git show "$SCHEMA_FROM:protocol/schema-6.json") ||
         fail "schema/protocol-6.json differs from $server's protocol/schema-6.json at $SCHEMA_FROM; copy that file, or name in scripts/check.sh the commit the copy is from"
 }
 
@@ -115,7 +119,7 @@ linux_steps() {
     local here
     here="$(basename "$PWD")"
     step "Linux on $linux_host: the stage"
-    ssh -o BatchMode=yes -o ConnectTimeout=10 "$linux_host" true || fail "$linux_host is unreachable; the full gate needs it"
+    need_host
     # By content, with the host's own times (gates.md).
     rsync -a --no-times --checksum --delete --exclude tmp --exclude .git --exclude node_modules --exclude dist ./ "$linux_host:$here-check/"
     ssh "$linux_host" "set -e; cd $here-check && scripts/check.sh stage"
