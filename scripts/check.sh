@@ -45,6 +45,20 @@ sha256_of() {
     fi
 }
 
+# node_modules as package-lock.json has it. Every step that runs a package
+# calls this first: the full gate skips the stage when the push gate has
+# passed on the tree, and its build must not then use an older install.
+locked_tools() {
+    local lock
+    lock="$(sha256_of package-lock.json)"
+    if [[ ! -f "$INSTALLED_FROM" || "$(cat "$INSTALLED_FROM")" != "$lock" ]]; then
+        step "the locked tools (npm ci)"
+        # No package's install scripts run: the tools need none.
+        npm ci --ignore-scripts --no-audit --no-fund
+        printf '%s\n' "$lock" >"$INSTALLED_FROM"
+    fi
+}
+
 stage() {
     step "Node $NODE_LEAST or later"
     need_tool node "the checks need Node $NODE_LEAST or later; install it with nvm"
@@ -57,14 +71,7 @@ process.exit(newer === -1 || found[newer] > least[newer] ? 0 : 1);
 ' "$NODE_LEAST" "$version" || fail "Node $version is older than $NODE_LEAST, which runs TypeScript by stripping its types"
     printf 'node %s\n' "$version"
 
-    local lock
-    lock="$(sha256_of package-lock.json)"
-    if [[ ! -f "$INSTALLED_FROM" || "$(cat "$INSTALLED_FROM")" != "$lock" ]]; then
-        step "the locked tools (npm ci)"
-        # No package's install scripts run: the tools need none.
-        npm ci --ignore-scripts --no-audit --no-fund
-        printf '%s\n' "$lock" >"$INSTALLED_FROM"
-    fi
+    locked_tools
 
     step "the validators, from the server's schema (Ajv's standalone mode)"
     node scripts/validators.ts
@@ -89,6 +96,7 @@ process.exit(newer === -1 || found[newer] > least[newer] ? 0 : 1);
 }
 
 build() {
+    locked_tools
     step "the release build (tsconfig.build.json)"
     rm -rf dist
     node scripts/validators.ts
