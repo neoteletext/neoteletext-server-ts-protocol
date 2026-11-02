@@ -30,7 +30,7 @@ consumer takes the JavaScript and declarations in `dist/`.
     scripts/check.sh build    # the release build into dist/
 
 The git hooks (`git config core.hooksPath .githooks`) run `scripts/check.sh`;
-`~/devel/neoteletext-common/gates.md` says how the gates and the work branch `livedevelopment` work.
+`~/devel/neoteletext-common/DEVELOPMENT.md` section 9 says how the gates and the work branch `livedevelopment` work.
 
 ## Release and deploy
 

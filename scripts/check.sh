@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The repository's one check script, which its git hooks run: its own
 # steps, on the gate machinery every neoteletext repository shares
-# (scripts/gate.sh, copied from neoteletext-common; gates.md there).
+# (scripts/gate.sh, copied from neoteletext-common; DEVELOPMENT.md section 9
+# there).
 #   scripts/check.sh commit   the stage, on what is staged
 #   scripts/check.sh push     nothing the commit gate passed on the same
 #                             code: a push of livedevelopment
@@ -128,7 +129,7 @@ linux_steps() {
     here="$(basename "$PWD")"
     step "Linux on $linux_host: the stage"
     need_host
-    # By content, with the host's own times (gates.md).
+    # By content, with the host's own times (DEVELOPMENT.md section 9.3).
     rsync -a --no-times --checksum --delete --exclude tmp --exclude .git --exclude node_modules --exclude dist ./ "$linux_host:$here-check/"
     ssh "$linux_host" "set -e; cd $here-check && scripts/check.sh stage"
 }
