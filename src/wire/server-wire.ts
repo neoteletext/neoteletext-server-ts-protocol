@@ -36,6 +36,7 @@ export type WireInputEvent =
       readonly kind: "key";
       readonly action: "press" | "repeat" | "release";
       readonly key: string;
+      readonly mods: number;
       readonly text?: string | null;
       readonly base?: string | null;
     }
@@ -44,12 +45,25 @@ export type WireInputEvent =
       readonly action: "press" | "release" | "move";
       readonly button?: number | null;
       readonly buttons?: WireButtons | null;
+      readonly mods: number;
       readonly column: number;
       readonly row: number;
+      readonly px?: number | null;
+      readonly py?: number | null;
     }
-  | { readonly kind: "wheel"; readonly dx: number; readonly dy: number; readonly column: number; readonly row: number }
+  | {
+      readonly kind: "wheel";
+      readonly dx: number;
+      readonly dy: number;
+      readonly mods: number;
+      readonly column: number;
+      readonly row: number;
+      readonly px?: number | null;
+      readonly py?: number | null;
+    }
   | { readonly kind: "hover"; readonly action: "enter" | "leave"; readonly column: number; readonly row: number }
   | { readonly kind: "text"; readonly text: string }
+  | { readonly kind: "compose"; readonly cursor: number; readonly text: string }
   | { readonly kind: "paste"; readonly text: string }
   | { readonly kind: "focus" }
   | { readonly kind: "blur" };

@@ -19,11 +19,11 @@ function blank(text: string): { readonly screen: ReturnType<typeof screen> } {
 }
 
 test("input carries its sub-code and whether the page lost it, and the schema asks for both", () => {
-  const message = readMessage(inputLine({ sub: "0002", lost: true, event: { kind: "key", action: "release", key: "a", text: null, base: null } }));
+  const message = readMessage(inputLine({ sub: "0002", lost: true, event: { kind: "key", action: "release", key: "a", mods: 0, text: null, base: null } }));
   assert.ok(typeof message !== "string" && message.type === "input");
   assert.equal(message.sub, 2);
   assert.deepEqual(message.input, { kind: "key", action: "release", key: "a", lost: true } satisfies Input);
-  const real = readMessage(inputLine({ sub: "0000", lost: false, event: { kind: "key", action: "release", key: "a", text: null, base: null } }));
+  const real = readMessage(inputLine({ sub: "0000", lost: false, event: { kind: "key", action: "release", key: "a", mods: 0, text: null, base: null } }));
   assert.ok(typeof real !== "string" && real.type === "input");
   assert.deepEqual(real.input, { kind: "key", action: "release", key: "a" } satisfies Input);
   assert.equal(typeof readMessage(inputLine({ lost: false })), "string", "no sub");

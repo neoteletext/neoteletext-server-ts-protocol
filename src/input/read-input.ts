@@ -1,8 +1,19 @@
 // An input event as the server writes it, which the schema has checked
 // (validate.ts), as the kit's own Input.
 
-import { Button, Held, type Input } from "./input.ts";
+import { Button, Held, type Input, type Pointed } from "./input.ts";
 import type { WireButtons, WireInputEvent } from "../wire/server-wire.ts";
+
+/** The modifiers held, when any is. */
+function modsOf(mods: number): { readonly mods?: number } {
+  return mods === 0 ? {} : { mods };
+}
+
+/** The modifiers held and the dot under the pointer, each when there is one. */
+function pointedOf(event: { readonly mods: number; readonly px?: number | null; readonly py?: number | null }): Pointed {
+  const { px, py } = event;
+  return { ...modsOf(event.mods), ...(px === null || px === undefined ? {} : { px }), ...(py === null || py === undefined ? {} : { py }) };
+}
 
 /** The buttons a move says are held, as bits ({@link Held}). */
 function heldOf(buttons: WireButtons | null | undefined): number {
@@ -19,20 +30,23 @@ export function readInput(event: WireInputEvent, lost: boolean): Input {
     const { action, key } = event;
     const text = event.text ?? undefined;
     const base = event.base ?? undefined;
-    return { kind: "key", action, key, ...(text === undefined ? {} : { text }), ...(base === undefined ? {} : { base }), ...marked };
+    return { kind: "key", action, key, ...modsOf(event.mods), ...(text === undefined ? {} : { text }), ...(base === undefined ? {} : { base }), ...marked };
   }
   if (event.kind === "mouse") {
     const { column, row } = event;
     if (event.action === "move") {
-      return { kind: "mouse", action: "move", buttons: heldOf(event.buttons), column, row };
+      return { kind: "mouse", action: "move", buttons: heldOf(event.buttons), column, row, ...pointedOf(event) };
     }
-    return { kind: "mouse", action: event.action, button: event.button ?? Button.Left, column, row, ...marked };
+    return { kind: "mouse", action: event.action, button: event.button ?? Button.Left, column, row, ...pointedOf(event), ...marked };
   }
   if (event.kind === "wheel") {
-    return { kind: "wheel", dx: event.dx, dy: event.dy, column: event.column, row: event.row };
+    return { kind: "wheel", dx: event.dx, dy: event.dy, column: event.column, row: event.row, ...pointedOf(event) };
   }
   if (event.kind === "hover") {
     return { kind: "hover", action: event.action, column: event.column, row: event.row };
+  }
+  if (event.kind === "compose") {
+    return { kind: "compose", cursor: event.cursor, text: event.text };
   }
   if (event.kind === "text" || event.kind === "paste") {
     return { kind: event.kind, text: event.text };

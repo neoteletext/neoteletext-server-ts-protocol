@@ -1,4 +1,4 @@
-// The program's side of the protocol, version 6 (DEC-1482): each message
+// The program's side of the protocol, version 7 (DEC-1482): each message
 // it writes is checked first against the server's schema by the
 // precompiled validators (validate.ts), so a mistake is caught where it is
 // made and nothing that is not valid is ever written. The bounds the

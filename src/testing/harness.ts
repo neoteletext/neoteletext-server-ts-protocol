@@ -1,4 +1,4 @@
-// Driving a channel as the server drives it, on protocol version 6, for
+// Driving a channel as the server drives it, on protocol version 7, for
 // tests: sessions that connect (one connection each, numbered as the
 // session), select pages, type, press keys, click and turn the wheel, a
 // clock the test moves, and what the program wrote, every line checked

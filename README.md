@@ -3,7 +3,7 @@
 The NeoTeletext server's channel protocol for programs in TypeScript: the
 reference kit of teletext-server's `docs/applications.md` section 5. A
 channel is a program the server starts; they talk in lines of JSON on its
-standard input and output. This package speaks protocol version 6
+standard input and output. This package speaks protocol version 7
 (DEC-1482): every message in both directions is checked against the
 server's published JSON Schema (`schema/protocol-6.json`, the server's
 `protocol/schema-6.json`) by validators Ajv 8 compiles from it at build, in
@@ -121,8 +121,9 @@ most 40 characters).
   `Colour` and `Attribute`, the spacing attributes of EN 300 706 Table 26.
 - **Text:** `englishCodes`, any text as the English G0 set shows it, the
   characters it lacks folded to the nearest it has.
-- **Input:** `Input`, what a viewer did, and `pressed`, `clicked`,
-  `typed`, `character` and `decimalDigit` to read it.
+- **Input:** `Input`, what a viewer did, with `Mods`, the modifier keys
+  a key or the pointer has, and `pressed`, `clicked`, `typed`, `character`
+  and `decimalDigit` to read it.
 - **Navigation:** pages that do not take digits or the coloured keys
   themselves get page selection by them, and a click a page does not take
   follows the prompt or page number it is on.

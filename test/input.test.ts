@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { Button, character, clicked, decimalDigit, Held, type Input, Key, pressed, readMessage, released, typed } from "../src/index.ts";
+import { Button, character, clicked, decimalDigit, Held, type Input, Key, Mods, pressed, readMessage, released, typed } from "../src/index.ts";
 
 /** An input event as the server's line carries it, read whole. */
 function read(event: unknown): Input | string {
@@ -15,26 +15,84 @@ function read(event: unknown): Input | string {
 test("every kind of event the server writes is read", () => {
   assert.deepEqual(read({ kind: "text", text: "hi" }), { kind: "text", text: "hi" });
   assert.deepEqual(read({ kind: "paste", text: "data" }), { kind: "paste", text: "data" });
-  assert.deepEqual(read({ kind: "key", action: "press", key: "ArrowUp", text: null, base: null }), { kind: "key", action: "press", key: "ArrowUp" });
-  assert.deepEqual(read({ kind: "key", action: "repeat", key: "a", text: "A", base: "a" }), { kind: "key", action: "repeat", key: "a", text: "A", base: "a" });
-  assert.deepEqual(read({ kind: "mouse", action: "press", button: 2, buttons: null, column: 39, row: 24 }), {
+  assert.deepEqual(read({ kind: "key", action: "press", key: "ArrowUp", mods: 0, text: null, base: null }), { kind: "key", action: "press", key: "ArrowUp" });
+  assert.deepEqual(read({ kind: "key", action: "repeat", key: "a", mods: 0, text: "A", base: "a" }), {
+    kind: "key",
+    action: "repeat",
+    key: "a",
+    text: "A",
+    base: "a",
+  });
+  assert.deepEqual(read({ kind: "mouse", action: "press", button: 2, buttons: null, mods: 0, column: 39, row: 24 }), {
     kind: "mouse",
     action: "press",
     button: 2,
     column: 39,
     row: 24,
   });
-  assert.deepEqual(read({ kind: "mouse", action: "move", button: null, buttons: { left: true, middle: false, right: true }, column: 39, row: 12 }), {
+  assert.deepEqual(read({ kind: "mouse", action: "move", button: null, buttons: { left: true, middle: false, right: true }, mods: 0, column: 39, row: 12 }), {
     kind: "mouse",
     action: "move",
     buttons: Held.Left | Held.Right,
     column: 39,
     row: 12,
   });
-  assert.deepEqual(read({ kind: "wheel", dx: 0, dy: -120, column: 1, row: 2 }), { kind: "wheel", dx: 0, dy: -120, column: 1, row: 2 });
+  assert.deepEqual(read({ kind: "wheel", dx: 0, dy: -120, mods: 0, column: 1, row: 2 }), { kind: "wheel", dx: 0, dy: -120, column: 1, row: 2 });
   assert.deepEqual(read({ kind: "hover", action: "enter", column: 2, row: 20 }), { kind: "hover", action: "enter", column: 2, row: 20 });
   assert.deepEqual(read({ kind: "focus" }), { kind: "focus" });
   assert.deepEqual(read({ kind: "blur" }), { kind: "blur" });
+  assert.deepEqual(read({ kind: "compose", cursor: 2, text: "ni" }), { kind: "compose", cursor: 2, text: "ni" });
+  assert.deepEqual(read({ kind: "compose", cursor: 0, text: "" }), { kind: "compose", cursor: 0, text: "" }, "composing ended");
+});
+
+test("the modifiers and the dot reach a program, each when there is one (REQ-1347)", () => {
+  const held = Mods.Control | Mods.Shift;
+  assert.deepEqual(read({ kind: "key", action: "press", key: "c", mods: Mods.Control, text: null, base: null }), {
+    kind: "key",
+    action: "press",
+    key: "c",
+    mods: Mods.Control,
+  });
+  assert.deepEqual(read({ kind: "mouse", action: "press", button: 0, buttons: null, mods: held, column: 1, row: 2, px: 480, py: 250 }), {
+    kind: "mouse",
+    action: "press",
+    button: 0,
+    column: 1,
+    row: 2,
+    mods: held,
+    px: 480,
+    py: 250,
+  });
+  assert.deepEqual(
+    read({ kind: "mouse", action: "move", button: null, buttons: { left: false, middle: false, right: false }, mods: held, column: 1, row: 2, px: 0, py: 0 }),
+    {
+      kind: "mouse",
+      action: "move",
+      buttons: 0,
+      column: 1,
+      row: 2,
+      mods: held,
+      px: 0,
+      py: 0,
+    },
+  );
+  assert.deepEqual(read({ kind: "wheel", dx: 0, dy: 120, mods: held, column: 1, row: 2, px: 8, py: 9 }), {
+    kind: "wheel",
+    dx: 0,
+    dy: 120,
+    column: 1,
+    row: 2,
+    mods: held,
+    px: 8,
+    py: 9,
+  });
+  assert.deepEqual(read({ kind: "mouse", action: "press", button: 0, buttons: null, mods: 0, column: 1, row: 2, px: null, py: null }), {
+    kind: "mouse",
+    action: "press",
+    button: 0,
+    column: 1,
+    row: 2,
+  });
 });
 
 test("an event that is not whole is refused by the schema, with the path and the rule", () => {
@@ -42,12 +100,18 @@ test("an event that is not whole is refused by the schema, with the path and the
     null,
     { kind: "text" },
     { kind: "text", text: 7 },
-    { kind: "key", action: "hold", key: "a" },
-    { kind: "key", action: "press", key: "" },
-    { kind: "key", action: "press", key: "NoSuchKey" },
-    { kind: "mouse", action: "press", button: 3, column: 0, row: 0 },
-    { kind: "mouse", action: "press", button: 0, column: 40, row: 0 },
-    { kind: "wheel", dx: 0.5, dy: 0, column: 0, row: 0 },
+    { kind: "key", action: "hold", key: "a", mods: 0 },
+    { kind: "key", action: "press", key: "", mods: 0 },
+    { kind: "key", action: "press", key: "NoSuchKey", mods: 0 },
+    { kind: "key", action: "press", key: "a" },
+    { kind: "key", action: "press", key: "a", mods: 256 },
+    { kind: "mouse", action: "press", button: 3, mods: 0, column: 0, row: 0 },
+    { kind: "mouse", action: "press", button: 0, mods: 0, column: 40, row: 0 },
+    { kind: "mouse", action: "press", button: 0, column: 0, row: 0 },
+    { kind: "mouse", action: "press", button: 0, mods: 0, column: 0, row: 0, px: -1 },
+    { kind: "wheel", dx: 0.5, dy: 0, mods: 0, column: 0, row: 0 },
+    { kind: "compose", text: "a" },
+    { kind: "compose", cursor: 257, text: "a" },
     { kind: "hover", column: 0, row: 1 },
     { kind: "telepathy" },
   ]) {

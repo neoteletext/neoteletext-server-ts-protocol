@@ -1,4 +1,4 @@
-// A channel's applications in one program, on protocol version 6
+// A channel's applications in one program, on protocol version 7
 // (DEC-1482): one connection a browser tab, one selection a connection
 // (DEC-1527). Each `connected` and `selected` is answered with one
 // sub-page (answers.ts); what an application publishes is kept (copies.ts)
