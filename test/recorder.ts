@@ -14,6 +14,8 @@ export function screen(text: string, links: readonly [number | null, number | nu
 /** An application that records what it is told. */
 export class Recorder implements Application {
   readonly heard: string[] = [];
+  /** What a test has it do on each input, besides recording it. */
+  onInput?: (session: number, page: number, context: Context) => void;
   readonly #entries: readonly PageEntry[];
 
   constructor(entries: readonly PageEntry[]) {
@@ -42,8 +44,9 @@ export class Recorder implements Application {
     this.heard.push(`left ${session} ${page.toString(16)}`);
   }
 
-  input(session: number, page: number, input: Input): void {
+  input(session: number, page: number, input: Input, context: Context): void {
     this.heard.push(`input ${session} ${page.toString(16)} ${JSON.stringify(input)}`);
+    this.onInput?.(session, page, context);
   }
 
   ended(session: number): void {

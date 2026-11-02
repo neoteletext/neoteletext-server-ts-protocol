@@ -100,4 +100,9 @@ export class Navigation {
   forget(session: number): void {
     this.#typed.delete(session);
   }
+
+  /** Every connection went: what any of them typed goes with it. */
+  clear(): void {
+    this.#typed.clear();
+  }
 }

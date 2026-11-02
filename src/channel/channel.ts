@@ -121,11 +121,13 @@ export class Channel implements ServerEvents {
 
   // The server's events.
 
-  /** The server said start, with the limits it keeps to: every application publishes its shared pages. */
+  /** The server said start, with the limits it keeps to: every session the program knew is over, and every application publishes its shared pages. */
   start(epochMs: number, limits: Limits): void {
     this.#epochAtStart = epochMs - this.#clock.now();
     this.#app.started(limits);
     this.#connections.clear();
+    this.#navigation.clear();
+    this.#applications.endEvery(this.#sessions, this.#copies, this.#host, this.#clock.now());
     this.#each((application, context) => {
       application.start(context);
     });

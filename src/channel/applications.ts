@@ -93,6 +93,24 @@ export class Applications {
     }
   }
 
+  /**
+   * After `start` the server tells the program of every viewer afresh, and
+   * says nothing of those it no longer has, which only this can end
+   * (REQ-1056). Each application hears `ended` as for `closed`, before its
+   * `start`, so that what it holds is gone before it mounts or publishes
+   * anything. The channel's copies stay: `start` replaces them.
+   */
+  endEvery(sessions: Set<number>, copies: Copies, host: Host, now: number): void {
+    const ending = [...sessions];
+    sessions.clear();
+    for (const session of ending) {
+      copies.forget(session);
+      this.each(host, now, (application, context) => {
+        application.ended?.(session, context);
+      });
+    }
+  }
+
   /** Runs `run` on the application that serves `page`. */
   owner(host: Host, now: number, page: number, run: (application: Application, context: Context) => void): void {
     const index = this.#owners.get(page);

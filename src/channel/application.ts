@@ -61,7 +61,7 @@ export interface Application {
   input?(session: number, page: number, input: Input, context: Context, sub: number): boolean | void;
   /** The time asked for with {@link Context.wakeAt} has come. */
   wake?(context: Context): void;
-  /** The session ended: forget it. */
+  /** The session ended, because the server said so or because `start` came and ended them all (REQ-1056): forget it. It is called before that `start`. */
   ended?(session: number, context: Context): void;
   /** The server's figures, every 10 seconds (docs/applications.md section 7), for a page to show. */
   stats?(stats: ServerStats, context: Context): void;

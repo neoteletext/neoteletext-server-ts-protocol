@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { type Application, type PageEntry, Random } from "../src/index.ts";
-import { Harness, shows } from "../src/testing/index.ts";
+import { Harness, SERVER_LIMITS, shows } from "../src/testing/index.ts";
 import { Recorder, screen } from "./recorder.ts";
 
 test("the first application to name a page serves it; every application hears a session begin, only the owner its pages", () => {
@@ -114,6 +114,33 @@ test("the real time is the server's, from start", () => {
   );
   harness.advance(1_000);
   assert.equal(seen, 1_792_886_401_000);
+});
+
+test("start ends every session: one that returns joins afresh, one that does not leaves nothing", () => {
+  const application = new Recorder([{ page: 0x100, title: "Index" }]);
+  application.onInput = (session, page, context): void => {
+    context.publish(session, page, screen(`session ${session}'s own`));
+  };
+  const harness = new Harness([application]);
+  harness.join(9, 0x100);
+  harness.join(10, 0x100);
+  harness.press(9, "x");
+  harness.press(10, "x");
+  assert.notEqual(harness.channel.copy(9, 0x100), undefined);
+  assert.notEqual(harness.channel.copy(10, 0x100), undefined);
+  application.heard.length = 0;
+  harness.channel.start(0, SERVER_LIMITS);
+  assert.deepEqual(application.heard, ["ended 9", "ended 10"], "each application hears each session end");
+  assert.equal(harness.channel.copy(9, 0x100), undefined, "nothing of session 9's own pages stays");
+  assert.equal(harness.channel.copy(10, 0x100), undefined, "nor of the session that never returns");
+  application.heard.length = 0;
+  const before = harness.sent.length;
+  harness.join(9, 0x100);
+  assert.deepEqual(application.heard, ["joined 9", "opened 9 100"], "a session that returns joins afresh");
+  assert.equal(JSON.stringify(harness.sent.slice(before)).includes("own"), false, "and is sent nothing of its own pages");
+  harness.channel.closed(10);
+  assert.deepEqual(application.heard.slice(2), [], "a session already ended ends once");
+  assert.deepEqual(harness.errors, []);
 });
 
 test("a session ends once, when the server says it closed", () => {
