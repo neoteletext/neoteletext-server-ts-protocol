@@ -14,7 +14,16 @@ export interface Streams {
   readonly errors: (text: string) => void;
 }
 
-/** The process's standard input, output and error. */
+/**
+ * The process's standard input, output and error.
+ *
+ * Each line is written the moment it is sent, as REQ-1348 asks: Node keeps
+ * no output buffer of its own, and on a pipe `write` hands the line to the
+ * operating system within the call, queueing in libuv only what a full pipe
+ * will not take, until the reader drains it. Measured on macOS with Node 24,
+ * a line reached the reader while the writer's event loop was blocked;
+ * test/pipe.test.ts holds the kit to it.
+ */
 export function processStreams(): Streams {
   return {
     input: process.stdin,
