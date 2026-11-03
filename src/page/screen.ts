@@ -10,7 +10,7 @@
 // the rows back (tests, a click on a page number) sees. The header row is
 // the program's own codes, which the server never encodes.
 
-import { Attribute, Colour, textColour } from "./colours.ts";
+import { Attribute, Colour, isRedundantColour, textColour } from "./colours.ts";
 import { CursorFlag, FIRST_CURSOR_ROW, LAST_CURSOR_ROW, type Cursor } from "./cursor.ts";
 import { type FastextLinks, NO_LINKS } from "./fastext.ts";
 import { CODE_MASK, COLUMNS, HEADER_TEXT_COLUMN, ROWS, SPACE } from "./geometry.ts";
@@ -18,7 +18,7 @@ import { isPageNumber, pageText } from "./page-numbers.ts";
 import { type SubPageContent, blankContent, encodeRow } from "./content.ts";
 import { LinkExtension, within } from "./link-extension.ts";
 import { codesTti, headerCodes, packedContent, packedLine, underCode } from "./screen-codes.ts";
-import { TextRuns, cellsOf, textCells } from "./text-runs.ts";
+import { TextRuns, cellsOf, knownOwnCodes, textCells } from "./text-runs.ts";
 import type { WireLanguageTag as LanguageTag, WireLinkKey, WireTextLevel } from "../wire/protocol.ts";
 
 const ALL_FLAGS = CursorFlag.Block;
@@ -36,6 +36,8 @@ export class Screen {
   #links = new LinkExtension();
   #runs = new TextRuns();
   #language: LanguageTag | null = null;
+  /** The printable ASCII the page's language shows at their own codes (ownCodes). */
+  #ownCodes = knownOwnCodes(null);
   #level: WireTextLevel | null = null;
   readonly #packed: string[] = [];
 
@@ -51,6 +53,7 @@ export class Screen {
     });
     copy.#runs = new TextRuns(this.#runs);
     copy.#language = this.#language;
+    copy.#ownCodes = this.#ownCodes;
     copy.#level = this.#level;
     copy.#packed.push(...this.#packed);
     copy.#fastext = this.#fastext;
@@ -138,6 +141,12 @@ export class Screen {
   /** The page's default language, a tag of `start.languages`: it sets the page's character sets and is the language of its text that names none (REQ-2214 item 2). Null for none: Latin English. */
   language(language: LanguageTag | null): void {
     this.#language = language;
+    this.#ownCodes = knownOwnCodes(language);
+  }
+
+  /** Says the printable ASCII the page's `language`, set first, shows at their own codes: past 64 runs, a run of only those is left to the codes under it (TextRuns.runs, TODO-2228). English's are known; another's are none until said. */
+  ownCodes(characters: string): void {
+    this.#ownCodes = characters;
   }
 
   /** The presentation level the page's text is written for (REQ-2151); null for NeoTeletext's own. */
@@ -248,11 +257,11 @@ export class Screen {
     this.#links.textLink(row, column, length, target);
   }
 
-  /** This screen as a sub-page's typed content (REQ-1478), for the page and sub-code it is put in. */
+  /** This screen as a sub-page's typed content (REQ-1478), for the page and sub-code it is put in; its runs join over spaces and over colours that change nothing, which show as spaces (Table 26). */
   content(): SubPageContent {
     const links = [...this.#fastext, null, this.#index].map((link) => (link === null ? null : { page: pageText(link), sub: ANY_SUBCODE_TEXT }));
     const cursor = this.#cursor;
-    const text = this.#runs.runs((row, column) => this.at(row, column) === SPACE, this.#language === null || this.#language === "en");
+    const text = this.#runs.runs((row, column) => this.at(row, column) === SPACE || isRedundantColour(this.#rows[row] ?? [], column), this.#ownCodes);
     const packed = packedContent(this.#packed);
     return {
       ...blankContent(),

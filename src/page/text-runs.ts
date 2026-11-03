@@ -43,13 +43,22 @@ interface Piece {
   readonly rightToLeft: boolean;
 }
 
-/** Whether `run` is English that the codes under it show as the encoder would write it: printable ASCII but where EN 300 706 Table 36's national options differ (0x23, 0x24, 0x40, 0x5B to 0x60, 0x7B to 0x7E). */
-function isPlainEnglish(run: WireTextRun): boolean {
-  return (
-    (run.language === undefined || run.language === null || run.language === "en") &&
-    /^[\u0020-\u007E]*$/u.test(run.text) &&
-    !/[#$@[\\\]^_`{|}~]/u.test(run.text)
-  );
+/** The printable ASCII Latin English shows at its own codes: all but where EN 300 706 Table 36's national options differ (0x23, 0x24, 0x40, 0x5B to 0x60, 0x7B to 0x7E). */
+const PLAIN_ENGLISH = Array.from({ length: 0x7f - 0x21 }, (_, at) => String.fromCodePoint(0x21 + at))
+  .filter((character) => !"#$@[\\]^_`{|}~".includes(character))
+  .join("");
+
+/** Latin English, the language of a page that names none (REQ-2214 item 2). */
+const ENGLISH: LanguageTag = "en";
+
+/** What a page in `language` (null for none) shows at their own codes until it says (Screen.ownCodes): Latin English's, or none. */
+export function knownOwnCodes(language: LanguageTag | null): string {
+  return (language ?? ENGLISH) === ENGLISH ? PLAIN_ENGLISH : "";
+}
+
+/** Whether `run` holds only spaces and characters of `ownCodes`, which the page's set shows at the codes under them: what it shows whatever language the run names. */
+function atOwnCodes(run: WireTextRun, ownCodes: string): boolean {
+  return Array.from(run.text).every((character) => character === " " || ownCodes.includes(character));
 }
 
 function characters(cells: readonly string[]): number {
@@ -153,14 +162,14 @@ export class TextRuns {
 
   /**
    * The runs as the protocol carries them, at their fewest: `isSpace` says
-   * which cells between two runs hold a space. On a page in English
-   * (`english`), past MOST_RUNS a run of English in the characters every
-   * Latin set shows alike at their ASCII codes is left to those codes,
-   * which the rows already hold under it and which are what the server's
-   * encoder writes for it: the page shows the same, within the protocol's
-   * bound.
+   * which cells between two runs show a space, a space or a colour that
+   * changes nothing, which a run joining them writes as a space. Past MOST_RUNS, a run of
+   * only the printable ASCII the page's set shows at their own codes
+   * (`ownCodes`) is left to those codes, which the rows already hold under
+   * it, read in the page's set as the characters the run names: the page
+   * shows the same, within the protocol's bound.
    */
-  runs(isSpace: (row: number, column: number) => boolean, english = false): WireTextRun[] {
+  runs(isSpace: (row: number, column: number) => boolean, ownCodes = ""): WireTextRun[] {
     const pieces: Piece[] = [];
     this.#cells.forEach((line, row) => {
       let last: Piece | null = null;
@@ -199,7 +208,7 @@ export class TextRuns {
       }
     }
     const all = joined.flatMap((piece) => cut(piece));
-    const runs = all.length > MOST_RUNS && english ? all.filter((run) => !isPlainEnglish(run)) : all;
+    const runs = all.length > MOST_RUNS && ownCodes !== "" ? all.filter((run) => !atOwnCodes(run, ownCodes)) : all;
     if (runs.length > MOST_RUNS) {
       throw new RangeError(`a page carries at most ${MOST_RUNS} runs of text, and this one has ${runs.length}: join its text into fewer, longer lines`);
     }

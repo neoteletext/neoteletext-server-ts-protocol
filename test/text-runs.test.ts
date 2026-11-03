@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { cellsOf, Colour, LANGUAGE_TAGS, Screen, textColour } from "../src/index.ts";
+import { Attribute, cellsOf, Colour, LANGUAGE_TAGS, Screen, textColour } from "../src/index.ts";
 import { SERVER_LANGUAGES } from "../src/testing/index.ts";
 
 test("REQ-2214: text is a run in its language for the server to encode, over codes that read back where they are ASCII", () => {
@@ -97,11 +97,14 @@ test("a run of more than 40 characters is cut between cells, a right-to-left one
   );
 });
 
+/** The colours of three runs across a row, each a change, so no run joins the next over its colour. */
+const COLUMN_COLOURS: Readonly<Record<number, Colour>> = { 0: Colour.Yellow, 10: Colour.Cyan, 20: Colour.Green };
+
 test("more than 64 runs is refused when the page is made", () => {
   const screen = new Screen();
   for (let row = 1; row <= 22; row += 1) {
     for (const column of [0, 10, 20]) {
-      screen.coloured(row, column, Colour.White, "£1");
+      screen.coloured(row, column, COLUMN_COLOURS[column] ?? Colour.White, "£1");
     }
   }
   assert.throws(() => screen.content(), /at most 64 runs/u);
@@ -112,7 +115,7 @@ test("past 64 runs, a page in English leaves its plain English runs to the codes
   screen.language("en");
   for (let row = 1; row <= 22; row += 1) {
     for (const column of [0, 10, 20]) {
-      screen.coloured(row, column, Colour.White, row === 1 && column === 0 ? "£1" : "x1");
+      screen.coloured(row, column, COLUMN_COLOURS[column] ?? Colour.White, row === 1 && column === 0 ? "£1" : "x1");
     }
   }
   assert.deepEqual(screen.content().text, [{ row: 1, column: 1, text: "£1" }], "only the run the codes cannot show is sent");
@@ -121,10 +124,60 @@ test("past 64 runs, a page in English leaves its plain English runs to the codes
   russian.language("ru");
   for (let row = 1; row <= 22; row += 1) {
     for (const column of [0, 10, 20]) {
-      russian.coloured(row, column, Colour.White, "x1", "en");
+      russian.coloured(row, column, COLUMN_COLOURS[column] ?? Colour.White, "x1", "en");
     }
   }
   assert.throws(() => russian.content(), /at most 64 runs/u, "on a page in another language the codes would be read in its set");
+});
+
+/** A page in Russian of 67 runs, most of ASCII its set shows at their own codes. */
+function russianPage(): Screen {
+  const russian = new Screen();
+  russian.language("ru");
+  for (let row = 1; row <= 22; row += 1) {
+    for (const column of [0, 10, 20]) {
+      russian.coloured(row, column, COLUMN_COLOURS[column] ?? Colour.White, row === 1 && column === 0 ? "ж1" : "*:");
+    }
+  }
+  russian.coloured(23, 0, Colour.White, "*x", "en");
+  return russian;
+}
+
+test("past 64 runs, a page in another language leaves to the codes the runs of the ASCII it says its set shows at their own codes", () => {
+  assert.throws(() => russianPage().content(), /at most 64 runs/u, "until it says which, none");
+  const said = russianPage();
+  said.ownCodes("*:1");
+  assert.deepEqual(
+    said.content().text,
+    [
+      { row: 1, column: 1, text: "ж1" },
+      { row: 23, column: 1, text: "*x", language: "en" },
+    ],
+    "the runs with a character its set does not show at its own code are sent",
+  );
+  assert.equal(said.rowText(2).slice(1, 3), "*:");
+});
+
+test("runs join over a colour that changes nothing, which shows as a space, but not over a change of colour or out of concealment", () => {
+  const screen = new Screen();
+  screen.language("ru");
+  screen.coloured(1, 0, Colour.White, "да");
+  screen.coloured(1, 3, Colour.White, "нет");
+  screen.coloured(2, 0, Colour.White, "да");
+  screen.coloured(2, 3, Colour.Yellow, "нет");
+  screen.codes(3, 0, [Attribute.Conceal]);
+  screen.text(3, 1, "да");
+  screen.coloured(3, 3, Colour.White, "нет");
+  assert.deepEqual(
+    (screen.content().text ?? []).map((run) => [run.row, run.column, run.text]),
+    [
+      [1, 1, "да нет"],
+      [2, 1, "да"],
+      [2, 4, "нет"],
+      [3, 1, "да"],
+      [3, 4, "нет"],
+    ],
+  );
 });
 
 test("the header is the program's own codes: letters, digits and the signs every national option shares", () => {

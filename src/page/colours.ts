@@ -41,3 +41,31 @@ export const Attribute = {
   HoldMosaics: 0x1e,
   ReleaseMosaics: 0x1f,
 } as const;
+
+/** The highest alphanumeric colour attribute, alpha white (Table 26: 0x00 to 0x07). */
+const LAST_TEXT_COLOUR = 0x07;
+
+/**
+ * Whether the code at `column` of `row` is an alphanumeric colour that
+ * changes nothing: the row is in alphanumerics there, not concealed, in that
+ * colour already (each row starts in white alphanumerics, Table 26 and
+ * clause 12.2). Such a cell shows a space, as a space would.
+ */
+export function isRedundantColour(row: readonly number[], column: number): boolean {
+  let colour: number = Colour.White;
+  let text = true;
+  let concealed = false;
+  for (let at = 0; at < column; at += 1) {
+    const code = row[at] ?? 0;
+    if (code <= LAST_TEXT_COLOUR || (code >= MOSAIC_COLOUR_BIT && code <= (MOSAIC_COLOUR_BIT | LAST_TEXT_COLOUR))) {
+      // A colour, alphanumeric or mosaic, ends concealment (Table 26, Conceal).
+      colour = code & LAST_TEXT_COLOUR;
+      text = code <= LAST_TEXT_COLOUR;
+      concealed = false;
+    } else if (code === Attribute.Conceal) {
+      concealed = true;
+    }
+  }
+  const code = row[column];
+  return code !== undefined && code <= LAST_TEXT_COLOUR && text && !concealed && code === colour;
+}
