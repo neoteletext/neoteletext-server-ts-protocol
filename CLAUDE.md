@@ -29,8 +29,9 @@ That is the one document of how we work, for every NeoTeletext repository, with 
   consumers take a release, never its source.
 - **The fixture is half of a check.** `test/fixtures/hello.jsonl` is what
   `test/fixtures/hello.ts` writes, byte for byte (`test/fixture.test.ts`).
-  The server's end-to-end test that replayed the kit's fixture went with
-  its TTI fixture `tests/fixtures/kit-channel.jsonl` in protocol 2; its
-  replay of `hello.jsonl` is owed (neoteletext-app-server's TODO-1537), and
-  until it exists a change to the fixture is checked against the server by
-  running the fixture channel on it.
+  The server keeps a copy of it as `tests/fixtures/kit-channel.jsonl` and
+  replays it in `the_kits_fixture_channel_is_served_as_the_kit_means_it`
+  (neoteletext-app-server `9fe934d`, TODO-1537); the server's commit gate
+  (`check_kit_fixture`) fails when that copy differs from this file at the
+  kit commit its `KIT_FIXTURE_FROM` names. So a change to `hello.jsonl`
+  also needs the server to take the new file and move `KIT_FIXTURE_FROM`.
