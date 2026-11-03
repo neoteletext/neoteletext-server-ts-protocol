@@ -5,11 +5,13 @@ import { Channel } from "./channel.ts";
 import type { Clock } from "./channel-options.ts";
 import { App } from "../wire/app.ts";
 import type { ServerEvents } from "../wire/server-events.ts";
+import { serveSocket, socketPath } from "../wire/socket.ts";
 import { type Streams, processStreams, serveLines } from "../wire/streams.ts";
 
 export interface RunOptions {
   /** The games' seed; by default the time, since nothing here is a secret. */
   readonly seed?: bigint;
+  /** Where the program reads and writes; by default the Unix domain socket `NEOTELETEXT_SOCKET` names, or else the process's standard streams. */
   readonly streams?: Streams;
 }
 
@@ -86,15 +88,41 @@ function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
 
 /**
  * Runs `applications` as this process's channel: serves the server's lines, wakes each application when it asked, and
- * resolves when the server closes standard input.
+ * resolves when the server closes standard input. When the environment's `NEOTELETEXT_SOCKET` names a Unix domain socket
+ * and no `streams` are given, the program connects to the server there in place of its standard input and output, and
+ * connects again whenever the server goes, so it never resolves (the server's REQ-1043).
  */
 export async function runChannel(applications: readonly Application[], options: RunOptions = {}): Promise<void> {
+  const socket = options.streams === undefined ? socketPath(process.env) : null;
   const streams = options.streams ?? processStreams();
-  const app = new App(streams.output);
+  // Over a socket the line goes to the connection open now, if one is.
+  let socketOutput: ((line: string) => void) | null = null;
+  const output =
+    socket === null
+      ? streams.output
+      : (line: string): void => {
+          socketOutput?.(line);
+        };
+  const app = new App(output);
   const started = performance.now();
   const clock: Clock = { now: (): number => Math.floor(performance.now() - started) };
   const channel = new Channel(applications, app, { clock, seed: options.seed ?? process.hrtime.bigint(), errors: streams.errors });
   const timer = wakeTimer(channel, clock);
-  await serveLines(channelEvents(channel, timer.schedule), streams);
-  timer.stop();
+  const events = channelEvents(channel, timer.schedule);
+  try {
+    if (socket === null) {
+      await serveLines(events, streams);
+    } else {
+      await serveSocket(
+        events,
+        socket,
+        (write) => {
+          socketOutput = write;
+        },
+        streams.errors,
+      );
+    }
+  } finally {
+    timer.stop();
+  }
 }

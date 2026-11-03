@@ -69,7 +69,7 @@ function otherProtocol(line: string): number | null {
 /**
  * The line loop: hands each valid line from `streams.input` to `events`,
  * reports each bad one on `streams.errors`, and resolves when the input
- * ends, which is the server going away. A `start` of another protocol
+ * ends or closes, which is the server going away. A `start` of another protocol
  * stops it at once, nothing handed on: it rejects with a
  * {@link ProtocolVersionError} naming both versions.
  */
@@ -108,6 +108,11 @@ export function serveLines(events: ServerEvents, streams: Streams): Promise<void
     });
     streams.input.on("end", () => {
       splitter.end();
+      resolve();
+    });
+    // A socket that fails closes without ending: the server is gone as
+    // surely, and a line it cut short is not a line.
+    streams.input.on("close", () => {
       resolve();
     });
   });

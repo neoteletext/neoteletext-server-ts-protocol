@@ -45,7 +45,27 @@ await runChannel([hello]);
 ```
 
 `runChannel` serves the server's lines and resolves when the server closes
-standard input. Each application is called with what happened (`start`,
+standard input.
+
+**A program that runs as a service of its own** (the server's REQ-1043)
+connects to the server over a Unix domain socket, on Linux or macOS, and
+so outlives a restart of the server and keeps what it holds in memory.
+The channels file names the channel's `socket` in place of its `command`
+and `directory`, and the program is started with the socket's path in
+the environment variable `NEOTELETEXT_SOCKET` (DEC-2452):
+
+    NEOTELETEXT_SOCKET=/srv/neoteletext/sockets/hello.sock node hello.js
+
+With it set, `runChannel` (given no `streams`) speaks the same lines over
+the socket in place of standard input and output, and never resolves:
+when the server goes it connects again, at once after a connection that
+heard `start`, otherwise after a pause of 1 second doubling up to 30, and
+each connection is a session afresh, since the server sends `start` on it.
+Lines written while no connection is open are dropped. Each failed attempt
+is written to standard error. In a systemd unit, `Environment=` sets the
+variable.
+
+Each application is called with what happened (`start`,
 `joined`, `request`, `opened`, `leftPage`, `input`, `wake`, `ended`, `stats`,
 `describe`) and answers through its `Context`: publish a page for everyone or for one
 viewer, send a viewer to a page, end a selection without a page (`deny`,
