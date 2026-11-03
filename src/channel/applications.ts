@@ -37,11 +37,11 @@ export class Applications {
     });
   }
 
-  /** The channel's index: each page's title as it is now, and its sub-pages as the channel's copy has them. */
-  index(copies: Copies, limits: Limits): WireMagazine[] {
+  /** The index `session` is sent: each page's title as it is now, and its sub-pages as the copy the session sees has them, its own or the channel's. */
+  index(copies: Copies, limits: Limits, session: number): WireMagazine[] {
     return channelIndex(
       [...this.entries.values()],
-      { title: (page): string => this.titles.get(page) ?? "", subpages: (page): number => copies.get("channel", page)?.subpages.size ?? 1 },
+      { title: (page): string => this.titles.get(page) ?? "", subpages: (page): number => copies.seen(session, page)?.subpages.size ?? 1 },
       limits,
       this.#errors,
     );

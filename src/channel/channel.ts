@@ -72,7 +72,9 @@ export class Channel implements ServerEvents {
     this.#clock = options.clock;
     this.#errors = options.errors;
     this.#navigation = new Navigation((page) => this.#entries.has(page));
-    this.#sender = new Sender(app, this.#connections, this.#copies, (): WireMagazine[] => this.#applications.index(this.#copies, this.#app.limits()));
+    this.#sender = new Sender(app, this.#connections, this.#copies, (session): WireMagazine[] =>
+      this.#applications.index(this.#copies, this.#app.limits(), session),
+    );
     this.#host = makeHost({
       app,
       seed: options.seed,
@@ -93,7 +95,7 @@ export class Channel implements ServerEvents {
     this.#answers = {
       copies: this.#copies,
       sender: this.#sender,
-      index: (): WireMagazine[] => this.#applications.index(this.#copies, this.#app.limits()),
+      index: (session): WireMagazine[] => this.#applications.index(this.#copies, this.#app.limits(), session),
       errors: this.#errors,
     };
     this.#calls = {

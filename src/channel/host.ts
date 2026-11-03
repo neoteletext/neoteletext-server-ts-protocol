@@ -82,8 +82,9 @@ function publishing(parts: HostParts): PublishingHost {
       sender.distribute(owner, page, copies.remove(owner, page, subcodes));
     },
     release: (session, page): void => {
+      const countBefore = copies.get(session, page)?.subpages.size ?? 0;
       if (copies.release(session, page)) {
-        sender.released(session, page);
+        sender.released(session, page, countBefore);
       }
     },
     titleOf: (page): string | undefined => titles.get(page),

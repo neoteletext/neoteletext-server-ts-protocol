@@ -24,9 +24,9 @@ export class Sender {
   readonly #app: App;
   readonly #connections: Connections;
   readonly #copies: Copies;
-  readonly #index: () => WireMagazine[];
+  readonly #index: (session: number) => WireMagazine[];
 
-  constructor(app: App, connections: Connections, copies: Copies, index: () => WireMagazine[]) {
+  constructor(app: App, connections: Connections, copies: Copies, index: (session: number) => WireMagazine[]) {
     this.#app = app;
     this.#connections = connections;
     this.#copies = copies;
@@ -68,15 +68,34 @@ export class Sender {
     }
   }
 
-  /** The index to every connection answered. */
-  index(): void {
-    const answered = this.#connections.answered();
-    if (answered.length === 0 || !this.#app.hasStarted()) {
+  /**
+   * The index to every connection answered, or to `session`'s alone: each
+   * the index of the copies its session sees, so a session with its own copy
+   * of a page is told that copy's count. Connections whose index is the same
+   * are sent it in one message.
+   */
+  index(session?: number): void {
+    if (!this.#app.hasStarted()) {
       return;
     }
-    const magazines = this.#index();
-    for (const chunk of this.#chunks(answered)) {
-      this.send({ type: "index", connections: chunk, magazines });
+    const groups = new Map<string, { magazines: WireMagazine[]; connections: number[] }>();
+    const bySession = new Map<number, WireMagazine[]>();
+    for (const connection of this.#connections.answered()) {
+      const owner = this.#connections.get(connection)?.session;
+      if (owner === undefined || (session !== undefined && owner !== session)) {
+        continue;
+      }
+      const magazines = bySession.get(owner) ?? this.#index(owner);
+      bySession.set(owner, magazines);
+      const key = JSON.stringify(magazines);
+      const group = groups.get(key) ?? { magazines, connections: [] };
+      group.connections.push(connection);
+      groups.set(key, group);
+    }
+    for (const { magazines, connections } of groups.values()) {
+      for (const chunk of this.#chunks(connections)) {
+        this.send({ type: "index", connections: chunk, magazines });
+      }
     }
   }
 
@@ -160,14 +179,17 @@ export class Sender {
       }
       this.list(lists, page, copy, true);
     }
-    if (owner === "channel" && change.countBefore !== change.countAfter) {
-      this.index();
+    if (change.countBefore !== change.countAfter) {
+      this.index(owner === "channel" ? undefined : owner);
     }
   }
 
-  /** The session's own copy of `page` went: each of its connections there is sent the channel's copy, and its list. */
-  released(session: number, page: number): void {
+  /** The session's own copy of `page` went: each of its connections there is sent the channel's copy, and its list, and the session its index, whose count may change with it. */
+  released(session: number, page: number, countBefore: number): void {
     const copy = this.#copies.get("channel", page);
+    if (copy?.subpages.size !== countBefore) {
+      this.index(session);
+    }
     if (copy === undefined) {
       return;
     }

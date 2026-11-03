@@ -26,7 +26,8 @@ const NOT_FOUND = 404;
 export interface AnswerParts {
   readonly copies: Copies;
   readonly sender: Sender;
-  readonly index: () => WireMagazine[];
+  /** The index the session is sent, which counts the sub-pages of the copies it sees. */
+  readonly index: (session: number) => WireMagazine[];
   readonly errors: (text: string) => void;
 }
 
@@ -63,7 +64,7 @@ export function answerConnected(
   const copy = page === undefined ? undefined : parts.copies.seen(state.session, page);
   const shown = resolve(copy, sub);
   state.sub = shown ?? null;
-  const magazines = parts.index();
+  const magazines = parts.index(state.session);
   const { request } = state;
   if (state.denied !== null) {
     state.sub = null;
