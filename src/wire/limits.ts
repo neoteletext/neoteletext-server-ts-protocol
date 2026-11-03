@@ -6,7 +6,7 @@
 import type { WireBudgets, WireStandard } from "./server-wire.ts";
 
 /** The protocol's version, in `start` (DEC-1482): one number, raised on every change of shape; the kit stops on any other (REQ-2215 item 3). */
-export const PROTOCOL = 10;
+export const PROTOCOL = 11;
 
 /**
  * The longest line either side may send (DOC-1965):
@@ -31,6 +31,10 @@ export interface Standard {
   readonly subpages: number;
   /** Sub-codes a viewer can key: those whose digits are all decimal. */
   readonly decimalSubpages: number;
+  /** Sub-pages automatic numbering can number: those above the set's last decimal sub-code (the engine's `SUBCODES_ABOVE_SET`, EN 300 706 Annex A.1). */
+  readonly numberedSubpages: number;
+  /** The longest link target, in bytes (the engine's `LINK_TARGET_BYTES`). */
+  readonly linkTargetBytes: number;
 }
 
 /** The server's own bounds on what a program sends, as `start` gives them. */
@@ -70,6 +74,8 @@ export function readLimits(standard: WireStandard, budgets: WireBudgets): Limits
       keyablePages: standard.keyable_pages,
       subpages: standard.subpages,
       decimalSubpages: standard.decimal_subpages,
+      numberedSubpages: standard.numbered_subpages,
+      linkTargetBytes: standard.link_target_bytes,
     },
     budgets: {
       lineBytes: budgets.line_bytes,

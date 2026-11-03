@@ -1,6 +1,6 @@
 // The protocol's messages as they travel, version 8 (DEC-1482; the
 // server's DOC-1968 and DOC-1970): hand-written to match
-// the server's published schema (schema/protocol-10.json), which the
+// the server's published schema (schema/protocol-11.json), which the
 // precompiled validators check every message against (validate.ts), so the
 // two cannot drift apart unnoticed: test/protocol.test.ts holds a valid
 // value of each type to the schema.

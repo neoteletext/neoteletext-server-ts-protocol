@@ -40,6 +40,22 @@ export type Input =
     } & Pointed)
   /** The pointer moved over the page, a button held or not (DOC-1945); `buttons` are those held, a bit each ({@link Held}). */
   | ({ readonly kind: "mouse"; readonly action: "move"; readonly buttons: number; readonly column: number; readonly row: number } & Pointed)
+  /** The pointer left the page, or the receiver lost it, at the cell it was last over, so the page can stop showing what follows it (REQ-1355, REQ-1367); a button held comes first as a release marked `lost`. */
+  | ({ readonly kind: "mouse"; readonly action: "gone"; readonly column: number; readonly row: number } & Pointed)
+  /**
+   * A finger after the first, which comes as `mouse` (REQ-1366, DOC-1938):
+   * down, up, moved, or gone when the receiver lost it, on a cell.
+   * `contact` names it from its beginning to its end. Only on a connection
+   * that agreed TOUCH; a release the page lost is marked `lost`.
+   */
+  | ({
+      readonly kind: "touch";
+      readonly action: "press" | "release" | "move" | "gone";
+      readonly contact: number;
+      readonly column: number;
+      readonly row: number;
+      readonly lost?: true;
+    } & Pointed)
   /** The wheel turned over a cell, in 1/120ths of a line, positive right and down. */
   | ({ readonly kind: "wheel"; readonly dx: number; readonly dy: number; readonly column: number; readonly row: number } & Pointed)
   /** The pointer entered a control of the page or left it (DOC-1940): `column` and `row` are the control's first cell, its top-left, as the page declared it; a move from one control to the next is a leave, then an enter. */

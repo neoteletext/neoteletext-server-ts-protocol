@@ -5,7 +5,8 @@ import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
 import { test } from "node:test";
 
-import { figure, LineSplitter, LONGEST_LINE, PROTOCOL, ProtocolVersionError, readMessage, serveLines, type ServerEvents } from "../src/index.ts";
+import { LineSplitter, LONGEST_LINE, PROTOCOL, ProtocolVersionError, readMessage, serveLines, type ServerEvents } from "../src/index.ts";
+import { serverStats } from "../src/testing/index.ts";
 import { START_LINE } from "./fixtures/start-line.ts";
 
 /** The keyboard's focus coming to page 100, as the server writes it. */
@@ -83,7 +84,7 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
       heard.push(`closed ${session}`);
     },
     stats: (stats) => {
-      heard.push(`stats ${figure(stats.server, "uptime_s")}`);
+      heard.push(`stats ${stats.server.uptime_s} ${stats.channel.most_opened.map(({ page, opens }) => `${page}:${opens}`).join(",")}`);
     },
     refused: (refusal) => {
       heard.push(`refused ${refusal.rule}`);
@@ -100,10 +101,11 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
   });
   input.write(`${START_AT_5}\n${CONNECTED_LINE}\nnonsense\n`);
   input.write(`${SELECTED_LINE}\n${FOCUS_LINE}\n`);
-  input.write(`{"type":"stats","server":{"uptime_s":10},"channel":{"viewers":1}}\n${SELECTED_LINE.replace("}", ',"view":0}')}\n`);
+  const stats = serverStats({ server: { uptime_s: 10 }, channel: { viewers: 1, most_opened: [{ page: "100", opens: 3 }] } });
+  input.write(`${JSON.stringify({ type: "stats", ...stats })}\n${SELECTED_LINE.replace("}", ',"view":0}')}\n`);
   input.end('{"type":"left","connection":3,"page":"100"}\n{"type":"closed","session":1}');
   await served;
-  assert.deepEqual(heard, ["start 5", "connected 3 1 none", "selected 3 100 3f7f", "input 3 100 focus", "stats 10", "left 3 100", "closed 1"]);
+  assert.deepEqual(heard, ["start 5", "connected 3 1 none", "selected 3 100 3f7f", "input 3 100 focus", "stats 10 100:3", "left 3 100", "closed 1"]);
   assert.equal(errors.length, 2);
   assert.match(errors[0] ?? "", /not JSON/u);
   assert.match(errors[1] ?? "", /unknown_field/u, "a view number is no field of protocol 3 (DEC-1527)");

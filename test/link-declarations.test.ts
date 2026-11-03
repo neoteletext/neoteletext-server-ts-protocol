@@ -45,9 +45,13 @@ test("a key's link is declared once a key, to a target in a form of Appendix E.1
   assert.throws(() => {
     screen.keyLink("red", "zzz");
   }, RangeError);
-  assert.throws(() => {
-    screen.keyLink("red", `https://example.com/${"a".repeat(8000)}`);
-  }, RangeError);
+  const long = new Screen();
+  long.keyLink("red", `https://example.com/${"a".repeat(SERVER_LIMITS.standard.linkTargetBytes)}`);
+  assert.equal(
+    checkProgram({ type: "page", connections: [1], page: { page: "100", sub: "0000", ...long.content() } }, SERVER_LIMITS)?.path,
+    "page.link_extension.keys[0].target",
+    "a target longer than start's link_target_bytes is refused before it is sent",
+  );
   assert.equal(checkProgram({ type: "page", connections: [1], page: { page: "100", sub: "0000", ...screen.content() } }, SERVER_LIMITS), null);
 });
 

@@ -8,8 +8,6 @@
 /** A target's kind: a page of this service, a page of another service or an address, or a web page to open outside teletext. */
 export type TargetKind = "here" | "elsewhere" | "web";
 
-/** The longest target: the longest address of REQ-1661 and the `web:` mark (the engine's page::LINK_TARGET_BYTES). */
-const LONGEST_TARGET = 8004;
 /** The mark of a web page (the engine's page::WEB_MARK). */
 const WEB_MARK = "web:";
 /** What makes a target an address rather than a page or a named service (concept section 3). */
@@ -32,7 +30,7 @@ const SERVICE_NAME = /^[A-Za-z0-9-]+$/u;
 function isLinkAddress(text: string): boolean {
   const address = text.startsWith(WEB_MARK) ? text.slice(WEB_MARK.length) : text;
   const lower = address.toLowerCase();
-  return ADDRESS_SCHEMES.some((scheme) => lower.startsWith(scheme)) && text.length <= LONGEST_TARGET && TARGET_CHARACTERS.test(text);
+  return ADDRESS_SCHEMES.some((scheme) => lower.startsWith(scheme)) && TARGET_CHARACTERS.test(text);
 }
 
 function isPageAddress(text: string): boolean {
@@ -66,9 +64,14 @@ function pageTarget(text: string): "here" | "elsewhere" | null {
   return isServiceName(first) && isPageAddress(second) && isSubcode(third) ? "elsewhere" : null;
 }
 
-/** A target's kind, or null for a target in no form of Appendix E.1 (the server's check.rs `target`). */
+/**
+ * A target's kind, or null for a target in no form of Appendix E.1 (the
+ * server's check.rs `target`). Its length is not looked at here: the
+ * longest target is `start`'s `link_target_bytes`, which the schema
+ * states and the server's rules check (page-rules.ts).
+ */
 export function targetKind(text: string): TargetKind | null {
-  if (text.length > LONGEST_TARGET || !TARGET_CHARACTERS.test(text)) {
+  if (!TARGET_CHARACTERS.test(text)) {
     return null;
   }
   if (text.startsWith(WEB_MARK) || text.includes(ADDRESS_MARK)) {

@@ -13,7 +13,7 @@
 #                             formatting, lint and Knip checks, and the
 #                             tests: what the gates run, here or on the host
 #   scripts/check.sh build    the release build into dist/
-#   scripts/check.sh schema   schema/protocol-10.json against the server's
+#   scripts/check.sh schema   schema/protocol-11.json against the server's
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -26,11 +26,11 @@ readonly NODE_LEAST="22.18.0"
 readonly INSTALLED_FROM="node_modules/.installed-from.sha256"
 # Every file is the program or its checks.
 readonly CHECKED_PATHS=(.)
-# The server's repository, and the commit whose protocol/schema-10.json
-# schema/protocol-10.json is a copy of: a new schema is taken by copying it
+# The server's repository, and the commit whose protocol/schema-11.json
+# schema/protocol-11.json is a copy of: a new schema is taken by copying it
 # and naming its commit here.
 server="${NEOTELETEXT_SERVER:-$HOME/devel/neoteletext-app-server}"
-readonly SCHEMA_FROM="7f41d70f1d939f3d11ceb91fc6bd90b6a5a6576a"
+readonly SCHEMA_FROM="7a1f4053cc076d76862183577374b233cffe3da1"
 
 . scripts/gate.sh
 
@@ -111,11 +111,11 @@ build() {
 # validators check what the server checks. The server's repository is on
 # this machine, not on the Linux host, whose steps (stage) do not ask it.
 schema() {
-    step "schema/protocol-10.json is the server's protocol/schema-10.json at ${SCHEMA_FROM:0:7}"
+    step "schema/protocol-11.json is the server's protocol/schema-11.json at ${SCHEMA_FROM:0:7}"
     server_git rev-parse --git-dir >/dev/null 2>&1 || fail "the server's repository is needed at $server (or NEOTELETEXT_SERVER) to check the schema's copy"
-    server_git cat-file -e "$SCHEMA_FROM:protocol/schema-10.json" 2>/dev/null || fail "$server has no protocol/schema-10.json at $SCHEMA_FROM"
-    cmp -s schema/protocol-10.json <(server_git show "$SCHEMA_FROM:protocol/schema-10.json") ||
-        fail "schema/protocol-10.json differs from $server's protocol/schema-10.json at $SCHEMA_FROM; copy that file, or name in scripts/check.sh the commit the copy is from"
+    server_git cat-file -e "$SCHEMA_FROM:protocol/schema-11.json" 2>/dev/null || fail "$server has no protocol/schema-11.json at $SCHEMA_FROM"
+    cmp -s schema/protocol-11.json <(server_git show "$SCHEMA_FROM:protocol/schema-11.json") ||
+        fail "schema/protocol-11.json differs from $server's protocol/schema-11.json at $SCHEMA_FROM; copy that file, or name in scripts/check.sh the commit the copy is from"
 }
 
 commit_steps() {

@@ -117,15 +117,6 @@ function pageOf(text: string): number {
   return Number.parseInt(text, PAGE_RADIX);
 }
 
-function isObject(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** The server's figures: each an object, as the schema leaves them. */
-function statsOf(server: unknown, channel: unknown): ServerStats | string {
-  return isObject(server) && isObject(channel) ? { server, channel } : "stats: server and channel are objects";
-}
-
 function connectedOf(message: Extract<WireServerMessage, { type: "connected" }>): ServerMessage {
   const selection = message.selection ?? null;
   return {
@@ -196,8 +187,7 @@ function messageOf(message: WireServerMessage): ServerMessage | string {
     return { type: "closed", session: message.session };
   }
   if (message.type === "stats") {
-    const stats = statsOf(message.server, message.channel);
-    return typeof stats === "string" ? stats : { type: "stats", stats };
+    return { type: "stats", stats: { server: message.server, channel: message.channel } };
   }
   if (message.type === "describe") {
     return { type: "describe", page: pageOf(message.page) };

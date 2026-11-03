@@ -45,6 +45,50 @@ test("every kind of event the server writes is read", () => {
   assert.deepEqual(read({ kind: "compose", cursor: 0, text: "" }), { kind: "compose", cursor: 0, text: "" }, "composing ended");
 });
 
+test("protocol 11: the pointer's going and a second finger reach a program (REQ-1355, REQ-1366)", () => {
+  assert.deepEqual(read({ kind: "mouse", action: "gone", button: null, buttons: null, mods: 0, column: 5, row: 6 }), {
+    kind: "mouse",
+    action: "gone",
+    column: 5,
+    row: 6,
+  });
+  for (const action of ["press", "move", "gone"] as const) {
+    assert.deepEqual(read({ kind: "touch", action, contact: 2, column: 3, row: 4, px: 30, py: null }), {
+      kind: "touch",
+      action,
+      contact: 2,
+      column: 3,
+      row: 4,
+      px: 30,
+    });
+  }
+  assert.deepEqual(read({ kind: "touch", action: "release", contact: 9, column: 0, row: 0 }), {
+    kind: "touch",
+    action: "release",
+    contact: 9,
+    column: 0,
+    row: 0,
+  });
+  const lost = readMessage(
+    JSON.stringify({
+      type: "input",
+      connection: 1,
+      page: "100",
+      sub: "0000",
+      lost: true,
+      event: { kind: "touch", action: "release", contact: 1, column: 0, row: 0 },
+    }),
+  );
+  assert.deepEqual(typeof lost === "string" || lost.type !== "input" ? lost : lost.input, {
+    kind: "touch",
+    action: "release",
+    contact: 1,
+    column: 0,
+    row: 0,
+    lost: true,
+  });
+});
+
 test("the modifiers and the dot reach a program, each when there is one (REQ-1347)", () => {
   const held = Mods.Control | Mods.Shift;
   assert.deepEqual(read({ kind: "key", action: "press", key: "c", mods: Mods.Control, text: null, base: null }), {

@@ -1,6 +1,7 @@
 // What the server sends a program, as it travels: the other half of
 // protocol.ts, under the same rule.
 
+import type { ChannelCounts, ServerFigures } from "./stats.ts";
 import type { WireLanguageTag, WirePageNumber, WireSelection, WireSubCode } from "./protocol.ts";
 
 /** One language of `start.languages` (REQ-2215). */
@@ -24,6 +25,8 @@ export interface WireStandard {
   readonly keyable_pages: number;
   readonly subpages: number;
   readonly decimal_subpages: number;
+  readonly numbered_subpages: number;
+  readonly link_target_bytes: number;
 }
 
 export interface WireBudgets {
@@ -55,10 +58,19 @@ export type WireInputEvent =
     }
   | {
       readonly kind: "mouse";
-      readonly action: "press" | "release" | "move";
+      readonly action: "press" | "release" | "move" | "gone";
       readonly button?: number | null;
       readonly buttons?: WireButtons | null;
       readonly mods: number;
+      readonly column: number;
+      readonly row: number;
+      readonly px?: number | null;
+      readonly py?: number | null;
+    }
+  | {
+      readonly kind: "touch";
+      readonly action: "press" | "release" | "move" | "gone";
+      readonly contact: number;
       readonly column: number;
       readonly row: number;
       readonly px?: number | null;
@@ -120,7 +132,7 @@ export type WireServerMessage =
     }
   | { readonly type: "left"; readonly connection: number; readonly page: WirePageNumber }
   | { readonly type: "closed"; readonly session: number }
-  | { readonly type: "stats"; readonly server: unknown; readonly channel: unknown }
+  | { readonly type: "stats"; readonly server: ServerFigures; readonly channel: ChannelCounts }
   | {
       readonly type: "refused";
       readonly message?: string | null;

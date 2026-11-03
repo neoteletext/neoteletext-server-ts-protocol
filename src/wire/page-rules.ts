@@ -5,6 +5,7 @@
 // e6d95f7).
 
 import type { Fault } from "./fault.ts";
+import type { Limits } from "./limits.ts";
 import type { WireLinkExtension, WirePackedLine, WirePage } from "./protocol.ts";
 import { HEX, base64Bytes, boundedTextFault, firstOf, given, isFault, textFault } from "./rule-pieces.ts";
 import { CODE_MASK, COLUMNS } from "../page/geometry.ts";
@@ -35,20 +36,27 @@ function rowsFault(path: string, rows: readonly (string | null)[]): Fault | null
   });
 }
 
-const TARGET_FORMS =
-  "a target is mpp, mpp:ssss, name:mpp, name:mpp:ssss, an http or https address, or web: and one; printable ASCII without spaces or commas, at most 8004 bytes";
+/** What a target is, said when one is refused. */
+function targetForms(longest: number): string {
+  return `a target is mpp, mpp:ssss, name:mpp, name:mpp:ssss, an http or https address, or web: and one; printable ASCII without spaces or commas, at most ${longest} bytes`;
+}
+
+/** A target's kind, or null for one in no form of Appendix E.1 or longer than `start`'s link_target_bytes (the server's check.rs `target`). */
+function kindOf(target: string, longest: number): ReturnType<typeof targetKind> {
+  return target.length > longest ? null : targetKind(target);
+}
 
 /** The Link Extension's links: each key once, each target in a form of Appendix E.1, labels within their target's bound, no page number to the web, text links within their row (the server's check_link_extension). */
-function linksFault(path: string, links: WireLinkExtension): Fault | null {
+function linksFault(path: string, links: WireLinkExtension, longest: number): Fault | null {
   return (
     firstOf(links.keys, (link, index) => {
       const at = `${path}.keys[${index}]`;
       if (links.keys.slice(0, index).some((earlier) => earlier.key === link.key)) {
         return { path: `${at}.key`, rule: "duplicate", detail: `${link.key} twice` };
       }
-      const kind = targetKind(link.target);
+      const kind = kindOf(link.target, longest);
       if (kind === null) {
-        return { path: `${at}.target`, rule: "wrong_type", detail: TARGET_FORMS };
+        return { path: `${at}.target`, rule: "wrong_type", detail: targetForms(longest) };
       }
       if (!given(link.label)) {
         return null;
@@ -60,9 +68,9 @@ function linksFault(path: string, links: WireLinkExtension): Fault | null {
     }) ??
     firstOf(links.numbers, (link, index) => {
       const at = `${path}.numbers[${index}].target`;
-      const kind = targetKind(link.target);
+      const kind = kindOf(link.target, longest);
       if (kind === null) {
-        return { path: at, rule: "wrong_type", detail: TARGET_FORMS };
+        return { path: at, rule: "wrong_type", detail: targetForms(longest) };
       }
       return kind === "web" ? { path: at, rule: "not_listed", detail: "a page number never leads to web:" } : null;
     }) ??
@@ -75,7 +83,7 @@ function linksFault(path: string, links: WireLinkExtension): Fault | null {
           detail: `column ${link.column} and ${link.length} characters: the run stays within ${COLUMNS} columns`,
         };
       }
-      return targetKind(link.target) === null ? { path: `${at}.target`, rule: "wrong_type", detail: TARGET_FORMS } : null;
+      return kindOf(link.target, longest) === null ? { path: `${at}.target`, rule: "wrong_type", detail: targetForms(longest) } : null;
     })
   );
 }
@@ -109,7 +117,7 @@ function textRunsFault(path: string, page: WirePage): Fault | null {
 }
 
 /** A sub-page, in the order of the server's check_page and check_subpage. */
-export function pageFault(path: string, page: WirePage): Fault | null {
+export function pageFault(path: string, page: WirePage, limits: Limits): Fault | null {
   if (isReserved(Number.parseInt(page.page, HEX))) {
     return { path: `${path}.page`, rule: "reserved", detail: `${page.page} is reserved by the standard (EN 300 706 Annex A.10)` };
   }
@@ -118,7 +126,7 @@ export function pageFault(path: string, page: WirePage): Fault | null {
   }
   return (
     rowsFault(path, page.rows) ??
-    linksFault(`${path}.link_extension`, page.link_extension) ??
+    linksFault(`${path}.link_extension`, page.link_extension, limits.standard.linkTargetBytes) ??
     enhancementsFault(path, page) ??
     packedFault(path, page.packets) ??
     textRunsFault(path, page)

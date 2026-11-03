@@ -126,7 +126,9 @@ function replyFault(message: Extract<ProgramMessage, { type: "reply" }>, limits:
   }
   const selected = message.selected;
   const listed = message.magazines.some((magazine) => magazine.pages.some((entry) => entry.page === selected.page));
-  return pageFault("selected", selected) ?? (listed ? null : { path: "selected.page", rule: "not_in_index", detail: `${selected.page} is not in magazines` });
+  return (
+    pageFault("selected", selected, limits) ?? (listed ? null : { path: "selected.page", rule: "not_in_index", detail: `${selected.page} is not in magazines` })
+  );
 }
 
 /** A public page gives its title, text and sub-page, the sub-page of the page named; a page that is not public gives nothing (REQ-1728 items 3 and 6; the server's check_description). */
@@ -151,7 +153,7 @@ function descriptionFault(message: Extract<ProgramMessage, { type: "description"
     (given(content) && content.page !== message.page
       ? { path: "content.page", rule: "wrong_page", detail: `${content.page}, for the description of ${message.page}` }
       : null) ??
-    (given(content) ? pageFault("content", content) : null)
+    (given(content) ? pageFault("content", content, limits) : null)
   );
 }
 
@@ -223,7 +225,7 @@ export function checkRules(message: ProgramMessage, limits: Limits): Fault | nul
     }
     case "page":
     case "measure": {
-      fault = (message.type === "page" ? answerFault(message.connections, message.request) : null) ?? pageFault("page", message.page);
+      fault = (message.type === "page" ? answerFault(message.connections, message.request) : null) ?? pageFault("page", message.page, limits);
       break;
     }
     case "subpages": {

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { type Application, type PageEntry, Random } from "../src/index.ts";
-import { Harness, SERVER_LANGUAGES, SERVER_LIMITS, shows } from "../src/testing/index.ts";
+import { Harness, SERVER_LANGUAGES, SERVER_LIMITS, serverStats, shows } from "../src/testing/index.ts";
 import { Recorder, screen } from "./recorder.ts";
 
 test("the first application to name a page serves it; every application hears a session begin, only the owner its pages", () => {
@@ -67,7 +67,7 @@ test("the server's figures reach every application, which may name the channel's
     },
   });
   const harness = new Harness([figures("one"), figures("two")]);
-  harness.stats({ server: {}, channel: { viewers: 4 } });
+  harness.stats(serverStats({ channel: { viewers: 4 } }));
   assert.deepEqual(shown, ["one 4 two none", "two 4 two none"]);
 });
 

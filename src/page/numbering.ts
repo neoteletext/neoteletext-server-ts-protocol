@@ -32,8 +32,6 @@ const LAST_DECIMAL_DIGIT = 9;
 /** A set numbered 0001 to 0079 (Annex A.1, display rule 2; the engine's `SET_SUBPAGES` and `SET_LAST_SUBCODE`). */
 const SET_SUBPAGES = 79;
 const SET_LAST_SUB = 0x0079;
-/** The most the code of practice can number: the sub-codes above 0079, 3F7F left out (the engine's `SUBCODES_ABOVE_SET`). */
-const MOST_NUMBERED = 8_069;
 /** Of those, the decimal ones, 0100 to 3979 (the engine's `DECIMAL_SUBCODES_ABOVE_SET`). */
 const DECIMAL_ABOVE_SET = 3_120;
 /** The last decimal sub-code. */
@@ -73,16 +71,27 @@ function subCodes(): { readonly inSet: readonly number[]; readonly aboveSet: rea
 
 const { inSet: IN_SET, aboveSet: ABOVE_SET } = subCodes();
 // The engine's figures, derived here by enumeration: they must agree.
-if (IN_SET.length !== SET_SUBPAGES || ABOVE_SET.length !== MOST_NUMBERED || ABOVE_SET[DECIMAL_ABOVE_SET - 1] !== LAST_DECIMAL_SUB) {
+if (IN_SET.length !== SET_SUBPAGES || ABOVE_SET[DECIMAL_ABOVE_SET - 1] !== LAST_DECIMAL_SUB) {
   throw new Error("the sub-codes counted disagree with the engine's limits");
 }
 /** Each sub-code's place, from 1, in the set and above it. */
 const PLACE_IN_SET = new Map(IN_SET.map((sub, index) => [sub, index + 1]));
 const PLACE_ABOVE_SET = new Map(ABOVE_SET.map((sub, index) => [sub, index + 1]));
 
-/** The most sub-pages a page given whole can have: those the code of practice numbers (8,069, the engine's `SUBCODES_ABOVE_SET`), and no more than `start` allows. A program that draws a page whole stops there (TODO-1579). */
+/**
+ * The most sub-pages a page given whole can have: those the code of
+ * practice numbers, `start`'s `numbered_subpages` (the engine's
+ * `SUBCODES_ABOVE_SET`), and no more than `start`'s sub-pages. A program
+ * that draws a page whole stops there (TODO-1579). The sub-codes this
+ * module counts above the set must be as many as the engine's figure, or
+ * the kit would number a page otherwise than the engine.
+ */
 export function mostNumbered(limits: Limits): number {
-  return Math.min(MOST_NUMBERED, limits.standard.subpages);
+  const { numberedSubpages, subpages } = limits.standard;
+  if (ABOVE_SET.length !== numberedSubpages) {
+    throw new Error(`the kit counts ${ABOVE_SET.length} sub-codes above the set, and start's numbered_subpages is ${numberedSubpages}`);
+  }
+  return Math.min(numberedSubpages, subpages);
 }
 
 /** The sub-codes of a page of `count` sub-pages given whole, in their order (REQ-317). */

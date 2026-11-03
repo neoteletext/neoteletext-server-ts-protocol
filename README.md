@@ -5,8 +5,8 @@ reference kit of DOC-1974. A
 channel is a program the server starts; they talk in lines of JSON on its
 standard input and output. This package speaks protocol version 8
 (DEC-1482): every message in both directions is checked against the
-server's published JSON Schema (`schema/protocol-10.json`, the server's
-`protocol/schema-10.json`) by validators Ajv 8 compiles from it at build, in
+server's published JSON Schema (`schema/protocol-11.json`, the server's
+`protocol/schema-11.json`) by validators Ajv 8 compiles from it at build, in
 standalone mode, so nothing compiles a schema at run time, and then held
 to the server's rules of text the schema cannot state: no control or
 bidirectional formatting character, Unicode normalisation form C, and a
@@ -152,7 +152,7 @@ most 40 characters).
 - **Cookies:** `Context.cookies(session)` is the viewer's cookies as their
   connection opened with them, and `Context.cookie(connection, name,
   value, options)` sets one.
-- **The protocol's version:** the kit speaks protocol 10 (`PROTOCOL`); a
+- **The protocol's version:** the kit speaks protocol 11 (`PROTOCOL`); a
   `start` of any other stops it before it sends anything, naming both
   (`ProtocolVersionError`, REQ-2215 item 3).
 - **Input:** `Input`, what a viewer did, with `Mods`, the modifier keys
