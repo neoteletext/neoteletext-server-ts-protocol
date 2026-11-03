@@ -32,6 +32,8 @@ interface RunCell {
   /** Which text call wrote it. */
   readonly run: number;
   readonly rightToLeft: boolean;
+  /** From outside the program (DEC-2326). */
+  readonly outside: boolean;
 }
 
 /** A row's stretch of one run, or of several joined. */
@@ -41,6 +43,7 @@ interface Piece {
   cells: string[];
   readonly language: LanguageTag | null;
   readonly rightToLeft: boolean;
+  readonly outside: boolean;
 }
 
 /** The printable ASCII Latin English shows at its own codes: all but where EN 300 706 Table 36's national options differ (0x23, 0x24, 0x40, 0x5B to 0x60, 0x7B to 0x7E). */
@@ -85,7 +88,14 @@ function cut(piece: Piece): WireTextRun[] {
       column -= cells.length;
     }
     const text = cells.join("");
-    const run: WireTextRun = piece.language === null ? { row: piece.row, column, text } : { row: piece.row, column, text, language: piece.language };
+    const placed: { row: number; column: number; text: string; language?: LanguageTag; outside?: boolean } = { row: piece.row, column, text };
+    if (piece.language !== null) {
+      placed.language = piece.language;
+    }
+    if (piece.outside) {
+      placed.outside = true;
+    }
+    const run: WireTextRun = placed;
     if (!piece.rightToLeft) {
       column += cells.length;
     }
@@ -140,8 +150,8 @@ export class TextRuns {
     return emptied;
   }
 
-  /** Puts `cells` from `column` of `row`, those within the row; what was there is cleared first. Answers the cells emptied as {@link clear} does. */
-  put(row: number, column: number, cells: readonly string[], language: LanguageTag | null): number[] {
+  /** Puts `cells` from `column` of `row`, those within the row, marked as from outside the program when `outside`; what was there is cleared first. Answers the cells emptied as {@link clear} does. */
+  put(row: number, column: number, cells: readonly string[], language: LanguageTag | null, outside = false): number[] {
     const line = this.#cells[row];
     if (line === undefined || row < FIRST_TEXT_ROW) {
       return [];
@@ -154,7 +164,7 @@ export class TextRuns {
       const at = column + offset;
       // A space is the same code in every set: it needs no run, and runs either side of it join over it; but right to left, a run is ordered whole, its spaces with it.
       if (at >= 0 && at < COLUMNS && (rightToLeft || text !== SPACE_CELL)) {
-        line[at] = { text, language, run, rightToLeft };
+        line[at] = { text, language, run, rightToLeft, outside };
       }
     });
     return emptied;
@@ -183,7 +193,7 @@ export class TextRuns {
           last.cells.push(cell.text);
           return;
         }
-        last = { row, column, cells: [cell.text], language: cell.language, rightToLeft: cell.rightToLeft };
+        last = { row, column, cells: [cell.text], language: cell.language, rightToLeft: cell.rightToLeft, outside: cell.outside };
         lastRun = cell.run;
         pieces.push(last);
       });
@@ -199,6 +209,7 @@ export class TextRuns {
         !before.rightToLeft &&
         !piece.rightToLeft &&
         before.language === piece.language &&
+        before.outside === piece.outside &&
         spaces.every((_, offset) => isSpace(piece.row, piece.column - gap + offset)) &&
         characters([...before.cells, ...spaces, ...piece.cells]) <= RUN_CHARACTERS;
       if (joins) {

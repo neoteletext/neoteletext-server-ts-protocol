@@ -1,6 +1,6 @@
 // The protocol's messages as they travel, version 8 (DEC-1482; the
 // server's docs/applications.md sections 2 and 3): hand-written to match
-// the server's published schema (schema/protocol-9.json), which the
+// the server's published schema (schema/protocol-10.json), which the
 // precompiled validators check every message against (validate.ts), so the
 // two cannot drift apart unnoticed: test/protocol.test.ts holds a valid
 // value of each type to the schema.
@@ -82,6 +82,8 @@ export interface WireTextRun {
   readonly column: number;
   readonly text: string;
   readonly language?: WireLanguageTag | null;
+  /** The text came from outside the program (a viewer, a feed): a character its language cannot show becomes a stand-in rather than refusing the page (protocol 10, REQ-2150 item 3, DEC-2326). */
+  readonly outside?: boolean;
 }
 
 export interface WireCharacterSet {

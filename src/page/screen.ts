@@ -97,10 +97,10 @@ export class Screen {
    * Writes `text` at `row`, `column`, a cell for each character it shows
    * (cellsOf), cut at the row's end: Unicode in `language`, a tag of
    * `start.languages`, or the page's when null, which the server encodes
-   * (REQ-2214). Controls and format characters are shown as spaces. On
-   * row 0, the header, it is the program's own codes (`header`).
+   * (REQ-2214); `outside` when the program did not write it (DEC-2326).
+   * Controls are spaces. On row 0 it is the program's own codes (`header`).
    */
-  text(row: number, column: number, text: string, language: LanguageTag | null = null): void {
+  text(row: number, column: number, text: string, language: LanguageTag | null = null, outside = false): void {
     if (row === 0) {
       this.codes(row, column, headerCodes(text));
       return;
@@ -110,7 +110,7 @@ export class Screen {
       return;
     }
     const cells = textCells(text);
-    this.#spaces(row, this.#runs.put(row, column, cells, language));
+    this.#spaces(row, this.#runs.put(row, column, cells, language, outside));
     cells.forEach((cell, offset) => {
       const at = column + offset;
       if (at >= 0 && at < COLUMNS) {
@@ -120,9 +120,9 @@ export class Screen {
   }
 
   /** Writes `text` in `colour`: the colour attribute takes the cell before it. */
-  coloured(row: number, column: number, colour: Colour, text: string, language: LanguageTag | null = null): void {
+  coloured(row: number, column: number, colour: Colour, text: string, language: LanguageTag | null = null, outside = false): void {
     this.code(row, column, textColour(colour));
-    this.text(row, column + 1, text, language);
+    this.text(row, column + 1, text, language, outside);
   }
 
   /** Writes `text` centred on `row` in `colour`. */

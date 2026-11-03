@@ -193,7 +193,7 @@ test("the header is the program's own codes: letters, digits and the signs every
 });
 
 test("REQ-2215: the kit's languages' tags are the schema's, in its order, and the server's start lists each", () => {
-  const text = readFileSync(join(import.meta.dirname, "..", "schema", "protocol-9.json"), "utf8");
+  const text = readFileSync(join(import.meta.dirname, "..", "schema", "protocol-10.json"), "utf8");
   // The schema's $defs/LanguageTag, read as text so the test assumes nothing of its shape but the list.
   const found = /"LanguageTag": \{[^}]*?"enum": (\[[^\]]*\])/su.exec(text)?.[1];
   assert.ok(found !== undefined, "the schema lists the tags");
@@ -213,5 +213,17 @@ test("a space needs no run: runs either side of one join over it, but a right-to
   assert.deepEqual(screen.content().text, [
     { row: 4, column: 1, text: "a b" },
     { row: 5, column: 0, text: "שלום עולם", language: "he" },
+  ]);
+});
+
+test("DEC-2326: text from outside the program is a run marked outside, which never joins the program's own", () => {
+  const screen = new Screen();
+  screen.text(9, 0, "Name:");
+  screen.text(9, 6, "Zoë 😀", null, true);
+  screen.coloured(10, 0, Colour.Green, "Привет", "ru", true);
+  assert.deepEqual(screen.content().text, [
+    { row: 9, column: 0, text: "Name:" },
+    { row: 9, column: 6, text: "Zoë 😀", outside: true },
+    { row: 10, column: 1, text: "Привет", language: "ru", outside: true },
   ]);
 });
