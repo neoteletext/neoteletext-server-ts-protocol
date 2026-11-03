@@ -23,6 +23,8 @@ import { SERVER_LIMITS } from "../src/testing/index.ts";
 const PAGE: WirePage = { page: "100", sub: "0000", ...blankContent() };
 /** Hamming 8/4 of 0 to 15 (EN 300 706 clause 8.2, Table 3). */
 const HAMMING = [0x15, 0x02, 0x49, 0x5e, 0x64, 0x73, 0x38, 0x2f, 0xd0, 0xc7, 0x8c, 0x9b, 0xa1, 0xb6, 0xfd, 0xea];
+/** A TOC byte of the Opus profile: configuration 15, hybrid fullband 20 ms, one mono frame (RFC 6716 section 3.1). */
+const PROFILE_TOC = 15 << 3;
 const TRIPLETS: WireTriplet[] = Array.from({ length: 13 }, () => ({ address: 0, mode: 0, data: 0 }));
 
 /** `fault` is null, or the path and rule of the fault found. */
@@ -108,7 +110,7 @@ const opusSound = (bytes: number): unknown => ({
   generation: 0,
   packet_bytes: 40,
   samples: 960,
-  packets: Buffer.alloc(bytes).toString("base64"),
+  packets: Buffer.alloc(bytes, PROFILE_TOC).toString("base64"),
 });
 
 test("TODO-1550 item 1: a link target is one of Appendix E.1's forms, as the engine reads it", () => {

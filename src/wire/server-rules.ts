@@ -18,6 +18,7 @@ import type { ProgramMessage, WireConnections, WireMagazine, WireSound, WireSubP
 import { CODE_POINT_DIGITS, HEX, PAGE_DIGITS, base64Bytes, boundedTextFault, firstOf, given, hex, isFault, textFault } from "./rule-pieces.ts";
 import { PACKET_BYTES, isValidStreamPacket } from "./stream-packets.ts";
 import { isReserved } from "../page/page-numbers.ts";
+import { opusRefusal } from "../sound/opus-packet.ts";
 import { MOST_SAMPLES, OPUS_FRAME_SAMPLES, OPUS_PACKET_BYTES, SAMPLE_BYTES } from "../sound/profile.ts";
 
 /** A page number's magazine: its first hexadecimal digit (EN 300 706 clause 7.1.2). */
@@ -163,11 +164,22 @@ function wholeFault(path: string, text: string, most: number, size: number, what
   return bytes.length === 0 || bytes.length % size !== 0 ? { path, rule: "wrong_length", detail: `${bytes.length} bytes: whole ${what} of ${size}` } : bytes;
 }
 
+/** Every packet is the profile's, as the engine's decoder judges it before decoding (the server's Sounds::check_opus, which names no path). */
+function profileFault(bytes: Buffer, packetBytes: number): Fault | null {
+  for (let index = 0; index * packetBytes < bytes.length; index += 1) {
+    const refusal = opusRefusal(bytes.subarray(index * packetBytes, (index + 1) * packetBytes));
+    if (refusal !== null) {
+      return { path: "", rule: "outside_profile", detail: `packet ${index} is outside the Opus profile: ${refusal}` };
+    }
+  }
+  return null;
+}
+
 /** A sound's samples or packets: exact base64 of whole 16-bit samples or whole packets of `packet_bytes` (the server's check_sound). */
 function soundFault(sound: WireSound): Fault | null {
   if (sound.kind === "opus" || sound.kind === "opus_packets") {
     const bytes = wholeFault("packets", sound.packets, MOST_OPUS_BYTES, sound.packet_bytes, "packets");
-    return isFault(bytes) ? bytes : null;
+    return isFault(bytes) ? bytes : profileFault(bytes, sound.packet_bytes);
   }
   if (sound.kind === "object" || sound.kind === "blocks") {
     const bytes = base64Bytes("pcm", sound.pcm, MOST_PCM_BYTES);

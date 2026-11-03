@@ -209,5 +209,6 @@ test("the test encoder gives the packets the samples need, numbered, a stream's 
   stream.end();
   const last = stream.take();
   assert.equal(last.length, OPUS_PACKET_BYTES, "the part-frame at the end");
-  assert.equal(last[0], 5, "numbered on from the first");
+  assert.equal(last[0], 15 << 3, "a TOC byte of the profile: hybrid fullband 20 ms, one frame");
+  assert.equal(last[1], 5, "numbered on from the first");
 });

@@ -1,18 +1,23 @@
 // An Opus encoder for tests: no program run and no time taken, packets of
-// the profile's length and count for the samples given, each filled with
-// its number, so a test can say which packets went and in what order. What
-// it writes is not Opus; the server would refuse it.
+// the profile's length and count for the samples given, each a TOC byte of
+// the profile (one mono 20 ms frame, RFC 6716 section 3.1) and then its
+// number, so a test can say which packets went and in what order. Its
+// frames are not Opus a decoder would make sound of, but they pass the
+// profile's check, as the kit and the server make it before decoding.
 
 import type { EncodedOpus, OpusEncoder, OpusStream } from "../sound/opus-encoder.ts";
 import { OPUS_FRAME_SAMPLES, OPUS_PACKET_BYTES, OPUS_RATE, type SampleRate } from "../sound/profile.ts";
 
-/** A packet's bytes are its number, from 0, wrapping at a byte. */
+/** A packet's bytes after its TOC byte are its number, from 0, wrapping at a byte. */
 const BYTE_WRAP = 0x100;
+/** Configuration 15, hybrid fullband 20 ms, code 0: one mono frame (RFC 6716 section 3.1, Table 2). */
+const PROFILE_TOC = 15 << 3;
 
 function packetsFrom(first: number, count: number): Uint8Array {
   const packets = new Uint8Array(count * OPUS_PACKET_BYTES);
   for (let index = 0; index < count; index += 1) {
     packets.fill((first + index) % BYTE_WRAP, index * OPUS_PACKET_BYTES, (index + 1) * OPUS_PACKET_BYTES);
+    packets[index * OPUS_PACKET_BYTES] = PROFILE_TOC;
   }
   return packets;
 }
