@@ -140,3 +140,9 @@ test("REQ-317: a page of 80 sub-pages given whole goes to the server numbered fr
   const own = harness.sent.slice(before).find((message) => message["type"] === "subpages");
   assert.deepEqual(listed(own), ["0000", "0001", "0002"], "kept as given, in ascending order");
 });
+
+test("TODO-1579: the kit says the most it numbers, 8,069, so a program never asks it for more", async () => {
+  const kit = await import("../src/index.ts");
+  assert.equal(kit.mostNumbered(SERVER_LIMITS), 8069);
+  assert.throws(() => numbered(kit.mostNumbered(SERVER_LIMITS) + 1, SERVER_LIMITS), RangeError);
+});

@@ -41,7 +41,7 @@ export { tti } from "./page/subpage.ts";
 export { MOST_RUNS, RUN_CHARACTERS } from "./page/text-runs.ts";
 export { NO_CONTROL, X27_LINKS, blankContent, decodeRow, encodeRow, readBack, rowsOf } from "./page/content.ts";
 export type { ReadPage as ReadSubPage, SubPageContent } from "./page/content.ts";
-export { numbered } from "./page/numbering.ts";
+export { mostNumbered, numbered } from "./page/numbering.ts";
 export type { Subpage, SubpageBody } from "./page/subpage.ts";
 export { SIXELS_ACROSS, SIXELS_DOWN, Sixels } from "./page/sixels.ts";
 export { decimalSubcode } from "./tti/subcode.ts";

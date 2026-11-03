@@ -80,8 +80,8 @@ if (IN_SET.length !== SET_SUBPAGES || ABOVE_SET.length !== MOST_NUMBERED || ABOV
 const PLACE_IN_SET = new Map(IN_SET.map((sub, index) => [sub, index + 1]));
 const PLACE_ABOVE_SET = new Map(ABOVE_SET.map((sub, index) => [sub, index + 1]));
 
-/** The most sub-pages a page given whole can have: those the code of practice numbers, and no more than `start` allows. */
-function mostNumbered(limits: Limits): number {
+/** The most sub-pages a page given whole can have: those the code of practice numbers (8,069, the engine's `SUBCODES_ABOVE_SET`), and no more than `start` allows. A program that draws a page whole stops there (TODO-1579). */
+export function mostNumbered(limits: Limits): number {
   return Math.min(MOST_NUMBERED, limits.standard.subpages);
 }
 
