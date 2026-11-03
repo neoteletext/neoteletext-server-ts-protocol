@@ -1,5 +1,5 @@
 // The protocol's version, and the figures the server tells a program in
-// `start` (docs/applications.md section 2): the standard's maxima, from the
+// `start` (DOC-1968): the standard's maxima, from the
 // engine's limits, and the server's budgets. The kit writes none of those
 // figures: a program that needs one asks the context for it.
 
@@ -9,7 +9,7 @@ import type { WireBudgets, WireStandard } from "./server-wire.ts";
 export const PROTOCOL = 10;
 
 /**
- * The longest line either side may send (docs/applications.md section 1):
+ * The longest line either side may send (DOC-1965):
  * 16 MiB. The protocol's framing, which bounds the reading of `start`
  * itself, so it is known before `start` comes.
  */

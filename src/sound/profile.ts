@@ -1,7 +1,7 @@
-// The engine's audio profile (docs/applications.md section 3.4; the
+// The engine's audio profile (DOC-1972; the
 // engine's audio.md): its rates, channels and bounds.
 
-/** The profile's sample rates (docs/applications.md section 3.4; the engine's `audio.md`). */
+/** The profile's sample rates (DOC-1972; the engine's `audio.md`). */
 export const SAMPLE_RATES = [8_000, 11_025, 16_000, 22_050, 24_000, 32_000, 44_100, 48_000] as const;
 
 export type SampleRate = (typeof SAMPLE_RATES)[number];
@@ -24,7 +24,7 @@ export const LONGEST_FADE_MS = 0xffff;
 /** The deepest duck step (audio.md section 4.4: 0 to 6). */
 export const DEEPEST_DUCK = 6;
 
-/** The longest sound one message may carry: two minutes at 48 kHz, the browser's limit (docs/applications.md section 3.4). */
+/** The longest sound one message may carry: two minutes at 48 kHz, the browser's limit (DOC-1972). */
 export const MOST_SAMPLES = 48_000 * 120;
 
 /** The highest block number of a live sound: two bytes. */
@@ -50,7 +50,7 @@ export const OPUS_FRAME_SAMPLES = (OPUS_RATE * OPUS_FRAME_MS) / SECOND_MS;
 /** The profile's average rate (E.123), which the server holds every sound to at constant rate (its decision 21 item 3). */
 export const OPUS_BITRATE = 16_000;
 
-/** The packet a constant-rate encoder writes at {@link OPUS_BITRATE}, and the longest the server takes: 40 bytes (docs/applications.md section 3.4). */
+/** The packet a constant-rate encoder writes at {@link OPUS_BITRATE}, and the longest the server takes: 40 bytes (DOC-1972). */
 export const OPUS_PACKET_BYTES = (OPUS_BITRATE * OPUS_FRAME_MS) / SECOND_MS / BYTE_BITS;
 
 /** The most packets a stored Opus sound has: {@link MOST_SAMPLES}, two minutes, in frames. */

@@ -1,6 +1,6 @@
 // A page built as a terminal program builds its screen: text and colour at
 // a row and column, Fastext links, a cursor; and the page in TTI, the
-// engine's page format (docs/applications.md section 3.2). It mirrors
+// engine's page format (DOC-1971). It mirrors
 // teletext-server's crates/teletext-runtime/src/screen.rs.
 //
 // Text is Unicode with its language, which the server encodes (DEC-2199,
@@ -281,7 +281,7 @@ export class Screen {
    * This screen as a sub-page of page `page`, in TTI, with sub-code
    * `subcode` when it has one. The PN line's sub-page digits are 00: the
    * server takes a whole page's sub-pages by place and a put's by their SC
-   * line (docs/applications.md section 3.2), never by PN.
+   * line (DOC-1971), never by PN.
    */
   toTti(page: number, subcode?: number): string {
     if (!this.#runs.empty || this.#language !== null || this.#level !== null) {

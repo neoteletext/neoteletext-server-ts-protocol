@@ -2,7 +2,7 @@
 // teletext-server's crates/teletext-runtime/src/application.rs, hosted here rather than in
 // the server. One program serves every viewer, so an application keeps
 // each session's state and forgets it when the session closes
-// (docs/applications.md section 4).
+// (DOC-1964).
 
 import { Context } from "./context.ts";
 import type { PageRequest } from "./request.ts";
@@ -14,7 +14,7 @@ import type { ServerStats } from "../wire/stats.ts";
 export interface PageEntry extends PageKeys {
   readonly page: number;
   readonly title: string;
-  /** The name of the section of `contents.txt` this page starts: its magazine's name (docs/applications.md section 3.1). */
+  /** The name of the section of `contents.txt` this page starts: its magazine's name (DOC-1970). */
   readonly section?: string;
 }
 
@@ -63,7 +63,7 @@ export interface Application {
   wake?(context: Context): void;
   /** The session ended, because the server said so or because `start` came and ended them all (REQ-1056): forget it. It is called before that `start`. */
   ended?(session: number, context: Context): void;
-  /** The server's figures, every 10 seconds (docs/applications.md section 7), for a page to show. */
+  /** The server's figures, every 10 seconds (DOC-1968), for a page to show. */
   stats?(stats: ServerStats, context: Context): void;
   /**
    * What `page` shows on the web, or nothing for a page that is not public,

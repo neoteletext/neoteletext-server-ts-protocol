@@ -1,7 +1,7 @@
 # neoteletext-server-ts-protocol
 
 The NeoTeletext server's channel protocol for programs in TypeScript: the
-reference kit of teletext-server's `docs/applications.md` section 5. These
+reference kit of DOC-1974. These
 rules add to `~/.claude/CLAUDE.md`.
 
 ## How we work

@@ -1,7 +1,7 @@
 # neoteletext-server-ts-protocol
 
 The NeoTeletext server's channel protocol for programs in TypeScript: the
-reference kit of teletext-server's `docs/applications.md` section 5. A
+reference kit of DOC-1974. A
 channel is a program the server starts; they talk in lines of JSON on its
 standard input and output. This package speaks protocol version 8
 (DEC-1482): every message in both directions is checked against the

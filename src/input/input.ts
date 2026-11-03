@@ -1,4 +1,4 @@
-// What a viewer did, as the server sends it (docs/applications.md section 2;
+// What a viewer did, as the server sends it (DOC-1968;
 // DOC-1969).
 
 import type { HoverAction, KeyAction } from "./keys.ts";
@@ -59,7 +59,7 @@ export const Mods = { Shift: 1, Alt: 2, Control: 4, Super: 8, Hyper: 16, Meta: 3
 /** The mouse's buttons (DOC-1938). */
 export const Button = { Left: 0, Middle: 1, Right: 2 } as const;
 
-/** The buttons a move says are held, a bit each (docs/applications.md section 2). */
+/** The buttons a move says are held, a bit each (DOC-1968). */
 export const Held = { Left: 1 << Button.Left, Middle: 1 << Button.Middle, Right: 1 << Button.Right } as const;
 
 /** Whether this is the main button pressed: a click. */

@@ -1,11 +1,11 @@
-// The server's figures, sent every 10 seconds (docs/applications.md section 7).
+// The server's figures, sent every 10 seconds (DOC-1968).
 
 import { type Fields, isFields } from "./fields.ts";
 
 /** One object of the server's figures: each name a whole number, or an object of them, such as `most_opened`. */
 export type Figures = Fields;
 
-/** The server's figures, sent every 10 seconds (docs/applications.md section 7): its own, and this channel's. */
+/** The server's figures, sent every 10 seconds (DOC-1968): its own, and this channel's. */
 export interface ServerStats {
   readonly server: Figures;
   readonly channel: Figures;

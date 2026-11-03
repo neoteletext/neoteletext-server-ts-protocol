@@ -1,5 +1,5 @@
 // Opus encoded by ffmpeg's libopus, as the server's documentation has it
-// (docs/applications.md section 3.4): constant rate at the profile's 16
+// (DOC-1972): constant rate at the profile's 16
 // kbit/s, one 20 ms frame a packet, at 48 kHz, read out of the Ogg stream
 // ffmpeg writes (ogg-opus.ts). ffmpeg is another program, so what it
 // writes is checked and bounded as any input is.

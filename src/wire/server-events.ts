@@ -6,7 +6,7 @@ import type { Limits } from "./limits.ts";
 import type { CookiePair, Measured, Refusal, Selection, ServerMessage } from "./server-message.ts";
 import type { ServerStats } from "./stats.ts";
 
-/** What the program does with each of the server's messages (docs/applications.md section 2). */
+/** What the program does with each of the server's messages (DOC-1968). */
 export interface ServerEvents {
   start(epochMs: number, limits: Limits, languages: readonly Language[]): void;
   /** A viewer's connection opened: answer with `reply`, once (REQ-1471). */

@@ -1,5 +1,5 @@
 // What encodes a program's sound as Opus in the engine's profile (the
-// engine's decision E.123; docs/applications.md section 3.4): a whole
+// engine's decision E.123; DOC-1972): a whole
 // sound at once, or a stream as its samples come. The server carries the
 // packets and encodes nothing (its decision 21).
 

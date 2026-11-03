@@ -15,7 +15,7 @@ export type SubPageContent = Omit<WirePage, "page" | "sub">;
 /** The six links of packet X/27/0 (EN 300 706 clause 9.6.1). */
 export const X27_LINKS = 6;
 
-/** No control bit set: the server sets C4 and C11 itself (docs/applications.md section 3). */
+/** No control bit set: the server sets C4 and C11 itself (DOC-1970). */
 export const NO_CONTROL: WireControl = {
   erase: false,
   newsflash: false,

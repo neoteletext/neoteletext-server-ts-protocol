@@ -15,7 +15,7 @@ import type { Limits } from "../wire/limits.ts";
 import type { Measured } from "../wire/server-message.ts";
 import type { WireAuthorLevel, WireDeniedStatus, WireSameSite } from "../wire/protocol.ts";
 
-/** A cookie's attributes (RFC 6265bis), each typed (docs/applications.md section 3). */
+/** A cookie's attributes (RFC 6265bis), each typed (DOC-1970). */
 export interface CookieOptions {
   readonly path?: string;
   /** Seconds it lasts, 0 removing it; absent, it lasts the browser's session. */
@@ -158,7 +158,7 @@ export class Context {
     this.#host.release(session, page);
   }
 
-  /** Sends a sound (docs/applications.md section 3). */
+  /** Sends a sound (DOC-1970). */
   sound(to: Audience, member: SoundMember): void {
     this.#host.sound(to, member);
   }

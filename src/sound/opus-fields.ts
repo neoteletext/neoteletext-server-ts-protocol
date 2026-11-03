@@ -1,5 +1,5 @@
-// The Opus members as the protocol writes them (docs/applications.md
-// section 3.4): constant-rate packets back to back, base64, checked here as
+// The Opus members as the protocol writes them (DOC-1972)
+//: constant-rate packets back to back, base64, checked here as
 // the server checks them, so a mistake is caught where it is made rather
 // than refused whole in the server's log.
 

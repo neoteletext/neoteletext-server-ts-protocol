@@ -1,5 +1,5 @@
-// What teletext-server's `start` tells a program (its docs/applications.md
-// section 2), for a test harness that stands in for the server: its limits,
+// What teletext-server's `start` tells a program (DOC-1968)
+//, for a test harness that stands in for the server: its limits,
 // and its languages, the engine's table in its order as server 08ab606
 // sends it (REQ-2215). Only tests read these; a program takes its
 // limits and languages from the `start` it is sent.

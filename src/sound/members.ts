@@ -1,7 +1,7 @@
 // What a `sound` message carries: a stored sound, a live one and its
 // blocks, or a command to a channel. Opus is what desktop and phone
 // receivers play; PCM, which the server encodes as IMA ADPCM, is for
-// microcontrollers (docs/applications.md section 3.4, decision 21).
+// microcontrollers (DOC-1972, decision 21).
 
 import type { SampleRate } from "./profile.ts";
 

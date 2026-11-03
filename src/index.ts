@@ -1,6 +1,6 @@
 // neoteletext-server-ts-protocol: the NeoTeletext server's channel protocol for
-// programs in TypeScript (teletext-server's docs/applications.md section
-// 5). This is the package's whole interface; the test harness is apart, in
+// programs in TypeScript (DOC-1974).
+// This is the package's whole interface; the test harness is apart, in
 // neoteletext-server-ts-protocol/testing.
 
 export { PROTOCOL, LONGEST_LINE, readLimits } from "./wire/limits.ts";
