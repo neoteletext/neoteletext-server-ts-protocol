@@ -169,7 +169,7 @@ export class Context {
     this.#host.sound(to, member);
   }
 
-  /** A line for the developer console of the viewers' browsers (`author_log`, REQ-INP-026): `E`, `W` or `I`, at most 200 bytes. */
+  /** A line for the developer console of the viewers' browsers (`author_log`, REQ-INP-026): `E`, `W` or `I`, cut to `start`'s `author_log_bytes`. */
   authorLog(to: Audience, level: WireAuthorLevel, text: string, page?: number): void {
     this.#host.authorLog(to, level, text, page ?? null);
   }
