@@ -131,3 +131,14 @@ test("REQ-2215: the kit's languages' tags are the schema's, in its order, and th
     listed,
   );
 });
+
+test("a space needs no run: runs either side of one join over it, but a right-to-left run keeps its spaces", () => {
+  const screen = new Screen();
+  screen.text(3, 0, "  ");
+  screen.text(4, 0, " a b ");
+  screen.text(5, 0, "שלום עולם", "he");
+  assert.deepEqual(screen.content().text, [
+    { row: 4, column: 1, text: "a b" },
+    { row: 5, column: 0, text: "שלום עולם", language: "he" },
+  ]);
+});

@@ -22,6 +22,9 @@ export const RUN_CHARACTERS = 40;
 /** The most runs a page carries (the schema's $defs/Page, text's maxItems). */
 export const MOST_RUNS = 64;
 
+/** A space, which every set shows at the same code (EN 300 706 Table 35). */
+const SPACE_CELL = " ";
+
 /** One cell of a run: the character it shows, with its marks. */
 interface RunCell {
   readonly text: string;
@@ -131,7 +134,8 @@ export class TextRuns {
     const rightToLeft = hasRightToLeft(cells.join(""));
     cells.forEach((text, offset) => {
       const at = column + offset;
-      if (at >= 0 && at < COLUMNS) {
+      // A space is the same code in every set: it needs no run, and runs either side of it join over it; but right to left, a run is ordered whole, its spaces with it.
+      if (at >= 0 && at < COLUMNS && (rightToLeft || text !== SPACE_CELL)) {
         line[at] = { text, language, run, rightToLeft };
       }
     });
