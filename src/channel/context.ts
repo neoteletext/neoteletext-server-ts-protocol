@@ -32,7 +32,7 @@ export interface Host {
   epochAtStart(): number;
   wakeAt(index: number, at: number): void;
   publish(owner: Owner, page: number, subpages: readonly Subpage[], whole: boolean): void;
-  publishTti(owner: Owner, page: number, text: string): void;
+  publishTti(owner: Owner, page: number, text: string, titles: readonly (string | null)[]): void;
   remove(owner: Owner, page: number, subcodes: readonly number[]): void;
   release(session: number, page: number): void;
   titleOf(page: number): string | undefined;
@@ -103,9 +103,15 @@ export class Context {
     this.#host.publish(owner, page, subpages, true);
   }
 
-  /** Publishes a page whole from TTI written elsewhere, such as a converted picture's file, numbered by place as {@link Context.publishSubpages}. */
-  publishTti(owner: Owner, page: number, text: string): void {
-    this.#host.publishTti(owner, page, text);
+  /**
+   * Publishes a page whole from TTI written elsewhere, such as a converted
+   * picture's file, numbered by place as {@link Context.publishSubpages}.
+   * `titles` names its sub-pages in their order, for the page's sub-page
+   * list (REQ-1503): TTI has no line for a sub-page's title. A sub-page
+   * without one, or named `null`, has none.
+   */
+  publishTti(owner: Owner, page: number, text: string, titles: readonly (string | null)[] = []): void {
+    this.#host.publishTti(owner, page, text, titles);
   }
 
   /** Puts sub-pages in a page, each by its sub-code, keeping its others. */

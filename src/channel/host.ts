@@ -68,13 +68,16 @@ function publishing(parts: HostParts): PublishingHost {
     publish: (owner, page, subpages, whole): void => {
       put(owner, page, given(subpages, whole, app), whole);
     },
-    publishTti: (owner, page, text): void => {
+    publishTti: (owner, page, text, subpageTitles): void => {
       const read = readTtiPages(text);
+      if (subpageTitles.length > read.length) {
+        throw new RangeError(`publishTti: ${subpageTitles.length} titles for ${read.length} sub-pages`);
+      }
       const subs = numbered(read.length, app.limits());
       put(
         owner,
         page,
-        read.map(({ content }, index) => ({ sub: subs[index] ?? 0, content, title: null })),
+        read.map(({ content }, index) => ({ sub: subs[index] ?? 0, content, title: subpageTitles[index] ?? null })),
         true,
       );
     },
