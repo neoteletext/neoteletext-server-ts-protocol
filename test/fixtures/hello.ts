@@ -3,7 +3,9 @@
 // replay: pages drawn with the kit, with control codes, the English set's
 // own signs, mosaics, Fastext, links to a sub-page and sub-pages, so a
 // test can check the server encodes the typed sub-pages the kit writes as
-// they were drawn; and a section and a new title, which the index shows.
+// they were drawn; a page of text in several languages for the server to
+// encode (REQ-2214): Russian, Greek, Arabic and Thai on an English page;
+// and a section and a new title, which the index shows.
 
 import {
   Colour,
@@ -23,6 +25,7 @@ const INDEX = 0x100;
 const CAROUSEL = 0x101;
 const RAW = 0x102;
 const SUBPAGE_LINK = 0x103;
+const LANGUAGES = 0x104;
 /** A page in TTI as a converter writes it, with lines the kit never writes (DE, PS). */
 const RAW_TTI = "DE,Raw\nPN,10200\nSC,0000\nPS,8000\nOL,1,\u001BBRaw\nFL,100,8FF,8FF,8FF,8FF,100\n";
 /** The carousel's sub-pages. */
@@ -54,6 +57,18 @@ function index(): Screen {
   return screen;
 }
 
+function languages(): Screen {
+  const screen = new Screen();
+  screen.language("en");
+  screen.coloured(1, 0, Colour.White, "Languages: café");
+  screen.coloured(2, 0, Colour.Cyan, "Привет", "ru");
+  screen.coloured(2, 20, Colour.Cyan, "Γειά σου", "el");
+  screen.coloured(3, 0, Colour.Yellow, "مرحبا", "ar");
+  // Thai takes the rows above and below for its marks: rows 4 and 6.
+  screen.coloured(5, 0, Colour.Green, "สวัสดี", "th");
+  return screen;
+}
+
 function subpage(number: number): Screen {
   const screen = new Screen();
   screen.coloured(1, 0, Colour.White, `Sub-page ${number}`);
@@ -67,6 +82,7 @@ await runChannel([
       { page: CAROUSEL, title: "Kit carousel" },
       { page: RAW, title: "Kit raw" },
       { page: SUBPAGE_LINK, title: "Kit sub-page link", section: "Kit links" },
+      { page: LANGUAGES, title: "Kit languages" },
     ],
     start: (context): void => {
       // Before the pages, whose publication the test waits for.
@@ -79,6 +95,7 @@ await runChannel([
       );
       context.publishTti("channel", RAW, RAW_TTI);
       context.publishTti("channel", SUBPAGE_LINK, SUBPAGE_LINK_TTI);
+      context.publish("channel", LANGUAGES, languages());
     },
   },
 ]);

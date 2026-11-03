@@ -1,13 +1,14 @@
 // What a program does with each of the server's messages.
 
 import type { Input } from "../input/input.ts";
+import type { Language } from "./languages.ts";
 import type { Limits } from "./limits.ts";
-import type { CookiePair, Refusal, Selection, ServerMessage } from "./server-message.ts";
+import type { CookiePair, Measured, Refusal, Selection, ServerMessage } from "./server-message.ts";
 import type { ServerStats } from "./stats.ts";
 
 /** What the program does with each of the server's messages (docs/applications.md section 2). */
 export interface ServerEvents {
-  start(epochMs: number, limits: Limits): void;
+  start(epochMs: number, limits: Limits, languages: readonly Language[]): void;
   /** A viewer's connection opened: answer with `reply`, once (REQ-1471). */
   connected(
     connection: number,
@@ -29,6 +30,8 @@ export interface ServerEvents {
   stats(stats: ServerStats): void;
   /** A line the program sent was refused whole. */
   refused(refusal: Refusal): void;
+  /** The answer to the program's `measure` of number `request` (REQ-2216). */
+  measured(request: number, measured: Measured): void;
   /** A web visitor is at the page's address: answer with `description`. Nothing here says who, because nothing in the answer may depend on it (REQ-1728). */
   describe(page: number): void;
 }
@@ -36,7 +39,7 @@ export interface ServerEvents {
 export function dispatch(message: ServerMessage, events: ServerEvents): void {
   switch (message.type) {
     case "start": {
-      events.start(message.epochMs, message.limits);
+      events.start(message.epochMs, message.limits, message.languages);
       return;
     }
     case "connected": {
@@ -65,6 +68,10 @@ export function dispatch(message: ServerMessage, events: ServerEvents): void {
     }
     case "refused": {
       events.refused(message.refusal);
+      return;
+    }
+    case "measured": {
+      events.measured(message.request, message.measured);
       return;
     }
     case "describe": {

@@ -5,6 +5,7 @@
 import type { Input } from "../input/input.ts";
 import { readInput } from "../input/read-input.ts";
 import { PAGE_RADIX } from "../page/page-numbers.ts";
+import { type Language, readLanguages } from "./languages.ts";
 import { type Limits, readLimits } from "./limits.ts";
 import type { WireServerMessage } from "./server-wire.ts";
 import type { ServerStats } from "./stats.ts";
@@ -25,14 +26,38 @@ export interface CookiePair {
 /** A refusal: a line the program sent that the server did nothing of. */
 export interface Refusal {
   readonly message: string | null;
+  /** The request number of the message refused, when it carried one (REQ-2216 item 3). */
+  readonly request: number | null;
   readonly path: string;
   readonly rule: string;
   readonly detail: string;
 }
 
+/** What one text run cost (REQ-2216 item 2). */
+export interface RunCost {
+  /** The cells it takes on its row. */
+  readonly cells: number;
+  /** The triplets it added, its share of row addresses and the Termination Marker included. */
+  readonly triplets: number;
+  /** 1 when its marks take the row above and the row below it. */
+  readonly markRows: 0 | 1;
+}
+
+/** The answer to `measure` (REQ-2216): what the page's encoding costs. */
+export interface Measured {
+  /** The X/26 triplets the page uses, the program's and the encoder's, the Termination Marker included. */
+  readonly triplets: number;
+  /** The most it may use: 208. */
+  readonly limit: number;
+  /** The default G0 and G2 designation (EN 300 706 Table 32) and the second G0 designation (Table 33), or null for none. */
+  readonly designation: { readonly default: number; readonly second: number | null };
+  /** Each text run's cost, in the order of the page's runs. */
+  readonly runs: readonly RunCost[];
+}
+
 /** A message from the server, checked. */
 export type ServerMessage =
-  | { readonly type: "start"; readonly protocol: number; readonly epochMs: number; readonly limits: Limits }
+  | { readonly type: "start"; readonly protocol: number; readonly epochMs: number; readonly limits: Limits; readonly languages: readonly Language[] }
   | {
       readonly type: "connected";
       readonly connection: number;
@@ -62,6 +87,7 @@ export type ServerMessage =
   | { readonly type: "closed"; readonly session: number }
   | { readonly type: "stats"; readonly stats: ServerStats }
   | { readonly type: "refused"; readonly refusal: Refusal }
+  | { readonly type: "measured"; readonly request: number; readonly measured: Measured }
   /** A web visitor is at a page's address: the page number and nothing else (REQ-1728). */
   | { readonly type: "describe"; readonly page: number };
 
@@ -116,9 +142,32 @@ function connectedOf(message: Extract<WireServerMessage, { type: "connected" }>)
   };
 }
 
+function startOf(message: Extract<WireServerMessage, { type: "start" }>): ServerMessage {
+  return {
+    type: "start",
+    protocol: message.protocol,
+    epochMs: message.epoch_ms,
+    limits: readLimits(message.standard, message.budgets),
+    languages: readLanguages(message.languages),
+  };
+}
+
+function measuredOf(message: Extract<WireServerMessage, { type: "measured" }>): ServerMessage {
+  return {
+    type: "measured",
+    request: message.request,
+    measured: {
+      triplets: message.triplets,
+      limit: message.limit,
+      designation: { default: message.designation.default, second: message.designation.second ?? null },
+      runs: message.runs.map(({ cells, triplets, mark_rows: markRows }) => ({ cells, triplets, markRows })),
+    },
+  };
+}
+
 function messageOf(message: WireServerMessage): ServerMessage | string {
   if (message.type === "start") {
-    return { type: "start", protocol: message.protocol, epochMs: message.epoch_ms, limits: readLimits(message.standard, message.budgets) };
+    return startOf(message);
   }
   if (message.type === "connected") {
     return connectedOf(message);
@@ -155,7 +204,13 @@ function messageOf(message: WireServerMessage): ServerMessage | string {
   if (message.type === "describe") {
     return { type: "describe", page: pageOf(message.page) };
   }
-  return { type: "refused", refusal: { message: message.message ?? null, path: message.path, rule: message.rule, detail: message.detail } };
+  if (message.type === "measured") {
+    return measuredOf(message);
+  }
+  return {
+    type: "refused",
+    refusal: { message: message.message ?? null, request: message.request ?? null, path: message.path, rule: message.rule, detail: message.detail },
+  };
 }
 
 /** One line from the server as a message, checked whole; or why it is refused. */
@@ -167,7 +222,8 @@ export function readMessage(line: string): ServerMessage | string {
     return `not JSON: ${error instanceof Error ? error.message : String(error)}`;
   }
   const read = readServer(value);
-  if ("rule" in read) {
+  // A fault has no type; `refused`, a message, has a rule of its own.
+  if (!("type" in read)) {
     return `${read.path === "" ? "the message" : read.path}: ${read.rule} (${read.detail})`;
   }
   return messageOf(read);

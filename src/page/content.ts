@@ -46,7 +46,7 @@ export function rowsOf(content: SubPageContent): number[][] {
   return Array.from({ length: ROWS }, (_, row) => decodeRow(content.rows[row]));
 }
 
-/** A blank sub-page: every row spaces, no links. */
+/** A blank sub-page: every row spaces, no links, the default character set (Latin, English). */
 export function blankContent(): SubPageContent {
   return {
     rows: Array.from({ length: ROWS }, () => null),
@@ -54,7 +54,6 @@ export function blankContent(): SubPageContent {
     display_row_24: false,
     link_extension: { keys: [], numbers: [], texts: [] },
     control: NO_CONTROL,
-    character_set: { region: null, national_option: 0 },
     enhancements: [],
     packets: [],
     cursor: null,

@@ -1,9 +1,13 @@
-// The protocol's messages as they travel, version 7 (DEC-1482; the
+// The protocol's messages as they travel, version 8 (DEC-1482; the
 // server's docs/applications.md sections 2 and 3): hand-written to match
-// the server's published schema (schema/protocol-6.json), which the
+// the server's published schema (schema/protocol-8.json), which the
 // precompiled validators check every message against (validate.ts), so the
 // two cannot drift apart unnoticed: test/protocol.test.ts holds a valid
 // value of each type to the schema.
+
+import type { WireLanguageTag } from "./language-tags.ts";
+
+export type { WireLanguageTag };
 
 /** A page number: three hexadecimal digits in capitals, magazine 1 to 8 first ("100" to "8FF"). */
 export type WirePageNumber = string;
@@ -65,6 +69,21 @@ export interface WireControl {
   readonly magazine_serial: boolean;
 }
 
+/** The presentation level a page's text is written for (REQ-2151): NeoTeletext's own, or Level 3.5 as EN 300 706 defines it. */
+export type WireTextLevel = "neoteletext" | "3.5";
+
+/**
+ * A run of Unicode text at its place (REQ-2214 item 4), which the server
+ * encodes with the engine's encoder over the page's rows: row 1 to 24,
+ * column 0 to 39, 1 to 40 characters in NFC, in its language or the page's.
+ */
+export interface WireTextRun {
+  readonly row: number;
+  readonly column: number;
+  readonly text: string;
+  readonly language?: WireLanguageTag | null;
+}
+
 export interface WireCharacterSet {
   readonly region?: number | null;
   readonly national_option: number;
@@ -107,7 +126,13 @@ export interface WirePage {
   readonly display_row_24: boolean;
   readonly link_extension: WireLinkExtension;
   readonly control: WireControl;
-  readonly character_set: WireCharacterSet;
+  /** The default character set by region and national option; absent with `language`, which sets it (REQ-2214 item 2). */
+  readonly character_set?: WireCharacterSet | null;
+  /** The page's default language: the designation, and the language of each run that names none. */
+  readonly language?: WireLanguageTag | null;
+  readonly level?: WireTextLevel | null;
+  /** At most 64 runs of text the server encodes (REQ-2214). */
+  readonly text?: readonly WireTextRun[] | null;
   readonly enhancements: readonly WireEnhancement[];
   readonly packets: readonly WirePackedLine[];
   readonly cursor?: WireCursor | null;
@@ -239,4 +264,6 @@ export type ProgramMessage =
       readonly page?: WirePageNumber | null;
     }
   | { readonly type: "log"; readonly level: WireOperatorLevel; readonly event: string; readonly text: string }
-  | { readonly type: "packets"; readonly connections: WireConnections; readonly packets: string };
+  | { readonly type: "packets"; readonly connections: WireConnections; readonly packets: string }
+  /** Asks what a page's encoding costs, sent to no viewer (REQ-2216). */
+  | { readonly type: "measure"; readonly request: number; readonly page: WirePage };

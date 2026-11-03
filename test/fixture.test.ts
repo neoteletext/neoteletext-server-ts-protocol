@@ -26,6 +26,8 @@ test("the kit's fixture channel answers a connection and its selections with the
     '{"type":"selected","connection":1,"request":4,"path":"102","page":"102","sub":"3F7F"}',
     '{"type":"left","connection":1,"page":"102"}',
     '{"type":"selected","connection":1,"request":5,"path":"103","page":"103","sub":"3F7F"}',
+    '{"type":"left","connection":1,"page":"103"}',
+    '{"type":"selected","connection":1,"request":6,"path":"104","page":"104","sub":"3F7F"}',
     "",
   ].join("\n");
   const result = spawnSync(process.execPath, [join(FIXTURES, "hello.ts")], { input: start, encoding: "utf8" });

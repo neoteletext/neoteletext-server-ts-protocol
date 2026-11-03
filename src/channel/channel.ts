@@ -1,4 +1,4 @@
-// A channel's applications in one program, on protocol version 7
+// A channel's applications in one program, on protocol version 8
 // (DEC-1482): one connection a browser tab, one selection a connection
 // (DEC-1527). Each `connected` and `selected` is answered with one
 // sub-page (answers.ts); what an application publishes is kept (copies.ts)
@@ -17,6 +17,8 @@ import type { Context, Host } from "./context.ts";
 import { Copies, type Owner } from "./copies.ts";
 import { descriptionMessage } from "./description.ts";
 import { makeHost } from "./host.ts";
+import { CurrentCall } from "./current-call.ts";
+import { Measures } from "./measures.ts";
 import { type PageCalls, tellLeft, tellOpened, tellRequest, tellRequestEnded } from "./page-calls.ts";
 import { type PageRequest, cookiesByName, pageRequest } from "./request.ts";
 import { Sender } from "./sender.ts";
@@ -27,10 +29,11 @@ import { Navigation } from "../navigation/navigation.ts";
 import type { SubPageContent } from "../page/content.ts";
 import { pageText } from "../page/page-numbers.ts";
 import type { App } from "../wire/app.ts";
+import type { Language } from "../wire/languages.ts";
 import type { Limits } from "../wire/limits.ts";
 import type { WireMagazine } from "../wire/protocol.ts";
 import type { ServerEvents } from "../wire/server-events.ts";
-import type { CookiePair, Refusal, Selection } from "../wire/server-message.ts";
+import type { CookiePair, Measured, Refusal, Selection } from "../wire/server-message.ts";
 import type { ServerStats } from "../wire/stats.ts";
 
 export { ANY_SUB };
@@ -56,8 +59,8 @@ export class Channel implements ServerEvents {
   readonly #host: Host;
   readonly #answers: AnswerParts;
   readonly #calls: PageCalls;
-  /** The connection the call being run came from, if any. */
-  #current: number | null = null;
+  readonly #measures = new Measures();
+  readonly #current = new CurrentCall();
   #epochAtStart = 0;
 
   /** A channel of `applications`, writing through `app`; the first application to declare a page serves it. */
@@ -83,8 +86,9 @@ export class Channel implements ServerEvents {
       wakeAt: (index, at) => {
         this.#applications.wakeAt(index, at);
       },
-      current: () => this.#current,
+      current: () => this.#current.connection,
       errors: this.#errors,
+      measures: this.#measures,
     });
     this.#answers = {
       copies: this.#copies,
@@ -121,10 +125,11 @@ export class Channel implements ServerEvents {
 
   // The server's events.
 
-  /** The server said start, with the limits it keeps to: every session the program knew is over, and every application publishes its shared pages. */
-  start(epochMs: number, limits: Limits): void {
+  /** The server said start, with the limits it keeps to and the languages it writes: every session the program knew is over, and every application publishes its shared pages. */
+  start(epochMs: number, limits: Limits, languages: readonly Language[]): void {
     this.#epochAtStart = epochMs - this.#clock.now();
-    this.#app.started(limits);
+    this.#app.started(limits, languages);
+    this.#measures.forgetAll();
     this.#connections.clear();
     this.#navigation.clear();
     this.#applications.endEvery(this.#sessions, this.#copies, this.#host, this.#clock.now());
@@ -204,8 +209,7 @@ export class Channel implements ServerEvents {
     const entry = this.#entries.get(page);
     const { session } = state;
     const view = (): PageView => viewOf(this.#copies, state, page, sub);
-    this.#current = connection;
-    try {
+    this.#current.from(connection, () => {
       const navigated = this.#navigation.take(connection, input, entry ?? {}, view().links);
       if (navigated.taken) {
         if (navigated.redirect !== null) {
@@ -222,9 +226,7 @@ export class Channel implements ServerEvents {
       if (!taken) {
         followClick(this.#sender, connection, input, view());
       }
-    } finally {
-      this.#current = null;
-    }
+    });
   }
 
   closed(session: number): void {
@@ -252,7 +254,17 @@ export class Channel implements ServerEvents {
     this.#app.send(descriptionMessage(page, this.#applications.describe(page), this.#copies.get("channel", page), this.#app.limits()));
   }
 
+  /** The answer to a measure (REQ-2216). */
+  measured(request: number, measured: Measured): void {
+    if (!this.#measures.answered(request, measured)) {
+      this.#errors(`the server answered measure ${request}, which nothing waits for`);
+    }
+  }
+
   refused(refusal: Refusal): void {
+    if (this.#measures.refused(refusal)) {
+      return;
+    }
     this.#errors(
       `the server refused ${refusal.message ?? "a line"}: ${refusal.path === "" ? "the message" : refusal.path}: ${refusal.rule} (${refusal.detail})`,
     );
@@ -270,23 +282,8 @@ export class Channel implements ServerEvents {
 
   // Sessions and connections.
 
-  /** Runs `answer` for `connection`, held back from every other sending until the answer is sent; a failure is reported. */
   #answering(connection: number, answer: () => void): void {
-    const state = this.#connections.get(connection);
-    if (state === undefined) {
-      return;
-    }
-    state.pending = true;
-    state.denied = null;
-    this.#current = connection;
-    try {
-      answer();
-    } catch (error) {
-      this.#errors(`answering connection ${connection} failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
-    } finally {
-      state.pending = false;
-      this.#current = null;
-    }
+    this.#current.answering(this.#connections, connection, this.#errors, answer);
   }
 
   #callOwner(page: number, run: (application: Application, context: Context) => void): void {

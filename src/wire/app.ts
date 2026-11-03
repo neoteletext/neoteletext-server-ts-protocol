@@ -1,9 +1,10 @@
-// The program's side of the protocol, version 7 (DEC-1482): each message
+// The program's side of the protocol, version 8 (DEC-1482): each message
 // it writes is checked first against the server's schema by the
 // precompiled validators (validate.ts), so a mistake is caught where it is
 // made and nothing that is not valid is ever written. The bounds the
 // schema does not hold are the server's, given in `start` (limits.ts).
 
+import type { Language } from "./languages.ts";
 import type { Limits } from "./limits.ts";
 import type { ProgramMessage } from "./protocol.ts";
 import { ProtocolError, checkProgram } from "./validate.ts";
@@ -12,15 +13,22 @@ import { ProtocolError, checkProgram } from "./validate.ts";
 export class App {
   readonly #write: (line: string) => void;
   #limits: Limits | undefined;
+  #languages: readonly Language[] = [];
 
   /** A program that writes its lines, each without its newline, to `write`. */
   constructor(write: (line: string) => void) {
     this.#write = write;
   }
 
-  /** The server said `start`, with the limits it keeps to. */
-  started(limits: Limits): void {
+  /** The server said `start`, with the limits it keeps to and the languages it writes. */
+  started(limits: Limits, languages: readonly Language[]): void {
     this.#limits = limits;
+    this.#languages = languages;
+  }
+
+  /** The languages a page or run of text may name, as `start` listed them; none before it. */
+  languages(): readonly Language[] {
+    return this.#languages;
   }
 
   /** Whether `start` has come. */

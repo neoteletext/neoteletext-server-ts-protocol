@@ -2,6 +2,13 @@
 // a row and column, Fastext links, a cursor; and the page in TTI, the
 // engine's page format (docs/applications.md section 3.2). It mirrors
 // teletext-server's crates/teletext-runtime/src/screen.rs.
+//
+// Text is Unicode with its language, which the server encodes (DEC-2199,
+// REQ-2214): the screen keeps it as runs of text, and under each run's
+// cells the code of the character where it is printable ASCII, a space
+// otherwise, which the server writes over. Those codes are what reading
+// the rows back (tests, a click on a page number) sees. The header row is
+// the program's own codes, which the server never encodes.
 
 import { Attribute, Colour, textColour } from "./colours.ts";
 import { CursorFlag, FIRST_CURSOR_ROW, LAST_CURSOR_ROW, type Cursor } from "./cursor.ts";
@@ -9,40 +16,15 @@ import { type FastextLinks, NO_LINKS } from "./fastext.ts";
 import { CODE_MASK, COLUMNS, HEADER_TEXT_COLUMN, ROWS, SPACE } from "./geometry.ts";
 import { isPageNumber, pageText } from "./page-numbers.ts";
 import { type SubPageContent, blankContent, encodeRow } from "./content.ts";
-import { englishCodes } from "../text/english.ts";
-import type { WireKeyLink, WireLinkKey, WireNumberLink, WireTextLink } from "../wire/protocol.ts";
-import { NO_LINK } from "../tti/format.ts";
-import { SUBCODE_DIGITS, hex, rowText } from "../tti/write-row.ts";
-
-/** The sub-page digits of a PN line, which the server does not read. */
-const PN_SUBPAGE = "00";
+import { LinkExtension, within } from "./link-extension.ts";
+import { codesTti, headerCodes, packedContent, packedLine, underCode } from "./screen-codes.ts";
+import { TextRuns, cellsOf, textCells } from "./text-runs.ts";
+import type { WireLanguageTag as LanguageTag, WireLinkKey, WireTextLevel } from "../wire/protocol.ts";
 
 const ALL_FLAGS = CursorFlag.Block;
 
 /** Any sub-page, in a link (EN 300 706 clause 9.6.1). */
 const ANY_SUBCODE_TEXT = "3F7F";
-
-/** The Link Extension's bounds (the server's schema, $defs/LinkExtension; the engine's Appendix E). */
-const MOST_NUMBER_LINKS = 8;
-const MOST_TEXT_LINKS = 8;
-/** The longest address of REQ-1661 and a `web:` mark. */
-const LONGEST_TARGET = 8004;
-const LONGEST_LABEL = 9;
-const FIRST_TEXT_LINK_ROW = 1;
-const LAST_TEXT_LINK_ROW = 23;
-/** A target: `mpp`, `mpp:ssss`, `name:mpp`, an address, `web:` and one; printable ASCII without spaces or commas (Appendix E.1). */
-const TARGET = /^[!-+\--~]+$/u;
-
-function checkTarget(kind: string, target: string): void {
-  if (target.length > LONGEST_TARGET || !TARGET.test(target)) {
-    throw new RangeError(`${kind}: a target is printable ASCII without spaces or commas, at most ${LONGEST_TARGET} bytes, not ${JSON.stringify(target)}`);
-  }
-}
-
-/** Whether `value` is a whole number from 0 to `most`. */
-function within(value: number, most: number): boolean {
-  return Number.isInteger(value) && value >= 0 && value <= most;
-}
 
 /** A screen being drawn: 25 rows of 40 seven-bit codes, its links and cursor. */
 export class Screen {
@@ -51,9 +33,11 @@ export class Screen {
   #index: number | null = null;
   #cursor: Cursor | null = null;
   #fastextRow = false;
-  readonly #keyLinks: WireKeyLink[] = [];
-  readonly #numberLinks: WireNumberLink[] = [];
-  readonly #textLinks: WireTextLink[] = [];
+  #links = new LinkExtension();
+  #runs = new TextRuns();
+  #language: LanguageTag | null = null;
+  #level: WireTextLevel | null = null;
+  readonly #packed: string[] = [];
 
   constructor() {
     this.#rows = Array.from({ length: ROWS }, () => Array.from({ length: COLUMNS }, () => SPACE));
@@ -63,24 +47,27 @@ export class Screen {
   clone(): Screen {
     const copy = new Screen();
     this.#rows.forEach((line, row) => {
-      copy.codes(row, 0, line);
+      copy.#rows[row] = [...line];
     });
+    copy.#runs = new TextRuns(this.#runs);
+    copy.#language = this.#language;
+    copy.#level = this.#level;
+    copy.#packed.push(...this.#packed);
     copy.#fastext = this.#fastext;
     copy.#index = this.#index;
     copy.#cursor = this.#cursor;
     copy.#fastextRow = this.#fastextRow;
-    copy.#keyLinks.push(...this.#keyLinks);
-    copy.#numberLinks.push(...this.#numberLinks);
-    copy.#textLinks.push(...this.#textLinks);
+    copy.#links = this.#links.copy();
     return copy;
   }
 
-  /** Writes `codes` at `row`, `column`, cut at the row's end; outside the page, nothing. */
+  /** Writes `codes` at `row`, `column`, cut at the row's end, over any text there; outside the page, nothing. */
   codes(row: number, column: number, codes: readonly number[]): void {
     const line = this.#rows[row];
     if (line === undefined || column < 0) {
       return;
     }
+    this.#spaces(row, this.#runs.clear(row, column, codes.length));
     codes.forEach((code, offset) => {
       const at = column + offset;
       if (at < COLUMNS) {
@@ -89,32 +76,78 @@ export class Screen {
     });
   }
 
+  /** Spaces at `columns` of `row`: cells a run that was covered took. */
+  #spaces(row: number, columns: readonly number[]): void {
+    const line = this.#rows[row];
+    for (const column of columns) {
+      if (line !== undefined && column >= 0 && column < COLUMNS) {
+        line[column] = SPACE;
+      }
+    }
+  }
+
   code(row: number, column: number, code: number): void {
     this.codes(row, column, [code]);
   }
 
-  /** Writes `text` at `row`, `column` in the English option set, cut at the row's end. */
-  text(row: number, column: number, text: string): void {
-    this.codes(row, column, englishCodes(text));
+  /**
+   * Writes `text` at `row`, `column`, a cell for each character it shows
+   * (cellsOf), cut at the row's end: Unicode in `language`, a tag of
+   * `start.languages`, or the page's when null, which the server encodes
+   * (REQ-2214). Controls and format characters are shown as spaces. On
+   * row 0, the header, it is the program's own codes (`header`).
+   */
+  text(row: number, column: number, text: string, language: LanguageTag | null = null): void {
+    if (row === 0) {
+      this.codes(row, column, headerCodes(text));
+      return;
+    }
+    const line = this.#rows[row];
+    if (line === undefined) {
+      return;
+    }
+    const cells = textCells(text);
+    this.#spaces(row, this.#runs.put(row, column, cells, language));
+    cells.forEach((cell, offset) => {
+      const at = column + offset;
+      if (at >= 0 && at < COLUMNS) {
+        line[at] = underCode(cell);
+      }
+    });
   }
 
   /** Writes `text` in `colour`: the colour attribute takes the cell before it. */
-  coloured(row: number, column: number, colour: Colour, text: string): void {
+  coloured(row: number, column: number, colour: Colour, text: string, language: LanguageTag | null = null): void {
     this.code(row, column, textColour(colour));
-    this.text(row, column + 1, text);
+    this.text(row, column + 1, text, language);
   }
 
   /** Writes `text` centred on `row` in `colour`. */
-  centred(row: number, colour: Colour, text: string): void {
-    const width = englishCodes(text).length + 1;
+  centred(row: number, colour: Colour, text: string, language: LanguageTag | null = null): void {
+    const width = cellsOf(text) + 1;
     const column = Math.floor(Math.max(0, COLUMNS - width) / 2);
-    this.coloured(row, column, colour, text);
+    this.coloured(row, column, colour, text, language);
   }
 
   /** Writes a double-height line: the text on `row`, which also covers `row + 1` (EN 300 706 clause 12.3). */
-  doubleHeight(row: number, column: number, colour: Colour, text: string): void {
+  doubleHeight(row: number, column: number, colour: Colour, text: string, language: LanguageTag | null = null): void {
     this.code(row, column, Attribute.DoubleHeight);
-    this.coloured(row, column + 1, colour, text);
+    this.coloured(row, column + 1, colour, text, language);
+  }
+
+  /** The page's default language, a tag of `start.languages`: it sets the page's character sets and is the language of its text that names none (REQ-2214 item 2). Null for none: Latin English. */
+  language(language: LanguageTag | null): void {
+    this.#language = language;
+  }
+
+  /** The presentation level the page's text is written for (REQ-2151); null for NeoTeletext's own. */
+  level(level: WireTextLevel | null): void {
+    this.#level = level;
+  }
+
+  /** Adds a packed TTI line, OL,26 to OL,29 (REQ-INP-023): an enhancement packet, X/27, X/28 or M/29, as the engine's TTI writes it. */
+  packed(line: string): void {
+    this.#packed.push(packedLine(line));
   }
 
   /** Sets a background colour for the rest of `row` from `column`: the colour and New Background take two cells. */
@@ -122,9 +155,9 @@ export class Screen {
     this.codes(row, column, [textColour(colour), Attribute.NewBackground]);
   }
 
-  /** The header row's text, after the receiver's page number. */
+  /** The header row's text, after the receiver's page number: the program's own codes, so letters, digits and the signs every Latin national option shares. */
   header(text: string): void {
-    this.text(0, HEADER_TEXT_COLUMN, text);
+    this.codes(0, HEADER_TEXT_COLUMN, headerCodes(text));
   }
 
   /** Fills `count` cells of `row` from `column` with `code`. */
@@ -202,54 +235,35 @@ export class Screen {
    * for the Index key. A key's second link replaces its first.
    */
   keyLink(key: WireLinkKey, target: string, label?: string): void {
-    checkTarget("keyLink", target);
-    if (label !== undefined && (key === "index" || label.length === 0 || Array.from(label).length > LONGEST_LABEL)) {
-      throw new RangeError(`keyLink: a label is 1 to ${LONGEST_LABEL} characters, and the Index key has none`);
-    }
-    const at = this.#keyLinks.findIndex((link) => link.key === key);
-    const link: WireKeyLink = { key, target, label: label ?? null };
-    if (at >= 0) {
-      this.#keyLinks[at] = link;
-    } else {
-      this.#keyLinks.push(link);
-    }
+    this.#links.keyLink(key, target, label);
   }
 
   /** Declares a page number the page shows as a link to `target` (TTI's `LK`), never to `web:`; at most 8. */
   numberLink(number: number, target: string): void {
-    checkTarget("numberLink", target);
-    if (!isPageNumber(number) || target.startsWith("web:") || this.#numberLinks.length >= MOST_NUMBER_LINKS) {
-      throw new RangeError(`numberLink: a page number, a target that is not web:, at most ${MOST_NUMBER_LINKS} links`);
-    }
-    this.#numberLinks.push({ number: pageText(number), target });
+    this.#links.numberLink(number, target);
   }
 
   /** Declares the run of `length` characters from `row`, `column` a link to `target` (TTI's `LT`): rows 1 to 23, within the row; at most 8. */
   textLink(row: number, column: number, length: number, target: string): void {
-    checkTarget("textLink", target);
-    if (
-      !within(row, LAST_TEXT_LINK_ROW) ||
-      row < FIRST_TEXT_LINK_ROW ||
-      !within(column, COLUMNS - 1) ||
-      length < 1 ||
-      column + length > COLUMNS ||
-      this.#textLinks.length >= MOST_TEXT_LINKS
-    ) {
-      throw new RangeError(`textLink: rows ${FIRST_TEXT_LINK_ROW} to ${LAST_TEXT_LINK_ROW}, the run within the row, at most ${MOST_TEXT_LINKS} links`);
-    }
-    this.#textLinks.push({ row, column, length, target });
+    this.#links.textLink(row, column, length, target);
   }
 
   /** This screen as a sub-page's typed content (REQ-1478), for the page and sub-code it is put in. */
   content(): SubPageContent {
     const links = [...this.#fastext, null, this.#index].map((link) => (link === null ? null : { page: pageText(link), sub: ANY_SUBCODE_TEXT }));
     const cursor = this.#cursor;
+    const text = this.#runs.runs((row, column) => this.at(row, column) === SPACE);
+    const packed = packedContent(this.#packed);
     return {
       ...blankContent(),
+      ...(this.#language === null ? {} : { language: this.#language }),
+      ...(this.#level === null ? {} : { level: this.#level }),
+      ...(text.length === 0 ? {} : { text }),
+      ...packed,
       rows: this.#rows.map((row) => encodeRow(row)),
       links,
       display_row_24: this.#fastextRow || links.some((link) => link !== null),
-      link_extension: { keys: [...this.#keyLinks], numbers: [...this.#numberLinks], texts: [...this.#textLinks] },
+      link_extension: this.#links.wire(),
       cursor: cursor === null ? null : { row: cursor.row, column: cursor.column, block: (cursor.flags & CursorFlag.Block) !== 0 },
     };
   }
@@ -261,20 +275,17 @@ export class Screen {
    * line (docs/applications.md section 3.2), never by PN.
    */
   toTti(page: number, subcode?: number): string {
-    const lines = [`PN,${pageText(page)}${PN_SUBPAGE}`, ...(subcode === undefined ? [] : [`SC,${hex(subcode, SUBCODE_DIGITS)}`])];
-    for (const [row, codes] of this.#rows.entries()) {
-      lines.push(`OL,${row},${rowText(codes)}`);
+    if (!this.#runs.empty || this.#language !== null || this.#level !== null) {
+      throw new RangeError("toTti: TTI holds codes, and this screen holds text for the server to encode: publish the screen instead");
     }
-    const links = [...this.#fastext, null, this.#index];
-    if (this.#fastextRow || links.some((link) => link !== null)) {
-      lines.push(`FL,${links.map((link) => pageText(link ?? NO_LINK)).join(",")}`);
-    }
-    if (this.#cursor !== null) {
-      const { row, column, flags } = this.#cursor;
-      // The third field, once the echo's width, keeps its place, written 0
-      // (the engine's E.134).
-      lines.push(`CU,${row},${column},0,${flags}`);
-    }
-    return lines.map((line) => `${line}\n`).join("");
+    return codesTti({
+      page,
+      subcode,
+      rows: this.#rows,
+      links: [...this.#fastext, null, this.#index],
+      fastextRow: this.#fastextRow,
+      cursor: this.#cursor,
+      packed: this.#packed,
+    });
   }
 }

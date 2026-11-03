@@ -36,29 +36,73 @@ export function processStreams(): Streams {
   };
 }
 
+/** The server speaks another protocol than the kit: the program stops before it sends anything (REQ-2215 item 3). */
+export class ProtocolVersionError extends Error {
+  readonly server: number;
+
+  constructor(server: number) {
+    super(`the server speaks protocol ${server}; this kit speaks protocol ${PROTOCOL}, and stops`);
+    this.name = "ProtocolVersionError";
+    this.server = server;
+  }
+}
+
+/**
+ * The protocol a `start` line names when it is not the kit's, read before
+ * the schema, which would refuse it only as a value not listed; null for
+ * any other line.
+ */
+function otherProtocol(line: string): number | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return null;
+  }
+  if (typeof value !== "object" || value === null || !("type" in value) || value.type !== "start" || !("protocol" in value)) {
+    return null;
+  }
+  const { protocol } = value;
+  return typeof protocol === "number" && protocol !== PROTOCOL ? protocol : null;
+}
+
 /**
  * The line loop: hands each valid line from `streams.input` to `events`,
  * reports each bad one on `streams.errors`, and resolves when the input
- * ends, which is the server going away.
+ * ends, which is the server going away. A `start` of another protocol
+ * stops it at once, nothing handed on: it rejects with a
+ * {@link ProtocolVersionError} naming both versions.
  */
 export function serveLines(events: ServerEvents, streams: Streams): Promise<void> {
-  const splitter = new LineSplitter(
-    (line) => {
-      const message = readMessage(line);
-      if (typeof message === "string") {
-        streams.errors(`refused a line from the server: ${message}`);
-        return;
-      }
-      if (message.type === "start" && message.protocol !== PROTOCOL) {
-        streams.errors(`the server speaks protocol ${message.protocol}; this kit speaks ${PROTOCOL}`);
-      }
-      dispatch(message, events);
-    },
-    (why) => {
-      streams.errors(`refused a line from the server: ${why}`);
-    },
-  );
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    let stopped = false;
+    const splitter = new LineSplitter(
+      (line) => {
+        if (stopped) {
+          return;
+        }
+        const other = otherProtocol(line);
+        if (other !== null) {
+          stopped = true;
+          const error = new ProtocolVersionError(other);
+          streams.errors(error.message);
+          streams.input.removeAllListeners("data");
+          streams.input.removeAllListeners("end");
+          streams.input.pause();
+          reject(error);
+          return;
+        }
+        const message = readMessage(line);
+        if (typeof message === "string") {
+          streams.errors(`refused a line from the server: ${message}`);
+          return;
+        }
+        dispatch(message, events);
+      },
+      (why) => {
+        streams.errors(`refused a line from the server: ${why}`);
+      },
+    );
     streams.input.on("data", (chunk: Buffer | string) => {
       splitter.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
     });

@@ -18,7 +18,7 @@ import {
   Screen,
   type WirePage,
 } from "../src/index.ts";
-import { Harness, SERVER_LIMITS, type Sent } from "../src/testing/index.ts";
+import { Harness, SERVER_LANGUAGES, SERVER_LIMITS, type Sent } from "../src/testing/index.ts";
 
 const PAGE: WirePage = { page: "100", sub: "0000", ...blankContent() };
 
@@ -49,6 +49,11 @@ test("a valid value of each program message passes the server's schema", () => {
     { type: "author_log", connections: "all", level: "I", text: "hello", page: null },
     { type: "log", level: "info", event: "application", text: "hello" },
     { type: "packets", connections: [1], packets: "" },
+    {
+      type: "measure",
+      request: 4_294_967_295,
+      page: { ...PAGE, language: "ru", level: "3.5", text: [{ row: 24, column: 39, text: "я", language: "uk" }] },
+    },
   ];
   for (const message of messages) {
     assert.equal(checkProgram(message), null, JSON.stringify(message));
@@ -66,6 +71,10 @@ test("what the server refuses is refused by the kit, with the path and the rule"
     [{ type: "subpages", connections: [1], page: "100", version: 0, subpages: [{ sub: "0001", title: "x".repeat(41) }] }, "subpages[0].title", "too_long"],
     [{ type: "redirect", connection: 1, request: 1, page: "900", sub: "3F7F" }, "page", "wrong_type"],
     [{ type: "publish", page: "100" }, "type", "not_listed"],
+    [{ type: "page", connections: [1], page: { ...PAGE, language: "xx" } }, "page.language", "not_listed"],
+    [{ type: "page", connections: [1], page: { ...PAGE, text: [{ row: 0, column: 0, text: "a" }] } }, "page.text[0].row", "out_of_range"],
+    [{ type: "page", connections: [1], page: { ...PAGE, text: [{ row: 1, column: 0, text: "a".repeat(41) }] } }, "page.text[0].text", "too_long"],
+    [{ type: "page", connections: [1], page: { ...PAGE, text: [{ row: 1, column: 0, text: "e\u0301" }] } }, "page.text[0].text", "not_nfc"],
   ];
   for (const [message, path, rule] of faults) {
     const fault = checkProgram(message);
@@ -86,7 +95,7 @@ test("a message that is not valid is never written", () => {
   const app = new App((line) => {
     lines.push(line);
   });
-  app.started(SERVER_LIMITS);
+  app.started(SERVER_LIMITS, SERVER_LANGUAGES);
   assert.throws(() => {
     app.send({ type: "redirect", connection: 0, request: 1, page: "100", sub: "3F7F" });
   }, ProtocolError);

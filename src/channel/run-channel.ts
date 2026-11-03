@@ -41,8 +41,8 @@ function wakeTimer(channel: Channel, clock: Clock): { readonly schedule: () => v
 /** The server's messages to `channel`, the wake timer set again after each. */
 function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
   return {
-    start(epochMs, limits): void {
-      channel.start(epochMs, limits);
+    start(epochMs, limits, languages): void {
+      channel.start(epochMs, limits, languages);
       schedule();
     },
     connected(connection, session, request, selection, cookies, path, query): void {
@@ -71,6 +71,10 @@ function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
     },
     refused(refusal): void {
       channel.refused(refusal);
+      schedule();
+    },
+    measured(request, measured): void {
+      channel.measured(request, measured);
       schedule();
     },
     describe(page): void {

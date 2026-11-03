@@ -1,4 +1,4 @@
-// Driving a channel as the server drives it, on protocol version 7, for
+// Driving a channel as the server drives it, on protocol version 8, for
 // tests: sessions that connect (one connection each, numbered as the
 // session), select pages, type, press keys, click and turn the wheel, a
 // clock the test moves, and what the program wrote, every line checked
@@ -19,8 +19,9 @@ import type { Owner } from "../channel/copies.ts";
 import { type ReadPage, readBack } from "../page/content.ts";
 import type { Rows } from "../tti/read-tti.ts";
 import { App } from "../wire/app.ts";
-import { type Limits, SERVER_LIMITS } from "./server-limits.ts";
+import { type Language, type Limits, SERVER_LANGUAGES, SERVER_LIMITS } from "./server-limits.ts";
 import type { ServerStats } from "../wire/stats.ts";
+import type { CookiePair } from "../wire/server-message.ts";
 
 export interface HarnessOptions {
   /** The real time when the channel starts, in milliseconds since the Unix epoch. */
@@ -28,6 +29,8 @@ export interface HarnessOptions {
   readonly seed?: bigint;
   /** The limits `start` gives: the server's by default. */
   readonly limits?: Limits;
+  /** The languages `start` lists: the server's by default. */
+  readonly languages?: readonly Language[];
 }
 
 /** The seed of the runtime's own test harness. */
@@ -59,7 +62,7 @@ export class Harness {
         this.errors.push(error);
       },
     });
-    this.channel.start(options.epochMs ?? 0, options.limits ?? SERVER_LIMITS);
+    this.channel.start(options.epochMs ?? 0, options.limits ?? SERVER_LIMITS, options.languages ?? SERVER_LANGUAGES);
   }
 
   #record(line: string): void {
@@ -88,12 +91,12 @@ export class Harness {
     return this.clock.time;
   }
 
-  /** A session whose one connection, numbered as the session, connected with `page` selected. */
-  join(session: number, page: number): void {
+  /** A session whose one connection, numbered as the session, connected with `page` selected, and with `cookies`. */
+  join(session: number, page: number, cookies: readonly CookiePair[] = []): void {
     this.#open.set(session, page);
     this.#went.delete(session);
     this.#requests.set(session, 1);
-    this.channel.connected(session, session, 1, { page, sub: ANY_SUB }, []);
+    this.channel.connected(session, session, 1, { page, sub: ANY_SUB }, cookies);
   }
 
   /** The session's connection selects `page`, or sub-page `sub` of it, leaving the page it had, as the server says. */

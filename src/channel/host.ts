@@ -7,12 +7,13 @@ import { fitText } from "./channel-index.ts";
 import type { Connections } from "./connections.ts";
 import type { CookieOptions, Host } from "./context.ts";
 import type { Copies, GivenSubPage, Owner } from "./copies.ts";
+import type { Measures } from "./measures.ts";
 import { Random } from "./random.ts";
 import type { Sender } from "./sender.ts";
 import { ANY_SUB, fitBytes } from "./wire-page.ts";
 import { numbered } from "../page/numbering.ts";
 import { pageText } from "../page/page-numbers.ts";
-import type { Subpage } from "../page/subpage.ts";
+import { type Subpage, contentOf } from "../page/subpage.ts";
 import { soundFields } from "../sound/sound-fields.ts";
 import { readTtiPages } from "../tti/read-tti.ts";
 import type { App } from "../wire/app.ts";
@@ -34,17 +35,19 @@ export interface HostParts {
   readonly wakeAt: (index: number, at: number) => void;
   readonly current: () => number | null;
   readonly errors: (text: string) => void;
+  readonly measures: Measures;
 }
 
 /** The sub-pages given, each with its sub-code: a whole page's numbered by place, a put's its own. */
 function given(subpages: readonly Subpage[], whole: boolean, app: App): GivenSubPage[] {
   const subs = whole ? numbered(subpages.length, app.limits()) : [];
-  return subpages.map(({ screen, subcode, title }, index) => {
+  return subpages.map((subpage, index) => {
+    const { subcode, title } = subpage;
     const sub = whole ? subs[index] : subcode;
     if (sub === undefined || !Number.isInteger(sub) || sub < 0 || sub >= ANY_SUB || (sub & ~ANY_SUB) !== 0) {
       throw new RangeError(`put: each sub-page is named by a sub-code, 0000 to 3F7E, not ${String(sub)}`);
     }
-    return { sub, content: screen.content(), title: title ?? null };
+    return { sub, content: contentOf(subpage), title: title ?? null };
   });
 }
 
@@ -98,7 +101,7 @@ function publishing(parts: HostParts): PublishingHost {
 
 type SelectionHost = Pick<Host, "redirect" | "deny">;
 
-type MessagingHost = Pick<Host, "sound" | "authorLog" | "log" | "cookie" | "packets">;
+type MessagingHost = Pick<Host, "sound" | "authorLog" | "log" | "cookie" | "cookies" | "measure" | "packets">;
 
 /** The connections a call about `session` means: the one it came from when that is the session's, otherwise each of the session's. */
 function sessionsConnections(parts: HostParts, session: number): number[] {
@@ -161,6 +164,11 @@ function messaging(parts: HostParts): MessagingHost {
         http_only: options.httpOnly ?? false,
       });
     },
+    cookies: (session): Readonly<Record<string, string>> => {
+      const connection = sessionsConnections(parts, session).at(-1);
+      return connection === undefined ? {} : (parts.connections.get(connection)?.cookies ?? {});
+    },
+    measure: (page, screen) => parts.measures.ask(app, page, screen.content()),
     packets: (to, packets): void => {
       const text = Buffer.from(packets.buffer, packets.byteOffset, packets.byteLength).toString("base64");
       sender.toAudience(to, (named) => ({ type: "packets", connections: named, packets: text }));

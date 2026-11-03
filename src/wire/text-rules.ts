@@ -89,9 +89,12 @@ function magazinesFault(path: string, magazines: readonly WireMagazine[]): Fault
   });
 }
 
+/** A page's key labels, then its runs of text (REQ-2214 item 4: the text rules of REQ-1475 apply to a run's text). */
 function pageFault(path: string, page: WirePage): Fault | null {
-  return firstOf(page.link_extension.keys, (link, index) =>
-    link.label === undefined || link.label === null ? null : textFault(`${path}.link_extension.keys[${index}].label`, link.label),
+  return (
+    firstOf(page.link_extension.keys, (link, index) =>
+      link.label === undefined || link.label === null ? null : textFault(`${path}.link_extension.keys[${index}].label`, link.label),
+    ) ?? firstOf(page.text ?? [], (run, index) => textFault(`${path}.text[${index}].text`, run.text))
   );
 }
 
@@ -152,17 +155,24 @@ function cookieMessageFault(message: Extract<ProgramMessage, { type: "cookie" }>
   );
 }
 
+/** A reply's index, then its sub-page. */
+function replyFault(message: Extract<ProgramMessage, { type: "reply" }>): Fault | null {
+  return (
+    magazinesFault("magazines", message.magazines) ??
+    (message.selected === undefined || message.selected === null ? null : pageFault("selected", message.selected))
+  );
+}
+
 /** The first fault of a message's text, which the schema has passed; null when it has none. */
 export function checkText(message: ProgramMessage): Fault | null {
   let fault: Fault | null;
   switch (message.type) {
     case "reply": {
-      fault =
-        magazinesFault("magazines", message.magazines) ??
-        (message.selected === undefined || message.selected === null ? null : pageFault("selected", message.selected));
+      fault = replyFault(message);
       break;
     }
-    case "page": {
+    case "page":
+    case "measure": {
       fault = pageFault("page", message.page);
       break;
     }

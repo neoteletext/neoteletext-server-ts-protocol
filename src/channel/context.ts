@@ -10,7 +10,9 @@ import { Screen } from "../page/screen.ts";
 import type { Subpage } from "../page/subpage.ts";
 import type { Audience, SoundMember } from "../sound/members.ts";
 import type { App } from "../wire/app.ts";
+import type { Language } from "../wire/languages.ts";
 import type { Limits } from "../wire/limits.ts";
+import type { Measured } from "../wire/server-message.ts";
 import type { WireAuthorLevel, WireDeniedStatus, WireSameSite } from "../wire/protocol.ts";
 
 /** A cookie's attributes (RFC 6265bis), each typed (docs/applications.md section 3). */
@@ -41,6 +43,8 @@ export interface Host {
   authorLog(to: Audience, level: WireAuthorLevel, text: string, page: number | null): void;
   log(text: string): void;
   cookie(connection: number, name: string, value: string, options: CookieOptions): void;
+  cookies(session: number): Readonly<Record<string, string>>;
+  measure(page: number, screen: Screen): Promise<Measured>;
   packets(to: Audience, packets: Uint8Array): void;
   connection(): number | null;
   connectionsOf(session: number): number[];
@@ -71,6 +75,22 @@ export class Context {
   /** The standard's maxima and the server's budgets, as the server told them in `start`. */
   limits(): Limits {
     return this.#host.app.limits();
+  }
+
+  /** The languages a page or its text may name, as the server listed them in `start` (REQ-2215): each with its direction and mark rows. */
+  languages(): readonly Language[] {
+    return this.#host.app.languages();
+  }
+
+  /**
+   * What the server's encoding of a page drawn on `screen` costs, as page
+   * `page` (REQ-2216): its triplets against the limit, its designation and
+   * each run of text's cells, triplets and mark rows. Nothing reaches a
+   * viewer. It rejects with a MeasureRefusedError when the server
+   * would refuse the page, naming the run at fault.
+   */
+  measure(page: number, screen: Screen): Promise<Measured> {
+    return this.#host.measure(page, screen);
   }
 
   /** Publishes a page drawn on a screen, as its one sub-page, 0000. */
@@ -146,6 +166,16 @@ export class Context {
   /** A line for the developer console of the viewers' browsers (`author_log`, REQ-INP-026): `E`, `W` or `I`, at most 200 bytes. */
   authorLog(to: Audience, level: WireAuthorLevel, text: string, page?: number): void {
     this.#host.authorLog(to, level, text, page ?? null);
+  }
+
+  /**
+   * The viewer's cookies, as their connection opened with them (DEC-1730
+   * item 8): untrusted, from the viewer. The connection the call came from
+   * when it is the session's, else the session's latest; none for a
+   * session with no connection open.
+   */
+  cookies(session: number): Readonly<Record<string, string>> {
+    return this.#host.cookies(session);
   }
 
   /** Sets one of the program's cookies for the connection's viewer; names starting `_` are the server's. */

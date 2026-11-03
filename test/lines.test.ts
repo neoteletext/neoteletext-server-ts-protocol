@@ -5,10 +5,14 @@ import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
 import { test } from "node:test";
 
-import { figure, LineSplitter, LONGEST_LINE, serveLines, type ServerEvents } from "../src/index.ts";
+import { figure, LineSplitter, LONGEST_LINE, PROTOCOL, ProtocolVersionError, readMessage, serveLines, type ServerEvents } from "../src/index.ts";
+import { START_LINE } from "./fixtures/start-line.ts";
 
 /** The keyboard's focus coming to page 100, as the server writes it. */
 const SELECTED_LINE = '{"type":"selected","connection":3,"request":2,"path":"100","page":"100","sub":"3F7F"}';
+const CONNECTED_LINE = '{"type":"connected","connection":3,"session":1,"request":1,"cookies":[],"selection":null}';
+/** The server's start, 5 ms after the epoch. */
+const START_AT_5 = START_LINE.replace('"epoch_ms":0', '"epoch_ms":5');
 const FOCUS_LINE = '{"type":"input","connection":3,"page":"100","sub":"3F7F","lost":false,"event":{"kind":"focus"}}';
 
 test("lines are split across chunks, a return before the newline dropped", () => {
@@ -84,6 +88,7 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
     refused: (refusal) => {
       heard.push(`refused ${refusal.rule}`);
     },
+    measured: ignored,
     describe: ignored,
   };
   const served = serveLines(events, {
@@ -93,9 +98,7 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
       errors.push(text);
     },
   });
-  input.write(
-    '{"type":"start","protocol":7,"epoch_ms":5,"standard":{"magazines":8,"pages":2022,"pages_per_magazine":253,"pages_in_magazine_1":251,"keyable_pages":800,"subpages":8190,"decimal_subpages":3199},"budgets":{"line_bytes":16777216,"title_characters":120,"author_log_bytes":200,"log_characters":1000,"named_connections":4096,"reply_limit_ms":5000,"description_text_characters":16000,"description_limit_ms":2000}}\n{"type":"connected","connection":3,"session":1,"request":1,"cookies":[],"selection":null}\nnonsense\n',
-  );
+  input.write(`${START_AT_5}\n${CONNECTED_LINE}\nnonsense\n`);
   input.write(`${SELECTED_LINE}\n${FOCUS_LINE}\n`);
   input.write(`{"type":"stats","server":{"uptime_s":10},"channel":{"viewers":1}}\n${SELECTED_LINE.replace("}", ',"view":0}')}\n`);
   input.end('{"type":"left","connection":3,"page":"100"}\n{"type":"closed","session":1}');
@@ -104,4 +107,64 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
   assert.equal(errors.length, 2);
   assert.match(errors[0] ?? "", /not JSON/u);
   assert.match(errors[1] ?? "", /unknown_field/u, "a view number is no field of protocol 3 (DEC-1527)");
+});
+
+function never(): void {
+  assert.fail("nothing is handed on");
+}
+
+/** Events that fail the test when any is heard. */
+function unheard(): ServerEvents {
+  return {
+    start: never,
+    connected: never,
+    selected: never,
+    input: never,
+    left: never,
+    closed: never,
+    stats: never,
+    refused: never,
+    measured: never,
+    describe: never,
+  };
+}
+
+test("REQ-2215 item 3: a start of another protocol stops the program, both versions named, before anything is handed on or sent", async () => {
+  const input = new PassThrough();
+  const errors: string[] = [];
+  const served = serveLines(unheard(), {
+    input,
+    output: () => assert.fail("nothing is written"),
+    errors: (text) => {
+      errors.push(text);
+    },
+  });
+  const other = PROTOCOL - 1;
+  input.write(`${START_LINE.replace(`"protocol":${PROTOCOL}`, `"protocol":${other}`)}\n{"type":"closed","session":1}\n`);
+  await assert.rejects(served, (error: unknown) => error instanceof ProtocolVersionError && error.server === other);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0] ?? "", new RegExp(`protocol ${other}.*protocol ${PROTOCOL}`, "u"), "both versions are named");
+});
+
+test("REQ-2215 and REQ-2216: start's languages, measured and a refusal's request are read", () => {
+  const start = readMessage(START_LINE);
+  assert.ok(typeof start !== "string" && start.type === "start");
+  assert.deepEqual(
+    start.languages.find(({ tag }) => tag === "th"),
+    { tag: "th", name: "Thai", direction: "ltr", markRows: 1 },
+  );
+  assert.equal(start.languages.find(({ tag }) => tag === "ar")?.direction, "rtl");
+  const measured = readMessage(
+    '{"type":"measured","request":7,"triplets":5,"limit":208,"designation":{"default":0,"second":null},"runs":[{"cells":6,"triplets":3,"mark_rows":0}]}',
+  );
+  assert.deepEqual(measured, {
+    type: "measured",
+    request: 7,
+    measured: { triplets: 5, limit: 208, designation: { default: 0, second: null }, runs: [{ cells: 6, triplets: 3, markRows: 0 }] },
+  });
+  const refused = readMessage('{"type":"refused","message":"measure","request":9,"path":"page.text[0]","rule":"text_unshown","detail":"U+4E2D"}');
+  assert.deepEqual(refused, {
+    type: "refused",
+    refusal: { message: "measure", request: 9, path: "page.text[0]", rule: "text_unshown", detail: "U+4E2D" },
+  });
 });

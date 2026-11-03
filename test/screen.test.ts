@@ -22,6 +22,11 @@ import { text } from "../src/testing/index.ts";
 
 const ESC = "\u001B";
 
+/** ASCII text as its codes, for the TTI a screen of codes writes: text for the server to encode has none. */
+function ascii(written: string): number[] {
+  return Array.from(written, (character) => character.codePointAt(0) ?? 0);
+}
+
 /** The TTI lines of a screen, without the 25 OL lines of an empty page that the test does not name. */
 function lines(screen: Screen, page: number, subpage: number): string[] {
   return screen.toTti(page, subpage).split("\n");
@@ -51,8 +56,8 @@ test("sub-pages are numbered in decimal digits", () => {
 test("control codes are written in the escape form, ESC and the code plus 0x40", () => {
   const screen = new Screen();
   screen.header("NeoTeletext");
-  screen.coloured(1, 0, Colour.Red, "Hi");
-  screen.doubleHeight(2, 1, Colour.Yellow, "Big");
+  screen.codes(1, 0, [textColour(Colour.Red), ...ascii("Hi")]);
+  screen.codes(2, 1, [Attribute.DoubleHeight, textColour(Colour.Yellow), ...ascii("Big")]);
   screen.background(3, 0, Colour.Blue);
   screen.codes(4, 0, [Attribute.Flash, Attribute.Steady, Attribute.Separated, Attribute.HoldMosaics, 0x00, 0x1f]);
   const all = lines(screen, 0x100, 0);
@@ -106,14 +111,8 @@ test("codes are seven bits and cut at the row's end", () => {
 
 test("trailing spaces are left out of an OL line, which the reader restores", () => {
   const screen = new Screen();
-  screen.text(6, 2, "x   ");
+  screen.codes(6, 2, ascii("x   "));
   assert.equal(lines(screen, 0x100, 0)[8], "OL,6,  x");
-});
-
-test("text goes through the English set", () => {
-  const screen = new Screen();
-  screen.text(1, 0, "#1 £5 [x]");
-  assert.equal(screen.rowText(1).trimEnd(), "_1 #5 (x)");
 });
 
 test("centred text is centred with its colour cell", () => {
@@ -167,9 +166,9 @@ test("a cursor stays on rows 1 to 23, which the server takes (DOC-1954)", () => 
 
 test("several sub-pages are one TTI text, each from its PN line", () => {
   const first = new Screen();
-  first.text(1, 0, "one");
+  first.codes(1, 0, ascii("one"));
   const second = new Screen();
-  second.text(1, 0, "two");
+  second.codes(1, 0, ascii("two"));
   const written = tti(0x101, [{ screen: first }, { screen: second, subcode: 0x0a10 }]);
   assert.deepEqual(
     readTti(written).map((page) => text(page.rows, 1).trimEnd()),

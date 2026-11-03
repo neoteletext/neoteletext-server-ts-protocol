@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { type Application, type PageEntry, Random } from "../src/index.ts";
-import { Harness, SERVER_LIMITS, shows } from "../src/testing/index.ts";
+import { Harness, SERVER_LANGUAGES, SERVER_LIMITS, shows } from "../src/testing/index.ts";
 import { Recorder, screen } from "./recorder.ts";
 
 test("the first application to name a page serves it; every application hears a session begin, only the owner its pages", () => {
@@ -129,7 +129,7 @@ test("start ends every session: one that returns joins afresh, one that does not
   assert.notEqual(harness.channel.copy(9, 0x100), undefined);
   assert.notEqual(harness.channel.copy(10, 0x100), undefined);
   application.heard.length = 0;
-  harness.channel.start(0, SERVER_LIMITS);
+  harness.channel.start(0, SERVER_LIMITS, SERVER_LANGUAGES);
   assert.deepEqual(application.heard, ["ended 9", "ended 10"], "each application hears each session end");
   assert.equal(harness.channel.copy(9, 0x100), undefined, "nothing of session 9's own pages stays");
   assert.equal(harness.channel.copy(10, 0x100), undefined, "nor of the session that never returns");

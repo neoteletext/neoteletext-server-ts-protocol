@@ -1,10 +1,13 @@
 // What teletext-server's `start` tells a program (its docs/applications.md
-// section 2), for a test harness that stands in for the server. Only tests
-// read these; a program takes its limits from the `start` it is sent.
+// section 2), for a test harness that stands in for the server: its limits,
+// and its languages, the engine's table in its order as server 28133db
+// sends it (REQ-2215). Only tests read these; a program takes its
+// limits and languages from the `start` it is sent.
 
+import type { Language } from "../wire/languages.ts";
 import type { Limits } from "../wire/limits.ts";
 
-export type { Limits };
+export type { Language, Limits };
 
 /** The figures of teletext-server's `start`, from the engine's `neoteletext_core::limits` and the server's budgets. */
 export const SERVER_LIMITS: Limits = {
@@ -20,3 +23,83 @@ export const SERVER_LIMITS: Limits = {
     descriptionLimitMs: 2000,
   },
 };
+
+/** Every language of teletext-server's `start`, with its direction and mark rows. */
+export const SERVER_LANGUAGES: readonly Language[] = [
+  { tag: "en", name: "English", direction: "ltr", markRows: 0 },
+  { tag: "id", name: "Indonesian", direction: "ltr", markRows: 0 },
+  { tag: "sw", name: "Swahili", direction: "ltr", markRows: 0 },
+  { tag: "de", name: "German", direction: "ltr", markRows: 0 },
+  { tag: "sv", name: "Swedish", direction: "ltr", markRows: 0 },
+  { tag: "fi", name: "Finnish", direction: "ltr", markRows: 0 },
+  { tag: "hu", name: "Hungarian", direction: "ltr", markRows: 0 },
+  { tag: "it", name: "Italian", direction: "ltr", markRows: 0 },
+  { tag: "fr", name: "French", direction: "ltr", markRows: 0 },
+  { tag: "pt", name: "Portuguese", direction: "ltr", markRows: 0 },
+  { tag: "es", name: "Spanish", direction: "ltr", markRows: 0 },
+  { tag: "cs", name: "Czech", direction: "ltr", markRows: 0 },
+  { tag: "sk", name: "Slovak", direction: "ltr", markRows: 0 },
+  { tag: "pl", name: "Polish", direction: "ltr", markRows: 0 },
+  { tag: "tr", name: "Turkish", direction: "ltr", markRows: 0 },
+  { tag: "kk", name: "Kazakh", direction: "ltr", markRows: 0 },
+  { tag: "hr", name: "Croatian", direction: "ltr", markRows: 0 },
+  { tag: "sl", name: "Slovenian", direction: "ltr", markRows: 0 },
+  { tag: "sr-Latn", name: "Serbian (Latin script)", direction: "ltr", markRows: 0 },
+  { tag: "ro", name: "Romanian", direction: "ltr", markRows: 0 },
+  { tag: "et", name: "Estonian", direction: "ltr", markRows: 0 },
+  { tag: "lv", name: "Latvian", direction: "ltr", markRows: 0 },
+  { tag: "lt", name: "Lithuanian", direction: "ltr", markRows: 0 },
+  { tag: "ru", name: "Russian", direction: "ltr", markRows: 0 },
+  { tag: "bg", name: "Bulgarian", direction: "ltr", markRows: 0 },
+  { tag: "el", name: "Greek", direction: "ltr", markRows: 0 },
+  { tag: "he", name: "Hebrew", direction: "rtl", markRows: 0 },
+  { tag: "uk", name: "Ukrainian", direction: "ltr", markRows: 0 },
+  { tag: "sr", name: "Serbian", direction: "ltr", markRows: 0 },
+  { tag: "ar", name: "Arabic", direction: "rtl", markRows: 0 },
+  { tag: "ha", name: "Hausa", direction: "ltr", markRows: 0 },
+  { tag: "ff", name: "Fula", direction: "ltr", markRows: 0 },
+  { tag: "ak", name: "Akan", direction: "ltr", markRows: 0 },
+  { tag: "bm", name: "Bambara", direction: "ltr", markRows: 0 },
+  { tag: "dyu", name: "Dyula", direction: "ltr", markRows: 0 },
+  { tag: "din", name: "Dinka", direction: "ltr", markRows: 0 },
+  { tag: "fon", name: "Fon", direction: "ltr", markRows: 0 },
+  { tag: "kri", name: "Krio", direction: "ltr", markRows: 0 },
+  { tag: "ln", name: "Lingala", direction: "ltr", markRows: 0 },
+  { tag: "mnk", name: "Mandinka", direction: "ltr", markRows: 0 },
+  { tag: "men", name: "Mende", direction: "ltr", markRows: 0 },
+  { tag: "nus", name: "Nuer", direction: "ltr", markRows: 0 },
+  { tag: "ee", name: "Ewe", direction: "ltr", markRows: 0 },
+  { tag: "kab", name: "Kabyle", direction: "ltr", markRows: 0 },
+  { tag: "tzm", name: "Central Atlas Tamazight", direction: "ltr", markRows: 0 },
+  { tag: "az", name: "Azerbaijani", direction: "ltr", markRows: 0 },
+  { tag: "kr", name: "Kanuri", direction: "ltr", markRows: 0 },
+  { tag: "mos", name: "Mossi", direction: "ltr", markRows: 0 },
+  { tag: "yo", name: "Yoruba", direction: "ltr", markRows: 0 },
+  { tag: "ig", name: "Igbo", direction: "ltr", markRows: 0 },
+  { tag: "vi", name: "Vietnamese", direction: "ltr", markRows: 0 },
+  { tag: "be", name: "Belarusian", direction: "ltr", markRows: 0 },
+  { tag: "mk", name: "Macedonian", direction: "ltr", markRows: 0 },
+  { tag: "ky", name: "Kyrgyz", direction: "ltr", markRows: 0 },
+  { tag: "mn", name: "Mongolian", direction: "ltr", markRows: 0 },
+  { tag: "tt", name: "Tatar", direction: "ltr", markRows: 0 },
+  { tag: "tg", name: "Tajik", direction: "ltr", markRows: 0 },
+  { tag: "fa", name: "Persian", direction: "rtl", markRows: 0 },
+  { tag: "prs", name: "Dari", direction: "rtl", markRows: 0 },
+  { tag: "ur", name: "Urdu", direction: "rtl", markRows: 0 },
+  { tag: "ps", name: "Pashto", direction: "rtl", markRows: 0 },
+  { tag: "sd", name: "Sindhi", direction: "rtl", markRows: 0 },
+  { tag: "ckb", name: "Central Kurdish", direction: "rtl", markRows: 0 },
+  { tag: "ug", name: "Uyghur", direction: "rtl", markRows: 0 },
+  { tag: "bal", name: "Balochi", direction: "rtl", markRows: 0 },
+  { tag: "ka", name: "Georgian", direction: "ltr", markRows: 0 },
+  { tag: "hy", name: "Armenian", direction: "ltr", markRows: 0 },
+  { tag: "zgh", name: "Standard Moroccan Tamazight", direction: "ltr", markRows: 0 },
+  { tag: "tzm-Tfng", name: "Central Atlas Tamazight (Tifinagh script)", direction: "ltr", markRows: 0 },
+  { tag: "th", name: "Thai", direction: "ltr", markRows: 1 },
+  { tag: "lo", name: "Lao", direction: "ltr", markRows: 1 },
+  { tag: "ja", name: "Japanese", direction: "ltr", markRows: 0 },
+  { tag: "ja-Hira", name: "Japanese (hiragana)", direction: "ltr", markRows: 0 },
+  { tag: "ja-Hrkt", name: "Japanese (kana)", direction: "ltr", markRows: 0 },
+  { tag: "ja-Kana", name: "Japanese (katakana)", direction: "ltr", markRows: 0 },
+  { tag: "ja-Latn", name: "Japanese (rōmaji)", direction: "ltr", markRows: 0 },
+];

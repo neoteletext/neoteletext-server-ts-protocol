@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { App, blankContent, checkProgram, checkServer, fitText, ProtocolError, type WirePage, type WireTriplet } from "../src/index.ts";
-import { SERVER_LIMITS } from "../src/testing/index.ts";
+import { SERVER_LANGUAGES, SERVER_LIMITS } from "../src/testing/index.ts";
 
 const PAGE: WirePage = { page: "100", sub: "0000", ...blankContent() };
 /** "é" as one code point, which is NFC, and as "e" and a combining acute accent, which is not. */
@@ -195,7 +195,7 @@ test("REQ-1475: a message with text not in NFC is never written; the call throws
   const app = new App((line) => {
     lines.push(line);
   });
-  app.started(SERVER_LIMITS);
+  app.started(SERVER_LIMITS, SERVER_LANGUAGES);
   assert.throws(
     () => {
       app.send({ type: "log", level: "info", event: "application", text: DECOMPOSED });

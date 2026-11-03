@@ -1,7 +1,22 @@
 // What the server sends a program, as it travels: the other half of
 // protocol.ts, under the same rule.
 
-import type { WirePageNumber, WireSelection, WireSubCode } from "./protocol.ts";
+import type { WireLanguageTag, WirePageNumber, WireSelection, WireSubCode } from "./protocol.ts";
+
+/** One language of `start.languages` (REQ-2215). */
+export interface WireLanguageEntry {
+  readonly tag: WireLanguageTag;
+  readonly name: string;
+  readonly direction: "ltr" | "rtl";
+  readonly mark_rows: 0 | 1;
+}
+
+/** What one text run cost, in `measured`. */
+export interface WireRunCost {
+  readonly cells: number;
+  readonly triplets: number;
+  readonly mark_rows: 0 | 1;
+}
 
 export interface WireStandard {
   readonly magazines: number;
@@ -70,7 +85,14 @@ export type WireInputEvent =
 
 /** A message the server sends (the schema's $defs/ServerMessage). */
 export type WireServerMessage =
-  | { readonly type: "start"; readonly protocol: number; readonly epoch_ms: number; readonly standard: WireStandard; readonly budgets: WireBudgets }
+  | {
+      readonly type: "start";
+      readonly protocol: number;
+      readonly epoch_ms: number;
+      readonly standard: WireStandard;
+      readonly budgets: WireBudgets;
+      readonly languages: readonly WireLanguageEntry[];
+    }
   | {
       readonly type: "connected";
       readonly connection: number;
@@ -101,5 +123,20 @@ export type WireServerMessage =
   | { readonly type: "left"; readonly connection: number; readonly page: WirePageNumber }
   | { readonly type: "closed"; readonly session: number }
   | { readonly type: "stats"; readonly server: unknown; readonly channel: unknown }
-  | { readonly type: "refused"; readonly message?: string | null; readonly path: string; readonly rule: string; readonly detail: string }
+  | {
+      readonly type: "refused";
+      readonly message?: string | null;
+      readonly request?: number | null;
+      readonly path: string;
+      readonly rule: string;
+      readonly detail: string;
+    }
+  | {
+      readonly type: "measured";
+      readonly request: number;
+      readonly triplets: number;
+      readonly limit: number;
+      readonly designation: { readonly default: number; readonly second?: number | null };
+      readonly runs: readonly WireRunCost[];
+    }
   | { readonly type: "describe"; readonly page: WirePageNumber };
