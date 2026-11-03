@@ -29,12 +29,12 @@ test("REQ-2214: text is a run in its language for the server to encode, over cod
 test("a character with its combining marks takes one cell, and a control is a space", () => {
   const screen = new Screen();
   screen.text(3, 0, "e\u0301a\u0007b");
-  screen.text(4, 0, "กี่");
+  screen.text(4, 0, "e\u0323\u0302");
   assert.deepEqual(screen.content().text, [
     { row: 3, column: 0, text: "éa b" },
-    { row: 4, column: 0, text: "กี่" },
+    { row: 4, column: 0, text: "ệ" },
   ]);
-  assert.equal(cellsOf("กี่"), 1, "Thai marks go to the mark rows");
+  assert.equal(cellsOf("e\u0323\u0302"), 1, "a letter with two marks takes one cell");
 });
 
 test("what is written over a run cuts it, and a right-to-left run covered anywhere goes whole", () => {
@@ -193,7 +193,7 @@ test("the header is the program's own codes: letters, digits and the signs every
 });
 
 test("REQ-2215: the kit's languages' tags are the schema's, in its order, and the server's start lists each", () => {
-  const text = readFileSync(join(import.meta.dirname, "..", "schema", "protocol-8.json"), "utf8");
+  const text = readFileSync(join(import.meta.dirname, "..", "schema", "protocol-9.json"), "utf8");
   // The schema's $defs/LanguageTag, read as text so the test assumes nothing of its shape but the list.
   const found = /"LanguageTag": \{[^}]*?"enum": (\[[^\]]*\])/su.exec(text)?.[1];
   assert.ok(found !== undefined, "the schema lists the tags");

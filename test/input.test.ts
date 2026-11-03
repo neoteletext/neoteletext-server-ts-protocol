@@ -153,7 +153,7 @@ test("the decimal digits of every script are 0 to 9 (DOC-1937)", () => {
   assert.equal(decimalDigit("٣"), 3, "Arabic-Indic");
   assert.equal(decimalDigit("۵"), 5, "extended Arabic-Indic");
   assert.equal(decimalDigit("३"), 3, "Devanagari");
-  assert.equal(decimalDigit("๙"), 9, "Thai");
+  assert.equal(decimalDigit("৯"), 9, "Bengali");
   assert.equal(decimalDigit("９"), 9, "full width");
   assert.equal(decimalDigit("\u{1D7D7}"), 9, "the first of the touching mathematical runs");
   assert.equal(decimalDigit("\u{1D7FF}"), 9, "the last of them");

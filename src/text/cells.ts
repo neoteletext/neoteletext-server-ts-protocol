@@ -5,7 +5,7 @@
 // before it is sent: exact for every script but where the server joins two
 // letters into one cell (an Arabic lam-alef), which it counts one high.
 
-/** A combining mark (Unicode general category M): it joins the letter before it, or for Thai and Lao goes to the mark rows. */
+/** A combining mark (Unicode general category M): it joins the letter before it. */
 const MARK = /^\p{M}$/u;
 
 /** Controls and format characters (Unicode categories Cc and Cf): the server refuses them in text (REQ-1475), so they are shown as spaces. */

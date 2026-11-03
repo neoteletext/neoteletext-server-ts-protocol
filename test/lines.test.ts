@@ -150,17 +150,17 @@ test("REQ-2215 and REQ-2216: start's languages, measured and a refusal's request
   const start = readMessage(START_LINE);
   assert.ok(typeof start !== "string" && start.type === "start");
   assert.deepEqual(
-    start.languages.find(({ tag }) => tag === "th"),
-    { tag: "th", name: "Thai", direction: "ltr", markRows: 1 },
+    start.languages.find(({ tag }) => tag === "he"),
+    { tag: "he", name: "Hebrew", direction: "rtl" },
   );
   assert.equal(start.languages.find(({ tag }) => tag === "ar")?.direction, "rtl");
   const measured = readMessage(
-    '{"type":"measured","request":7,"triplets":5,"limit":208,"designation":{"default":0,"second":null},"runs":[{"cells":6,"triplets":3,"mark_rows":0}]}',
+    '{"type":"measured","request":7,"triplets":5,"limit":208,"designation":{"default":0,"second":null},"runs":[{"cells":6,"triplets":3}]}',
   );
   assert.deepEqual(measured, {
     type: "measured",
     request: 7,
-    measured: { triplets: 5, limit: 208, designation: { default: 0, second: null }, runs: [{ cells: 6, triplets: 3, markRows: 0 }] },
+    measured: { triplets: 5, limit: 208, designation: { default: 0, second: null }, runs: [{ cells: 6, triplets: 3 }] },
   });
   const refused = readMessage('{"type":"refused","message":"measure","request":9,"path":"page.text[0]","rule":"text_unshown","detail":"U+4E2D"}');
   assert.deepEqual(refused, {

@@ -77,7 +77,7 @@ export class Context {
     return this.#host.app.limits();
   }
 
-  /** The languages a page or its text may name, as the server listed them in `start` (REQ-2215): each with its direction and mark rows. */
+  /** The languages a page or its text may name, as the server listed them in `start` (REQ-2215): each with its direction. */
   languages(): readonly Language[] {
     return this.#host.app.languages();
   }
@@ -85,7 +85,7 @@ export class Context {
   /**
    * What the server's encoding of a page drawn on `screen` costs, as page
    * `page` (REQ-2216): its triplets against the limit, its designation and
-   * each run of text's cells, triplets and mark rows. Nothing reaches a
+   * each run of text's cells and triplets. Nothing reaches a
    * viewer. It rejects with a MeasureRefusedError when the server
    * would refuse the page, naming the run at fault.
    */

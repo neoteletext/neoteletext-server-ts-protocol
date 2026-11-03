@@ -4,7 +4,7 @@
 // own signs, mosaics, Fastext, links to a sub-page and sub-pages, so a
 // test can check the server encodes the typed sub-pages the kit writes as
 // they were drawn; a page of text in several languages for the server to
-// encode (REQ-2214): Russian, Greek, Arabic and Thai on an English page;
+// encode (REQ-2214): Russian, Greek, Arabic and Hebrew on an English page;
 // and a section and a new title, which the index shows.
 
 import {
@@ -64,8 +64,7 @@ function languages(): Screen {
   screen.coloured(2, 0, Colour.Cyan, "Привет", "ru");
   screen.coloured(2, 20, Colour.Cyan, "Γειά σου", "el");
   screen.coloured(3, 0, Colour.Yellow, "مرحبا", "ar");
-  // Thai takes the rows above and below for its marks: rows 4 and 6.
-  screen.coloured(5, 0, Colour.Green, "สวัสดี", "th");
+  screen.coloured(5, 0, Colour.Green, "שלום", "he");
   return screen;
 }
 

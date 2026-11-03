@@ -8,14 +8,12 @@ export interface WireLanguageEntry {
   readonly tag: WireLanguageTag;
   readonly name: string;
   readonly direction: "ltr" | "rtl";
-  readonly mark_rows: 0 | 1;
 }
 
 /** What one text run cost, in `measured`. */
 export interface WireRunCost {
   readonly cells: number;
   readonly triplets: number;
-  readonly mark_rows: 0 | 1;
 }
 
 export interface WireStandard {

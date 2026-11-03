@@ -5,8 +5,8 @@ reference kit of teletext-server's `docs/applications.md` section 5. A
 channel is a program the server starts; they talk in lines of JSON on its
 standard input and output. This package speaks protocol version 8
 (DEC-1482): every message in both directions is checked against the
-server's published JSON Schema (`schema/protocol-8.json`, the server's
-`protocol/schema-8.json`) by validators Ajv 8 compiles from it at build, in
+server's published JSON Schema (`schema/protocol-9.json`, the server's
+`protocol/schema-9.json`) by validators Ajv 8 compiles from it at build, in
 standalone mode, so nothing compiles a schema at run time, and then held
 to the server's rules of text the schema cannot state: no control or
 bidirectional formatting character, Unicode normalisation form C, and a
@@ -141,20 +141,18 @@ most 40 characters).
   Latin national option shares. A character the run's language cannot
   show makes the server refuse the page (`text_unshown`).
 - **Languages:** `Context.languages()` is `start.languages`: each
-  language's `tag`, English `name`, `direction` (`rtl` for a language
-  written right to left, which the server puts in visual order) and
-  `markRows` (1 for Thai and Lao, whose marks take the row above and the
-  row below, so such text needs rows 2 to 23).
+  language's `tag`, English `name`, and `direction` (`rtl` for a language
+  written right to left, which the server puts in visual order).
 - **Measuring** (REQ-2216): `Context.measure(page, screen)` sends the page
   to the server to encode, for no viewer, and resolves to `Measured`: the
   triplets it uses of its `limit` of 208, its designation, and each run's
-  cells, triplets and mark rows; or rejects with `MeasureRefusedError`,
+  cells and triplets; or rejects with `MeasureRefusedError`,
   the server's refusal naming the run. A channel's tests can measure every
   page against a running server.
 - **Cookies:** `Context.cookies(session)` is the viewer's cookies as their
   connection opened with them, and `Context.cookie(connection, name,
   value, options)` sets one.
-- **The protocol's version:** the kit speaks protocol 8 (`PROTOCOL`); a
+- **The protocol's version:** the kit speaks protocol 9 (`PROTOCOL`); a
   `start` of any other stops it before it sends anything, naming both
   (`ProtocolVersionError`, REQ-2215 item 3).
 - **Input:** `Input`, what a viewer did, with `Mods`, the modifier keys

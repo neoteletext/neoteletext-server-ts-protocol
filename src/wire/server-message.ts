@@ -39,8 +39,6 @@ export interface RunCost {
   readonly cells: number;
   /** The triplets it added, its share of row addresses and the Termination Marker included. */
   readonly triplets: number;
-  /** 1 when its marks take the row above and the row below it. */
-  readonly markRows: 0 | 1;
 }
 
 /** The answer to `measure` (REQ-2216): what the page's encoding costs. */
@@ -160,7 +158,7 @@ function measuredOf(message: Extract<WireServerMessage, { type: "measured" }>): 
       triplets: message.triplets,
       limit: message.limit,
       designation: { default: message.designation.default, second: message.designation.second ?? null },
-      runs: message.runs.map(({ cells, triplets, mark_rows: markRows }) => ({ cells, triplets, markRows })),
+      runs: message.runs.map(({ cells, triplets }) => ({ cells, triplets })),
     },
   };
 }

@@ -9,7 +9,7 @@ import { type Context, MeasureRefusedError, type Measured, type PageEntry, Scree
 import { Harness, SERVER_LANGUAGES } from "../src/testing/index.ts";
 
 const PAGE = 0x100;
-const MEASURED: Measured = { triplets: 5, limit: 208, designation: { default: 0, second: null }, runs: [{ cells: 6, triplets: 3, markRows: 0 }] };
+const MEASURED: Measured = { triplets: 5, limit: 208, designation: { default: 0, second: null }, runs: [{ cells: 6, triplets: 3 }] };
 
 /** A harness whose one application keeps its context from `start`, for the test to call. */
 interface Started {

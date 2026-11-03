@@ -1,5 +1,5 @@
 // The languages' tags the schema lists ($defs/LanguageTag), which
-// `start.languages` names with their directions and mark rows (REQ-2215).
+// `start.languages` names with their directions (REQ-2215).
 // test/protocol.test.ts holds this list to the schema's.
 
 /** A language's BCP 47 tag, one of `start.languages` (the schema's $defs/LanguageTag, REQ-2215): every tag the schema lists, in its order. */
@@ -52,7 +52,6 @@ export const LANGUAGE_TAGS = [
   "az",
   "kr",
   "mos",
-  "yo",
   "ig",
   "vi",
   "be",
@@ -73,8 +72,6 @@ export const LANGUAGE_TAGS = [
   "hy",
   "zgh",
   "tzm-Tfng",
-  "th",
-  "lo",
   "ja",
   "ja-Hira",
   "ja-Hrkt",
