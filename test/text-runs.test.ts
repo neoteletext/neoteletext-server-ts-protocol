@@ -101,10 +101,30 @@ test("more than 64 runs is refused when the page is made", () => {
   const screen = new Screen();
   for (let row = 1; row <= 22; row += 1) {
     for (const column of [0, 10, 20]) {
-      screen.coloured(row, column, Colour.White, "x");
+      screen.coloured(row, column, Colour.White, "£1");
     }
   }
   assert.throws(() => screen.content(), /at most 64 runs/u);
+});
+
+test("past 64 runs, a page in English leaves its plain English runs to the codes under them, which the encoder would write", () => {
+  const screen = new Screen();
+  screen.language("en");
+  for (let row = 1; row <= 22; row += 1) {
+    for (const column of [0, 10, 20]) {
+      screen.coloured(row, column, Colour.White, row === 1 && column === 0 ? "£1" : "x1");
+    }
+  }
+  assert.deepEqual(screen.content().text, [{ row: 1, column: 1, text: "£1" }], "only the run the codes cannot show is sent");
+  assert.equal(screen.rowText(2).slice(1, 3), "x1");
+  const russian = new Screen();
+  russian.language("ru");
+  for (let row = 1; row <= 22; row += 1) {
+    for (const column of [0, 10, 20]) {
+      russian.coloured(row, column, Colour.White, "x1", "en");
+    }
+  }
+  assert.throws(() => russian.content(), /at most 64 runs/u, "on a page in another language the codes would be read in its set");
 });
 
 test("the header is the program's own codes: letters, digits and the signs every national option shares", () => {

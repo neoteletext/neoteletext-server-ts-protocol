@@ -130,7 +130,9 @@ most 40 characters).
   level. A run takes a cell for each character it shows once its marks
   join it (`cellsOf`, `textCells`); what is written over a run cuts it,
   and runs that only spaces part are sent as one, at most 64 a page of 40
-  characters each. Rows 1 to 24 carry text; row 0, the header, is the
+  characters each. Past 64, a page in English leaves its plain English
+  runs (printable ASCII but the national positions) to the codes under
+  them, which are what the encoder would write. Rows 1 to 24 carry text; row 0, the header, is the
   program's own codes (`header`), so letters, digits and the signs every
   Latin national option shares. A character the run's language cannot
   show makes the server refuse the page (`text_unshown`).

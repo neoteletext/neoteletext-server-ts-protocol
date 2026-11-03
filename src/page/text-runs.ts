@@ -43,6 +43,15 @@ interface Piece {
   readonly rightToLeft: boolean;
 }
 
+/** Whether `run` is English that the codes under it show as the encoder would write it: printable ASCII but where EN 300 706 Table 36's national options differ (0x23, 0x24, 0x40, 0x5B to 0x60, 0x7B to 0x7E). */
+function isPlainEnglish(run: WireTextRun): boolean {
+  return (
+    (run.language === undefined || run.language === null || run.language === "en") &&
+    /^[\u0020-\u007E]*$/u.test(run.text) &&
+    !/[#$@[\\\]^_`{|}~]/u.test(run.text)
+  );
+}
+
 function characters(cells: readonly string[]): number {
   return cells.reduce((count, cell) => count + Array.from(cell).length, 0);
 }
@@ -142,8 +151,16 @@ export class TextRuns {
     return emptied;
   }
 
-  /** The runs as the protocol carries them, at their fewest: `isSpace` says which cells between two runs hold a space. */
-  runs(isSpace: (row: number, column: number) => boolean): WireTextRun[] {
+  /**
+   * The runs as the protocol carries them, at their fewest: `isSpace` says
+   * which cells between two runs hold a space. On a page in English
+   * (`english`), past MOST_RUNS a run of English in the characters every
+   * Latin set shows alike at their ASCII codes is left to those codes,
+   * which the rows already hold under it and which are what the server's
+   * encoder writes for it: the page shows the same, within the protocol's
+   * bound.
+   */
+  runs(isSpace: (row: number, column: number) => boolean, english = false): WireTextRun[] {
     const pieces: Piece[] = [];
     this.#cells.forEach((line, row) => {
       let last: Piece | null = null;
@@ -181,7 +198,8 @@ export class TextRuns {
         joined.push(piece);
       }
     }
-    const runs = joined.flatMap((piece) => cut(piece));
+    const all = joined.flatMap((piece) => cut(piece));
+    const runs = all.length > MOST_RUNS && english ? all.filter((run) => !isPlainEnglish(run)) : all;
     if (runs.length > MOST_RUNS) {
       throw new RangeError(`a page carries at most ${MOST_RUNS} runs of text, and this one has ${runs.length}: join its text into fewer, longer lines`);
     }

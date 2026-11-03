@@ -252,7 +252,7 @@ export class Screen {
   content(): SubPageContent {
     const links = [...this.#fastext, null, this.#index].map((link) => (link === null ? null : { page: pageText(link), sub: ANY_SUBCODE_TEXT }));
     const cursor = this.#cursor;
-    const text = this.#runs.runs((row, column) => this.at(row, column) === SPACE);
+    const text = this.#runs.runs((row, column) => this.at(row, column) === SPACE, this.#language === null || this.#language === "en");
     const packed = packedContent(this.#packed);
     return {
       ...blankContent(),
