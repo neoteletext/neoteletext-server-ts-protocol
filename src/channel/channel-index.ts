@@ -11,16 +11,7 @@ import type { WireIndexEntry, WireMagazine } from "../wire/protocol.ts";
 
 /** A page number's magazine: its first hexadecimal digit (EN 300 706 clause 7.1.2). */
 const MAGAZINE_SHIFT = 8;
-const PAGE_MASK = 0xff;
-/** The pages no magazine carries: mFD, mFE and mFF, and 1BE and 1F0 (Annex A.10). */
-const RESERVED_IN_EVERY_MAGAZINE: ReadonlySet<number> = new Set([0xfd, 0xfe, 0xff]);
-const RESERVED_PAGES: ReadonlySet<number> = new Set([0x1be, 0x1f0]);
 const FIRST_MAGAZINE = 1;
-
-/** Whether the standard reserves `page`, so no index may list it. */
-export function isReserved(page: number): boolean {
-  return RESERVED_IN_EVERY_MAGAZINE.has(page & PAGE_MASK) || RESERVED_PAGES.has(page);
-}
 
 /**
  * `text` cut to `most` characters, controls made spaces, in Unicode

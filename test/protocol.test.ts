@@ -22,6 +22,15 @@ import { Harness, SERVER_LANGUAGES, SERVER_LIMITS, type Sent } from "../src/test
 
 const PAGE: WirePage = { page: "100", sub: "0000", ...blankContent() };
 
+/** Packet 1/0, a header, as a stream carries it: its address bytes are magazine 1 and packet 0 in Hamming 8/4 (EN 300 706 clause 8.2, Table 3), then spaces. */
+const MAGAZINE_1_HEADER = Buffer.from([0x02, 0x15, ...Array.from({ length: 40 }, () => 0x20)]).toString("base64");
+
+/** The sub-code in place `place` of every sub-code a sub-page may have, in ascending order: S1 to S4 of 4, 3, 4 and 2 bits (clause 9.3.1.2). */
+function subCodeAt(place: number): string {
+  const digits = [Math.floor(place / 2048), Math.floor(place / 128) % 16, Math.floor(place / 16) % 8, place % 16];
+  return digits.map((digit) => digit.toString(16).toUpperCase()).join("");
+}
+
 test("a valid value of each program message passes the server's schema", () => {
   const messages: ProgramMessage[] = [
     {
@@ -48,7 +57,7 @@ test("a valid value of each program message passes the server's schema", () => {
     { type: "cookie", connection: 1, name: "seen", value: "1", path: "/", max_age: 60, same_site: "Lax", secure: true, http_only: true },
     { type: "author_log", connections: "all", level: "I", text: "hello", page: null },
     { type: "log", level: "info", event: "application", text: "hello" },
-    { type: "packets", connections: [1], packets: "" },
+    { type: "packets", connections: [1], packets: MAGAZINE_1_HEADER },
     {
       type: "measure",
       request: 4_294_967_295,
@@ -56,7 +65,7 @@ test("a valid value of each program message passes the server's schema", () => {
     },
   ];
   for (const message of messages) {
-    assert.equal(checkProgram(message), null, JSON.stringify(message));
+    assert.equal(checkProgram(message, SERVER_LIMITS), null, JSON.stringify(message));
   }
 });
 
@@ -71,18 +80,21 @@ test("what the server refuses is refused by the kit, with the path and the rule"
     [{ type: "subpages", connections: [1], page: "100", version: 0, subpages: [{ sub: "0001", title: "x".repeat(41) }] }, "subpages[0].title", "too_long"],
     [{ type: "redirect", connection: 1, request: 1, page: "900", sub: "3F7F" }, "page", "wrong_type"],
     [{ type: "publish", page: "100" }, "type", "not_listed"],
-    [{ type: "page", connections: [1], page: { ...PAGE, language: "xx" } }, "page.language", "not_listed"],
+    [{ type: "page", connections: [1], page: { ...PAGE, language: "xx" } }, "page.language", "unknown_language"],
     [{ type: "page", connections: [1], page: { ...PAGE, text: [{ row: 0, column: 0, text: "a" }] } }, "page.text[0].row", "out_of_range"],
     [{ type: "page", connections: [1], page: { ...PAGE, text: [{ row: 1, column: 0, text: "a".repeat(41) }] } }, "page.text[0].text", "too_long"],
     [{ type: "page", connections: [1], page: { ...PAGE, text: [{ row: 1, column: 0, text: "e\u0301" }] } }, "page.text[0].text", "not_nfc"],
   ];
   for (const [message, path, rule] of faults) {
-    const fault = checkProgram(message);
+    const fault = checkProgram(message, SERVER_LIMITS);
     assert.equal(fault?.path, path, JSON.stringify(message).slice(0, 200));
     assert.equal(fault?.rule, rule, JSON.stringify(message).slice(0, 200));
   }
   assert.equal(
-    checkProgram({ type: "subpages", connections: [1], page: "100", version: 0, subpages: Array.from({ length: 8190 }, () => ({ sub: "0001" })) }),
+    checkProgram(
+      { type: "subpages", connections: [1], page: "100", version: 0, subpages: Array.from({ length: 8190 }, (_, place) => ({ sub: subCodeAt(place) })) },
+      SERVER_LIMITS,
+    ),
     null,
     "8,190 sub-pages are the schema's bound",
   );

@@ -44,15 +44,16 @@ export class App {
     return this.#limits;
   }
 
-  /** Writes `message` if it is valid; otherwise writes nothing and throws a {@link ProtocolError} naming its first fault. */
+  /** Writes `message` if it is valid within the limits `start` gave; otherwise writes nothing and throws a {@link ProtocolError} naming its first fault. Nothing is sent before `start`. */
   send(message: ProgramMessage): void {
-    const fault = checkProgram(message);
+    const limits = this.limits();
+    const fault = checkProgram(message, limits);
     if (fault !== null) {
       throw new ProtocolError(message.type, fault);
     }
     const line = JSON.stringify(message);
-    const most = this.#limits?.budgets.lineBytes;
-    if (most !== undefined && Buffer.byteLength(line) > most) {
+    const most = limits.budgets.lineBytes;
+    if (Buffer.byteLength(line) > most) {
       throw new ProtocolError(message.type, { path: "", rule: "line_too_long", detail: `${Buffer.byteLength(line)} bytes, at most ${most}` });
     }
     this.#write(line);

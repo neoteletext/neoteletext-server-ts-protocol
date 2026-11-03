@@ -3,16 +3,17 @@
 // before it is written, so a mistake is caught where it is made, and the
 // server's after it is read, so nothing acts on a line that is not valid.
 // A program's message the schema passes is then held to the server's rules
-// of text that the schema cannot state (text-rules.ts), so the kit never
-// writes what the server refuses. A fault is said as the server says a
+// that the schema cannot state, with the limits `start` gave
+// (server-rules.ts), so the kit never writes what the server refuses. A fault is said as the server says a
 // refusal: the path of the first fault and the rule broken, from the
 // server's closed list (REQ-1475).
 
 import type { Fault } from "./fault.ts";
 import { type ValidationFault, type Validator, program, server } from "./generated/validators.js";
+import type { Limits } from "./limits.ts";
 import type { ProgramMessage } from "./protocol.ts";
+import { checkRules } from "./server-rules.ts";
 import type { WireServerMessage } from "./server-wire.ts";
-import { checkText } from "./text-rules.ts";
 
 /** A message the program was about to write broke the protocol: nothing of it was written. */
 export class ProtocolError extends Error {
@@ -57,6 +58,9 @@ function pathOf(pointer: string): string {
   return path;
 }
 
+/** The field every language tag is, a page's and a text run's. */
+const LANGUAGE_FIELD = "/language";
+
 /** Keywords that say only that no alternative of a union fitted: another fault at the same place says more. */
 const VAGUE: ReadonlySet<string> = new Set(["type", "anyOf", "oneOf", "const", "enum"]);
 
@@ -69,7 +73,11 @@ function first(faults: readonly ValidationFault[]): Fault {
     return { path: "", rule: "syntax", detail: "not valid" };
   }
   const detail = `${chosen.message ?? chosen.keyword}${Object.keys(chosen.params).length > 0 ? ` ${JSON.stringify(chosen.params)}` : ""}`;
-  return { path: pathOf(chosen.instancePath), rule: RULES[chosen.keyword] ?? "wrong_type", detail };
+  // The server reads a language as any text and then looks for it in
+  // start.languages, refusing one outside them as unknown_language (its
+  // check_language, REQ-2215); the schema states that list as an enum.
+  const language = chosen.instancePath.endsWith(LANGUAGE_FIELD) && deepest.some((fault) => fault.keyword === "enum");
+  return { path: pathOf(chosen.instancePath), rule: language ? "unknown_language" : (RULES[chosen.keyword] ?? "wrong_type"), detail };
 }
 
 function check(validators: Readonly<Record<string, Validator>>, message: unknown): Fault | null {
@@ -88,9 +96,9 @@ function isProgramMessage(message: unknown): message is ProgramMessage {
   return check(program, message) === null;
 }
 
-/** Whether a message the program would send is valid, by the schema and then by the server's rules of text: null, or its first fault. */
-export function checkProgram(message: unknown): Fault | null {
-  return isProgramMessage(message) ? checkText(message) : check(program, message);
+/** Whether a message the program would send is valid, by the schema and then by the server's rules within the limits `start` gave: null, or its first fault. */
+export function checkProgram(message: unknown, limits: Limits): Fault | null {
+  return isProgramMessage(message) ? checkRules(message, limits) : check(program, message);
 }
 
 /** Whether a message the server sent is valid: null, or its first fault. */

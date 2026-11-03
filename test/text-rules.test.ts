@@ -59,8 +59,8 @@ function redirectWith(fields: object): unknown {
 // REQ-1688 item 1: a page and its sub-code, or an address.
 test("REQ-1688: a redirect names a page and its sub-code, or an address, in the fault's own place", () => {
   const address = "https://elsewhere.example/channel/302";
-  assert.equal(checkProgram(redirectWith({ page: "100", sub: "3F7F" })), null);
-  assert.equal(checkProgram(redirectWith({ address })), null);
+  assert.equal(checkProgram(redirectWith({ page: "100", sub: "3F7F" }), SERVER_LIMITS), null);
+  assert.equal(checkProgram(redirectWith({ address }), SERVER_LIMITS), null);
   const faults: readonly (readonly [object, string, string])[] = [
     [{}, "page", "missing_field"],
     [{ sub: "3F7F" }, "page", "missing_field"],
@@ -72,7 +72,7 @@ test("REQ-1688: a redirect names a page and its sub-code, or an address, in the 
     [{ address: "https://élsewhere.example/" }, "address", "forbidden_character"],
   ];
   for (const [fields, path, rule] of faults) {
-    const fault = checkProgram(redirectWith(fields));
+    const fault = checkProgram(redirectWith(fields), SERVER_LIMITS);
     assert.deepEqual([fault?.path, fault?.rule], [path, rule], JSON.stringify(fields));
   }
 });
@@ -102,18 +102,22 @@ function everyTextField(text: string): [unknown, string][] {
 }
 
 test("the validators are the server's: a cursor on row 0 or 24 is refused, and one on rows 1 to 23 is not (DOC-1954)", () => {
-  assert.equal(checkProgram(withCursor(1)), null);
-  assert.equal(checkProgram(withCursor(23)), null);
-  assert.notEqual(checkProgram(withCursor(0)), null);
-  assert.notEqual(checkProgram(withCursor(24)), null);
+  assert.equal(checkProgram(withCursor(1), SERVER_LIMITS), null);
+  assert.equal(checkProgram(withCursor(23), SERVER_LIMITS), null);
+  assert.notEqual(checkProgram(withCursor(0), SERVER_LIMITS), null);
+  assert.notEqual(checkProgram(withCursor(24), SERVER_LIMITS), null);
 });
 
 test("REQ-1475: text not in normalisation form C is refused not_nfc at its path, in every text field; the same text composed passes", () => {
   for (const [message, path] of everyTextField(`x${DECOMPOSED}`)) {
-    assert.deepEqual(checkProgram(message), { path, rule: "not_nfc", detail: "not in Unicode normalisation form C" }, JSON.stringify(message).slice(0, 200));
+    assert.deepEqual(
+      checkProgram(message, SERVER_LIMITS),
+      { path, rule: "not_nfc", detail: "not in Unicode normalisation form C" },
+      JSON.stringify(message).slice(0, 200),
+    );
   }
   for (const [message] of everyTextField(`x${COMPOSED}`)) {
-    assert.equal(checkProgram(message), null, JSON.stringify(message).slice(0, 200));
+    assert.equal(checkProgram(message, SERVER_LIMITS), null, JSON.stringify(message).slice(0, 200));
   }
   const reply = {
     type: "reply",
@@ -122,15 +126,15 @@ test("REQ-1475: text not in normalisation form C is refused not_nfc at its path,
     magazines: [{ magazine: 1, name: "News", pages: [{ page: "100", title: "Index", section: null, subpages: 1 }] }],
     selected: labelled(DECOMPOSED),
   };
-  assert.equal(checkProgram(reply)?.path, "selected.link_extension.keys[0].label");
-  assert.equal(checkProgram(reply)?.rule, "not_nfc");
+  assert.equal(checkProgram(reply, SERVER_LIMITS)?.path, "selected.link_extension.keys[0].label");
+  assert.equal(checkProgram(reply, SERVER_LIMITS)?.rule, "not_nfc");
 });
 
 test("REQ-1475: a control (C0, DEL, C1) or a bidirectional formatting character is refused forbidden_character in every text field", () => {
   for (const point of [0x00, 0x09, 0x1f, 0x7f, 0x80, 0x9f, 0x061c, 0x200e, 0x200f, 0x202a, 0x202e, 0x2066, 0x2069]) {
     const character = String.fromCodePoint(point);
     for (const [message, path] of everyTextField(`a${character}`)) {
-      const fault = checkProgram(message);
+      const fault = checkProgram(message, SERVER_LIMITS);
       assert.equal(fault?.path, path, `U+${point.toString(16)} ${JSON.stringify(message).slice(0, 120)}`);
       assert.equal(fault?.rule, "forbidden_character", `U+${point.toString(16)} at ${path}`);
       assert.match(fault.detail, /^U\+[0-9A-F]{4} at character 1$/u);
@@ -138,32 +142,40 @@ test("REQ-1475: a control (C0, DEL, C1) or a bidirectional formatting character 
   }
   // The joiners and the soft hyphen are format characters, but not bidirectional ones: the server takes them.
   for (const [message] of everyTextField("a\u200Db\u00ADc")) {
-    assert.equal(checkProgram(message), null, JSON.stringify(message).slice(0, 120));
+    assert.equal(checkProgram(message, SERVER_LIMITS), null, JSON.stringify(message).slice(0, 120));
   }
 });
 
 test("REQ-1475: a cookie's name, value and path are bounded in bytes, as RFC 6265 section 6.1 bounds them (the server's 165a2c1)", () => {
   for (const field of ["name", "value", "path"]) {
-    assert.equal(checkProgram(cookie({ [field]: "a".repeat(4096) })), null, `${field}: 4,096 bytes`);
-    assert.equal(checkProgram(cookie({ [field]: COMPOSED.repeat(2048) })), null, `${field}: 2,048 two-byte characters are 4,096 bytes`);
-    assert.deepEqual(checkProgram(cookie({ [field]: COMPOSED.repeat(2049) })), { path: field, rule: "too_long", detail: "4098 bytes, at most 4096" }, field);
-    assert.equal(checkProgram(cookie({ [field]: "a".repeat(4097) }))?.rule, "too_long", `${field}: the schema bounds the characters by the same figure`);
+    assert.equal(checkProgram(cookie({ [field]: "a".repeat(4096) }), SERVER_LIMITS), null, `${field}: 4,096 bytes`);
+    assert.equal(checkProgram(cookie({ [field]: COMPOSED.repeat(2048) }), SERVER_LIMITS), null, `${field}: 2,048 two-byte characters are 4,096 bytes`);
+    assert.deepEqual(
+      checkProgram(cookie({ [field]: COMPOSED.repeat(2049) }), SERVER_LIMITS),
+      { path: field, rule: "too_long", detail: "4098 bytes, at most 4096" },
+      field,
+    );
+    assert.equal(
+      checkProgram(cookie({ [field]: "a".repeat(4097) }), SERVER_LIMITS)?.rule,
+      "too_long",
+      `${field}: the schema bounds the characters by the same figure`,
+    );
   }
-  assert.deepEqual(checkProgram(cookie({ name: "_session" })), { path: "name", rule: "reserved", detail: "names starting _ are the server's" });
+  assert.deepEqual(checkProgram(cookie({ name: "_session" }), SERVER_LIMITS), { path: "name", rule: "reserved", detail: "names starting _ are the server's" });
 });
 
 test("REQ-1475: an author's log line is at most 200 bytes of UTF-8", () => {
   assert.equal(SERVER_LIMITS.budgets.authorLogBytes, 200);
-  assert.equal(checkProgram(authorLog(COMPOSED.repeat(100))), null);
-  assert.deepEqual(checkProgram(authorLog(COMPOSED.repeat(101))), { path: "text", rule: "too_long", detail: "202 bytes, at most 200" });
+  assert.equal(checkProgram(authorLog(COMPOSED.repeat(100)), SERVER_LIMITS), null);
+  assert.deepEqual(checkProgram(authorLog(COMPOSED.repeat(101)), SERVER_LIMITS), { path: "text", rule: "too_long", detail: "202 bytes, at most 200" });
 });
 
 test("REQ-1475: X/27 carries nibbles at designation codes 1 to 3 and triplets at 4 to 15, each refused out_of_range at its path", () => {
   for (const designation of [1, 3]) {
-    assert.equal(checkProgram(nibbles(designation)), null, `nibbles at ${designation}`);
+    assert.equal(checkProgram(nibbles(designation), SERVER_LIMITS), null, `nibbles at ${designation}`);
   }
   for (const designation of [4, 15]) {
-    assert.equal(checkProgram(tripletLine(designation)), null, `triplets at ${designation}`);
+    assert.equal(checkProgram(tripletLine(designation), SERVER_LIMITS), null, `triplets at ${designation}`);
   }
   for (const [message, designation] of [
     [nibbles(0), 0],
@@ -171,7 +183,7 @@ test("REQ-1475: X/27 carries nibbles at designation codes 1 to 3 and triplets at
     [tripletLine(3), 3],
     [tripletLine(16), 16],
   ] as const) {
-    const fault = checkProgram(message);
+    const fault = checkProgram(message, SERVER_LIMITS);
     assert.equal(fault?.path, "page.packets[0].designation", `designation ${designation}`);
     assert.equal(fault?.rule, "out_of_range", `designation ${designation}`);
   }
@@ -179,14 +191,14 @@ test("REQ-1475: X/27 carries nibbles at designation codes 1 to 3 and triplets at
 
 test("REQ-1475: a connection's number is 1 to 2^53 less one, alone or named in a list", () => {
   for (const connection of [1, SAFE_LIMIT]) {
-    assert.equal(checkProgram(redirect(connection)), null, `${connection}`);
-    assert.equal(checkProgram(pageFor(connection)), null, `${connection}`);
+    assert.equal(checkProgram(redirect(connection), SERVER_LIMITS), null, `${connection}`);
+    assert.equal(checkProgram(pageFor(connection), SERVER_LIMITS), null, `${connection}`);
   }
   for (const connection of [0, SAFE_LIMIT + 1]) {
-    assert.equal(checkProgram(redirect(connection))?.path, "connection", `${connection}`);
-    assert.equal(checkProgram(redirect(connection))?.rule, "out_of_range", `${connection}`);
-    assert.equal(checkProgram(pageFor(connection))?.path, "connections[0]", `${connection}`);
-    assert.equal(checkProgram(pageFor(connection))?.rule, "out_of_range", `${connection}`);
+    assert.equal(checkProgram(redirect(connection), SERVER_LIMITS)?.path, "connection", `${connection}`);
+    assert.equal(checkProgram(redirect(connection), SERVER_LIMITS)?.rule, "out_of_range", `${connection}`);
+    assert.equal(checkProgram(pageFor(connection), SERVER_LIMITS)?.path, "connections[0]", `${connection}`);
+    assert.equal(checkProgram(pageFor(connection), SERVER_LIMITS)?.rule, "out_of_range", `${connection}`);
   }
 });
 
@@ -216,5 +228,5 @@ test("REQ-1479: a refusal for text not in NFC is a message the kit reads, with i
 test("the kit's titles are fitted in NFC, so a title it fits is one the server takes", () => {
   assert.equal(fitText(`caf${DECOMPOSED}`, 120), `caf${COMPOSED}`);
   assert.equal(fitText(`${DECOMPOSED}${DECOMPOSED}`, 1), COMPOSED, "the cut is counted in composed characters");
-  assert.equal(checkProgram(index(fitText(`a\u202E${DECOMPOSED}`, 120), "Index", null)), null);
+  assert.equal(checkProgram(index(fitText(`a\u202E${DECOMPOSED}`, 120), "Index", null), SERVER_LIMITS), null);
 });

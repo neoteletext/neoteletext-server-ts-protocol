@@ -3,24 +3,24 @@
 // text that are (`LT`), each held to the server's schema as it is declared.
 
 import { COLUMNS } from "./geometry.ts";
+import { type TargetKind, longestLabel, targetKind } from "./link-targets.ts";
 import { isPageNumber, pageText } from "./page-numbers.ts";
 import type { WireKeyLink, WireLinkExtension, WireLinkKey, WireNumberLink, WireTextLink } from "../wire/protocol.ts";
 
 /** The Link Extension's bounds (the server's schema, $defs/LinkExtension; the engine's Appendix E). */
 const MOST_NUMBER_LINKS = 8;
 const MOST_TEXT_LINKS = 8;
-/** The longest address of REQ-1661 and a `web:` mark. */
-const LONGEST_TARGET = 8004;
-const LONGEST_LABEL = 9;
 const FIRST_TEXT_LINK_ROW = 1;
 const LAST_TEXT_LINK_ROW = 23;
-/** A target: `mpp`, `mpp:ssss`, `name:mpp`, an address, `web:` and one; printable ASCII without spaces or commas (Appendix E.1). */
-const TARGET = /^[!-+\--~]+$/u;
-
-function checkTarget(kind: string, target: string): void {
-  if (target.length > LONGEST_TARGET || !TARGET.test(target)) {
-    throw new RangeError(`${kind}: a target is printable ASCII without spaces or commas, at most ${LONGEST_TARGET} bytes, not ${JSON.stringify(target)}`);
+/** A target in a form of Appendix E.1, as the server reads it: `mpp`, `mpp:ssss`, `name:mpp`, `name:mpp:ssss`, an address, or `web:` and one. */
+function checkTarget(call: string, target: string): TargetKind {
+  const kind = targetKind(target);
+  if (kind === null) {
+    throw new RangeError(
+      `${call}: a target is mpp, mpp:ssss, name:mpp, name:mpp:ssss, an http or https address, or web: and one, not ${JSON.stringify(target)}`,
+    );
   }
+  return kind;
 }
 
 /** Whether `value` is a whole number from 0 to `most`. */
@@ -44,9 +44,9 @@ export class LinkExtension {
 
   /** A key's link, `label` its prompt: a key's second link replaces its first. */
   keyLink(key: WireLinkKey, target: string, label?: string): void {
-    checkTarget("keyLink", target);
-    if (label !== undefined && (key === "index" || label.length === 0 || Array.from(label).length > LONGEST_LABEL)) {
-      throw new RangeError(`keyLink: a label is 1 to ${LONGEST_LABEL} characters, and the Index key has none`);
+    const most = longestLabel(checkTarget("keyLink", target));
+    if (label !== undefined && (key === "index" || label.length === 0 || Array.from(label).length > most)) {
+      throw new RangeError(`keyLink: a label is 1 to ${most} characters for this target, and the Index key has none`);
     }
     const at = this.#keyLinks.findIndex((link) => link.key === key);
     const link: WireKeyLink = { key, target, label: label ?? null };
@@ -59,8 +59,8 @@ export class LinkExtension {
 
   /** A page number the page shows as a link, never to `web:`; at most 8. */
   numberLink(number: number, target: string): void {
-    checkTarget("numberLink", target);
-    if (!isPageNumber(number) || target.startsWith("web:") || this.#numberLinks.length >= MOST_NUMBER_LINKS) {
+    const kind = checkTarget("numberLink", target);
+    if (!isPageNumber(number) || kind === "web" || this.#numberLinks.length >= MOST_NUMBER_LINKS) {
       throw new RangeError(`numberLink: a page number, a target that is not web:, at most ${MOST_NUMBER_LINKS} links`);
     }
     this.#numberLinks.push({ number: pageText(number), target });

@@ -4,10 +4,10 @@
 // going on.
 
 import type { Application, PageDescription, PageEntry } from "./application.ts";
-import { channelIndex, isReserved } from "./channel-index.ts";
+import { channelIndex } from "./channel-index.ts";
 import { Context, type Host } from "./context.ts";
 import type { Copies } from "./copies.ts";
-import { FIRST_PAGE, pageText } from "../page/page-numbers.ts";
+import { FIRST_PAGE, isReserved, pageText } from "../page/page-numbers.ts";
 import type { Limits } from "../wire/limits.ts";
 import type { WireMagazine } from "../wire/protocol.ts";
 
