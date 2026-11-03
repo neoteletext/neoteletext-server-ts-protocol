@@ -28,7 +28,9 @@ export const SERVER_LIMITS: Limits = {
     authorLogBytes: 200,
     logCharacters: 1000,
     namedConnections: 4096,
-    replyLimitMs: 5000,
+    // The server's PROGRAM_REPLY_LIMIT_MS (crates/teletext-runtime/src/channel.rs,
+    // DEC-2438): scripts/check.sh fails while the two differ.
+    replyLimitMs: 7000,
     descriptionTextCharacters: 16_000,
     descriptionLimitMs: 2000,
   },

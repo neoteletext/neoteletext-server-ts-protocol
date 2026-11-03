@@ -1,6 +1,38 @@
 // `start` as the server writes it to the fixture channel: the standard's
-// maxima and the server's budgets, at protocol 11.
+// maxima and the server's budgets, at the kit's protocol. Written from the
+// testing entry's SERVER_LIMITS and SERVER_LANGUAGES, the kit's one copy of
+// what the server sends, so the two cannot disagree.
+
+import { SERVER_LANGUAGES, SERVER_LIMITS } from "../../src/testing/index.ts";
+import { PROTOCOL } from "../../src/wire/limits.ts";
+
+const { standard, budgets } = SERVER_LIMITS;
 
 /** The server's first line to a program it starts. */
-export const START_LINE =
-  '{"type":"start","protocol":11,"epoch_ms":0,"standard":{"magazines":8,"pages":2022,"pages_per_magazine":253,"pages_in_magazine_1":251,"keyable_pages":800,"subpages":8190,"decimal_subpages":3199,"numbered_subpages":8069,"link_target_bytes":8004},"budgets":{"line_bytes":16777216,"title_characters":120,"author_log_bytes":200,"log_characters":1000,"named_connections":4096,"reply_limit_ms":5000,"description_text_characters":16000,"description_limit_ms":2000},"languages":[{"tag":"en","name":"English","direction":"ltr"},{"tag":"id","name":"Indonesian","direction":"ltr"},{"tag":"sw","name":"Swahili","direction":"ltr"},{"tag":"de","name":"German","direction":"ltr"},{"tag":"sv","name":"Swedish","direction":"ltr"},{"tag":"fi","name":"Finnish","direction":"ltr"},{"tag":"hu","name":"Hungarian","direction":"ltr"},{"tag":"it","name":"Italian","direction":"ltr"},{"tag":"fr","name":"French","direction":"ltr"},{"tag":"pt","name":"Portuguese","direction":"ltr"},{"tag":"es","name":"Spanish","direction":"ltr"},{"tag":"cs","name":"Czech","direction":"ltr"},{"tag":"sk","name":"Slovak","direction":"ltr"},{"tag":"pl","name":"Polish","direction":"ltr"},{"tag":"tr","name":"Turkish","direction":"ltr"},{"tag":"kk","name":"Kazakh","direction":"ltr"},{"tag":"hr","name":"Croatian","direction":"ltr"},{"tag":"sl","name":"Slovenian","direction":"ltr"},{"tag":"sr-Latn","name":"Serbian (Latin script)","direction":"ltr"},{"tag":"ro","name":"Romanian","direction":"ltr"},{"tag":"et","name":"Estonian","direction":"ltr"},{"tag":"lv","name":"Latvian","direction":"ltr"},{"tag":"lt","name":"Lithuanian","direction":"ltr"},{"tag":"ru","name":"Russian","direction":"ltr"},{"tag":"bg","name":"Bulgarian","direction":"ltr"},{"tag":"el","name":"Greek","direction":"ltr"},{"tag":"he","name":"Hebrew","direction":"rtl"},{"tag":"uk","name":"Ukrainian","direction":"ltr"},{"tag":"sr","name":"Serbian","direction":"ltr"},{"tag":"ar","name":"Arabic","direction":"rtl"},{"tag":"ha","name":"Hausa","direction":"ltr"},{"tag":"ff","name":"Fula","direction":"ltr"},{"tag":"ak","name":"Akan","direction":"ltr"},{"tag":"bm","name":"Bambara","direction":"ltr"},{"tag":"dyu","name":"Dyula","direction":"ltr"},{"tag":"din","name":"Dinka","direction":"ltr"},{"tag":"fon","name":"Fon","direction":"ltr"},{"tag":"kri","name":"Krio","direction":"ltr"},{"tag":"ln","name":"Lingala","direction":"ltr"},{"tag":"mnk","name":"Mandinka","direction":"ltr"},{"tag":"men","name":"Mende","direction":"ltr"},{"tag":"nus","name":"Nuer","direction":"ltr"},{"tag":"ee","name":"Ewe","direction":"ltr"},{"tag":"kab","name":"Kabyle","direction":"ltr"},{"tag":"tzm","name":"Central Atlas Tamazight","direction":"ltr"},{"tag":"az","name":"Azerbaijani","direction":"ltr"},{"tag":"kr","name":"Kanuri","direction":"ltr"},{"tag":"mos","name":"Mossi","direction":"ltr"},{"tag":"ig","name":"Igbo","direction":"ltr"},{"tag":"vi","name":"Vietnamese","direction":"ltr"},{"tag":"be","name":"Belarusian","direction":"ltr"},{"tag":"mk","name":"Macedonian","direction":"ltr"},{"tag":"ky","name":"Kyrgyz","direction":"ltr"},{"tag":"mn","name":"Mongolian","direction":"ltr"},{"tag":"tt","name":"Tatar","direction":"ltr"},{"tag":"tg","name":"Tajik","direction":"ltr"},{"tag":"fa","name":"Persian","direction":"rtl"},{"tag":"prs","name":"Dari","direction":"rtl"},{"tag":"ur","name":"Urdu","direction":"rtl"},{"tag":"ps","name":"Pashto","direction":"rtl"},{"tag":"sd","name":"Sindhi","direction":"rtl"},{"tag":"ckb","name":"Central Kurdish","direction":"rtl"},{"tag":"ug","name":"Uyghur","direction":"rtl"},{"tag":"bal","name":"Balochi","direction":"rtl"},{"tag":"ka","name":"Georgian","direction":"ltr"},{"tag":"hy","name":"Armenian","direction":"ltr"},{"tag":"zgh","name":"Standard Moroccan Tamazight","direction":"ltr"},{"tag":"tzm-Tfng","name":"Central Atlas Tamazight (Tifinagh script)","direction":"ltr"},{"tag":"ja","name":"Japanese","direction":"ltr"},{"tag":"ja-Hira","name":"Japanese (hiragana)","direction":"ltr"},{"tag":"ja-Hrkt","name":"Japanese (kana)","direction":"ltr"},{"tag":"ja-Kana","name":"Japanese (katakana)","direction":"ltr"},{"tag":"ja-Latn","name":"Japanese (rōmaji)","direction":"ltr"}]}';
+export const START_LINE = JSON.stringify({
+  type: "start",
+  protocol: PROTOCOL,
+  epoch_ms: 0,
+  standard: {
+    magazines: standard.magazines,
+    pages: standard.pages,
+    pages_per_magazine: standard.pagesPerMagazine,
+    pages_in_magazine_1: standard.pagesInMagazine1,
+    keyable_pages: standard.keyablePages,
+    subpages: standard.subpages,
+    decimal_subpages: standard.decimalSubpages,
+    numbered_subpages: standard.numberedSubpages,
+    link_target_bytes: standard.linkTargetBytes,
+  },
+  budgets: {
+    line_bytes: budgets.lineBytes,
+    title_characters: budgets.titleCharacters,
+    author_log_bytes: budgets.authorLogBytes,
+    log_characters: budgets.logCharacters,
+    named_connections: budgets.namedConnections,
+    reply_limit_ms: budgets.replyLimitMs,
+    description_text_characters: budgets.descriptionTextCharacters,
+    description_limit_ms: budgets.descriptionLimitMs,
+  },
+  languages: SERVER_LANGUAGES,
+});

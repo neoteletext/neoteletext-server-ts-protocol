@@ -31,6 +31,10 @@ readonly CHECKED_PATHS=(.)
 # and naming its commit here.
 server="${NEOTELETEXT_SERVER:-$HOME/devel/neoteletext-app-server}"
 readonly SCHEMA_FROM="7a1f4053cc076d76862183577374b233cffe3da1"
+# The server commit whose PROGRAM_REPLY_LIMIT_MS the testing entry's
+# SERVER_LIMITS must equal (DEC-2438).
+readonly REPLY_LIMIT_FROM="fa18b08928651a6161c1158375171b61aabf56f7"
+readonly REPLY_LIMIT_SOURCE="crates/teletext-runtime/src/channel.rs"
 
 . scripts/gate.sh
 
@@ -118,8 +122,22 @@ schema() {
         fail "schema/protocol-11.json differs from $server's protocol/schema-11.json at $SCHEMA_FROM; copy that file, or name in scripts/check.sh the commit the copy is from"
 }
 
+reply_limit() {
+    step "SERVER_LIMITS's replyLimitMs is the server's PROGRAM_REPLY_LIMIT_MS at ${REPLY_LIMIT_FROM:0:7}"
+    server_git rev-parse --git-dir >/dev/null 2>&1 || fail "the server's repository is needed at $server (or NEOTELETEXT_SERVER) to read its reply limit"
+    local servers kits
+    servers="$(server_git show "$REPLY_LIMIT_FROM:$REPLY_LIMIT_SOURCE" 2>/dev/null |
+        sed -n 's/^pub const PROGRAM_REPLY_LIMIT_MS: u64 = \([0-9_]*\);$/\1/p' | tr -d _)"
+    [[ -n "$servers" ]] || fail "$server has no PROGRAM_REPLY_LIMIT_MS in $REPLY_LIMIT_SOURCE at $REPLY_LIMIT_FROM"
+    kits="$(node -e 'import("./src/testing/server-limits.ts").then(({ SERVER_LIMITS }) => console.log(SERVER_LIMITS.budgets.replyLimitMs))')"
+    [[ "$kits" == "$servers" ]] ||
+        fail "SERVER_LIMITS's replyLimitMs is $kits but the server's PROGRAM_REPLY_LIMIT_MS is $servers at $REPLY_LIMIT_FROM; take the server's, or name in scripts/check.sh the commit it is from"
+    printf 'both %s ms\n' "$kits"
+}
+
 commit_steps() {
     schema
+    reply_limit
     stage
 }
 full_steps() { build; }
@@ -135,7 +153,7 @@ linux_steps() {
 }
 
 case "${1:-}" in
-schema | stage | build)
+schema | reply_limit | stage | build)
     "$1"
     step "All checks passed ($1)"
     step_name=""
