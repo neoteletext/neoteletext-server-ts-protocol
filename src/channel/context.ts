@@ -15,6 +15,14 @@ import type { Limits } from "../wire/limits.ts";
 import type { Measured } from "../wire/server-message.ts";
 import type { WireAuthorLevel, WireDeniedStatus, WireSameSite } from "../wire/protocol.ts";
 
+/** One numbered drawing of a ReGIS picture that is a link, and where it leads (the server's REQ-6372). */
+export interface DrawingLink {
+  /** The numbered drawing, 1 to 65,535. */
+  readonly drawing: number;
+  /** A page (`"200"`), a sub-page (`"200:0001"`), a page of another channel (`"news:300"`), an address, or `"web:"` and a web address. */
+  readonly target: string;
+}
+
 /** A cookie's attributes (RFC 6265bis), each typed (DOC-1970). */
 export interface CookieOptions {
   readonly path?: string;
@@ -47,6 +55,8 @@ export interface Host {
   measure(page: number, screen: Screen): Promise<Measured>;
   packets(to: Audience, packets: Uint8Array): void;
   regis(to: Audience, page: number, sub: number, data: string | Uint8Array, restart: boolean): void;
+  regisLinks(to: Audience, page: number, sub: number, links: readonly DrawingLink[]): void;
+  regisCursor(to: Audience, page: number, sub: number, drawing: number): void;
   connection(): number | null;
   connectionsOf(session: number): number[];
 }
@@ -205,9 +215,39 @@ export class Context {
    * sent a restart since it selected the sub-page. The server reads the
    * bytes as the viewer's renderer will and refuses them, with the
    * failure's code, if a commit in them would fail there.
+   *
+   * A drawing answers the pointer with no message at all through two of
+   * its attributes: `D(S10(I1,H11,A12),S11(V0),S12(V0))` has the viewer's
+   * browser show drawing 11 in drawing 10's place while the pointer is
+   * over it, and drawing 12 while it is pressed.
    */
   regis(to: Audience, page: number, sub: number, data: string | Uint8Array, options: { readonly restart?: boolean } = {}): void {
     this.#host.regis(to, page, sub, data, options.restart === true);
+  }
+
+  /**
+   * The numbered drawings of a sub-page's ReGIS picture that are links,
+   * and where each leads (the server's REQ-6372): the viewer's browser
+   * shows the destination under the pointer and follows a click itself,
+   * as for a link in a teletext page. A `target` is a page (`"200"`), a
+   * sub-page (`"200:0001"`), a page of another channel (`"news:300"`), an
+   * address, or `"web:"` and a web address. The list replaces the
+   * sub-page's drawing links, at most 64 of them and each drawing once;
+   * an empty list removes them. Like the ReGIS itself it goes to the
+   * connections that show the sub-page now, so send it with the ReGIS to
+   * each viewer who selects the sub-page.
+   */
+  regisLinks(to: Audience, page: number, sub: number, links: readonly DrawingLink[]): void {
+    this.#host.regisLinks(to, page, sub, links);
+  }
+
+  /**
+   * The numbered drawing of a sub-page's ReGIS picture that is its cursor
+   * (the server's REQ-6372), or 0 for none: the viewer's browser blinks it
+   * while keys go to the channel. Draw it and move it with `regis`.
+   */
+  regisCursor(to: Audience, page: number, sub: number, drawing: number): void {
+    this.#host.regisCursor(to, page, sub, drawing);
   }
 
   /** The connection the call came from, if it came from one. */

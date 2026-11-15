@@ -30,7 +30,7 @@ readonly CHECKED_PATHS=(.)
 # schema/protocol-11.json is a copy of: a new schema is taken by copying it
 # and naming its commit here.
 server="${NEOTELETEXT_SERVER:-$HOME/devel/neoteletext-app-server}"
-readonly SCHEMA_FROM="ff1170d16967a313ac1b4f616ae976fdd8faca14"
+readonly SCHEMA_FROM="2ad54c195b061ad3730e9ccb110f307e3abb7997"
 # The server commit whose PROGRAM_REPLY_LIMIT_MS the testing entry's
 # SERVER_LIMITS must equal (DEC-2438).
 readonly REPLY_LIMIT_FROM="fa18b08928651a6161c1158375171b61aabf56f7"

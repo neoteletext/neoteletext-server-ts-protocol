@@ -11,6 +11,7 @@
 import type { Fault } from "./fault.ts";
 import { type ValidationFault, type Validator, program, server } from "./generated/validators.js";
 import type { Limits } from "./limits.ts";
+import { pictureFault } from "./picture-rules.ts";
 import type { ProgramMessage } from "./protocol.ts";
 import { checkRules } from "./server-rules.ts";
 import type { WireServerMessage } from "./server-wire.ts";
@@ -98,7 +99,10 @@ function isProgramMessage(message: unknown): message is ProgramMessage {
 
 /** Whether a message the program would send is valid, by the schema and then by the server's rules within the limits `start` gave: null, or its first fault. */
 export function checkProgram(message: unknown, limits: Limits): Fault | null {
-  return isProgramMessage(message) ? checkRules(message, limits) : check(program, message);
+  if (!isProgramMessage(message)) {
+    return check(program, message);
+  }
+  return message.type === "regis_links" || message.type === "regis_cursor" ? pictureFault(message, limits) : checkRules(message, limits);
 }
 
 /** Whether a message the server sent is valid: null, or its first fault. */

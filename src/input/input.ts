@@ -77,6 +77,14 @@ export type Input =
       readonly pictureY: number;
       readonly commits: number;
     }
+  /**
+   * On a page drawn in ReGIS, the pointer came onto a detectable numbered
+   * `drawing` or, with `leave`, went off it (the server's REQ-6372);
+   * `commits` is how many commits the viewer's picture had. A move from
+   * one drawing to the next is a leave, then an enter. The drawing's hover
+   * look, if it has one, is drawn by the viewer's browser without this.
+   */
+  | { readonly kind: "drawingHover"; readonly drawing: number; readonly leave: boolean; readonly commits: number }
   /** An input method's text as it stands while it is being composed, `cursor` code points in; empty when composing ended (DOC-1969). What it commits comes as `text`. */
   | { readonly kind: "compose"; readonly cursor: number; readonly text: string }
   /** A paste: data, never keystrokes. */

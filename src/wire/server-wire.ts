@@ -96,6 +96,7 @@ export type WireInputEvent =
       readonly picture_y: number;
       readonly commits: number;
     }
+  | { readonly kind: "drawing_hover"; readonly drawing: number; readonly leave: boolean; readonly commits: number }
   | { readonly kind: "text"; readonly text: string }
   | { readonly kind: "compose"; readonly cursor: number; readonly text: string }
   | { readonly kind: "paste"; readonly text: string }

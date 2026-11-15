@@ -49,6 +49,9 @@ test("every kind of event the server writes is read", () => {
     pictureY: 180,
     commits: 7,
   });
+  // The server's REQ-6372: the pointer coming onto a drawing of a page drawn in ReGIS, and going off it.
+  assert.deepEqual(read({ kind: "drawing_hover", drawing: 12, leave: false, commits: 7 }), { kind: "drawingHover", drawing: 12, leave: false, commits: 7 });
+  assert.deepEqual(read({ kind: "drawing_hover", drawing: 12, leave: true, commits: 8 }), { kind: "drawingHover", drawing: 12, leave: true, commits: 8 });
   assert.deepEqual(read({ kind: "focus" }), { kind: "focus" });
   assert.deepEqual(read({ kind: "blur" }), { kind: "blur" });
   assert.deepEqual(read({ kind: "compose", cursor: 2, text: "ni" }), { kind: "compose", cursor: 2, text: "ni" });

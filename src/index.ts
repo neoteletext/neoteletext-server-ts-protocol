@@ -82,7 +82,7 @@ export type { PageRequest } from "./channel/request.ts";
 export { Random } from "./channel/random.ts";
 export { Context } from "./channel/context.ts";
 export { MeasureRefusedError } from "./channel/measure-refused.ts";
-export type { CookieOptions } from "./channel/context.ts";
+export type { CookieOptions, DrawingLink } from "./channel/context.ts";
 export { ANY_SUB, Channel } from "./channel/channel.ts";
 export type { Clock, ChannelOptions } from "./channel/channel-options.ts";
 export { runChannel } from "./channel/run-channel.ts";

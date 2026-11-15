@@ -56,6 +56,9 @@ export function readInput(event: WireInputEvent, lost: boolean): Input {
     const { drawing, x, y, commits } = event;
     return { kind: "pick", drawing, x, y, pictureX: event.picture_x, pictureY: event.picture_y, commits };
   }
+  if (event.kind === "drawing_hover") {
+    return { kind: "drawingHover", drawing: event.drawing, leave: event.leave, commits: event.commits };
+  }
   if (event.kind === "compose") {
     return { kind: "compose", cursor: event.cursor, text: event.text };
   }

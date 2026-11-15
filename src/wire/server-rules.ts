@@ -14,7 +14,7 @@ import { authorLogFault, cookieFault, redirectFault } from "./connection-rules.t
 import type { Fault } from "./fault.ts";
 import type { Limits } from "./limits.ts";
 import { LAST_SUBPAGE_CODE, pageFault } from "./page-rules.ts";
-import type { ProgramMessage, WireConnections, WireMagazine, WireSound, WireSubPageEntry } from "./protocol.ts";
+import type { PictureMessage, ProgramMessage, WireConnections, WireMagazine, WireSound, WireSubPageEntry } from "./protocol.ts";
 import { CODE_POINT_DIGITS, HEX, PAGE_DIGITS, base64Bytes, boundedTextFault, firstOf, given, hex, isFault, textFault } from "./rule-pieces.ts";
 import { PACKET_BYTES, isValidStreamPacket } from "./stream-packets.ts";
 import { isReserved } from "../page/page-numbers.ts";
@@ -232,8 +232,8 @@ function bytesMessageFault(message: Extract<ProgramMessage, { type: "sound" | "p
   return message.type === "packets" ? packetsFault(message.packets) : null;
 }
 
-/** The first fault of a message the schema has passed, by the server's rules and `start`'s limits; null when it has none. */
-export function checkRules(message: ProgramMessage, limits: Limits): Fault | null {
+/** The first fault of a message the schema has passed, by the server's rules and `start`'s limits; null when it has none. What is said of a ReGIS sub-page's picture has its rules in picture-rules.ts. */
+export function checkRules(message: Exclude<ProgramMessage, PictureMessage>, limits: Limits): Fault | null {
   let fault: Fault | null;
   switch (message.type) {
     case "reply": {

@@ -276,5 +276,18 @@ export type ProgramMessage =
       readonly restart?: boolean;
       readonly data: string;
     }
+  /** The numbered drawings of a sub-page's ReGIS picture that are links, which a viewer's browser follows itself (the server's REQ-6372). */
+  | {
+      readonly type: "regis_links";
+      readonly connections: WireConnections;
+      readonly page: WirePageNumber;
+      readonly sub: WireSubCode;
+      readonly links: readonly { readonly drawing: number; readonly target: string }[];
+    }
+  /** The numbered drawing that is a ReGIS sub-page's cursor, which a viewer's browser blinks, or 0 for none (the server's REQ-6372). */
+  | { readonly type: "regis_cursor"; readonly connections: WireConnections; readonly page: WirePageNumber; readonly sub: WireSubCode; readonly drawing: number }
   /** Asks what a page's encoding costs, sent to no viewer (REQ-2216). */
   | { readonly type: "measure"; readonly request: number; readonly page: WirePage };
+
+/** What a program says of a ReGIS sub-page's picture beside its ReGIS: its drawing links and its cursor drawing. */
+export type PictureMessage = Extract<ProgramMessage, { type: "regis_links" | "regis_cursor" }>;
