@@ -267,5 +267,14 @@ export type ProgramMessage =
     }
   | { readonly type: "log"; readonly level: WireOperatorLevel; readonly event: string; readonly text: string }
   | { readonly type: "packets"; readonly connections: WireConnections; readonly packets: string }
+  /** More of a sub-page's ReGIS, checked by the server with the receiver's renderer (the server's REQ-6338). */
+  | {
+      readonly type: "regis";
+      readonly connections: WireConnections;
+      readonly page: WirePageNumber;
+      readonly sub: WireSubCode;
+      readonly restart?: boolean;
+      readonly data: string;
+    }
   /** Asks what a page's encoding costs, sent to no viewer (REQ-2216). */
   | { readonly type: "measure"; readonly request: number; readonly page: WirePage };

@@ -10,7 +10,7 @@ import type { Copies, GivenSubPage, Owner } from "./copies.ts";
 import type { Measures } from "./measures.ts";
 import { Random } from "./random.ts";
 import type { Sender } from "./sender.ts";
-import { ANY_SUB, fitBytes } from "./wire-page.ts";
+import { ANY_SUB, fitBytes, subText } from "./wire-page.ts";
 import { numbered } from "../page/numbering.ts";
 import { pageText } from "../page/page-numbers.ts";
 import { type Subpage, contentOf } from "../page/subpage.ts";
@@ -105,7 +105,13 @@ function publishing(parts: HostParts): PublishingHost {
 
 type SelectionHost = Pick<Host, "redirect" | "deny">;
 
-type MessagingHost = Pick<Host, "sound" | "authorLog" | "log" | "cookie" | "cookies" | "measure" | "packets">;
+/** ReGIS commands as the wire carries them: their bytes, a character of text a byte (ReGIS is ASCII, with eight-bit characters in its strings), as base64. */
+function regisBase64(data: string | Uint8Array): string {
+  const bytes = typeof data === "string" ? Buffer.from(data, "latin1") : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+  return bytes.toString("base64");
+}
+
+type MessagingHost = Pick<Host, "sound" | "authorLog" | "log" | "cookie" | "cookies" | "measure" | "packets" | "regis">;
 
 /** The connections a call about `session` means: the one it came from when that is the session's, otherwise each of the session's. */
 function sessionsConnections(parts: HostParts, session: number): number[] {
@@ -126,6 +132,20 @@ function selecting(parts: HostParts): SelectionHost {
       for (const connection of sessionsConnections(parts, session)) {
         sender.deny(connection, status);
       }
+    },
+  };
+}
+
+/** The messages that carry bytes as they are: raw packets, and a sub-page's ReGIS. */
+function bytesMessages(sender: Sender): Pick<Host, "packets" | "regis"> {
+  return {
+    packets: (to, packets): void => {
+      const text = Buffer.from(packets.buffer, packets.byteOffset, packets.byteLength).toString("base64");
+      sender.toAudience(to, (named) => ({ type: "packets", connections: named, packets: text }));
+    },
+    regis: (to, page, sub, data, restart): void => {
+      const text = regisBase64(data);
+      sender.toAudience(to, (named) => ({ type: "regis", connections: named, page: pageText(page), sub: subText(sub), restart, data: text }));
     },
   };
 }
@@ -173,10 +193,7 @@ function messaging(parts: HostParts): MessagingHost {
       return connection === undefined ? {} : (parts.connections.get(connection)?.cookies ?? {});
     },
     measure: (page, screen) => parts.measures.ask(app, page, screen.content()),
-    packets: (to, packets): void => {
-      const text = Buffer.from(packets.buffer, packets.byteOffset, packets.byteLength).toString("base64");
-      sender.toAudience(to, (named) => ({ type: "packets", connections: named, packets: text }));
-    },
+    ...bytesMessages(sender),
   };
 }
 

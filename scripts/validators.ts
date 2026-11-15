@@ -24,7 +24,7 @@ const ajv = new Ajv2020({
   // The schema's nullable fields are a type and "null" (schemars' Option).
   allowUnionTypes: true,
   // The schema's integer formats name the Rust type; their minimum and maximum carry every bound, so each format is known and checks nothing more.
-  formats: { uint8: true, uint16: true, uint32: true, uint64: true, int16: true },
+  formats: { uint8: true, uint16: true, uint32: true, uint64: true, int16: true, int32: true },
 });
 ajv.addSchema(schema as object, SCHEMA_ID);
 

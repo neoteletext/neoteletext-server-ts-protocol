@@ -46,6 +46,7 @@ export interface Host {
   cookies(session: number): Readonly<Record<string, string>>;
   measure(page: number, screen: Screen): Promise<Measured>;
   packets(to: Audience, packets: Uint8Array): void;
+  regis(to: Audience, page: number, sub: number, data: string | Uint8Array, restart: boolean): void;
   connection(): number | null;
   connectionsOf(session: number): number[];
 }
@@ -192,6 +193,21 @@ export class Context {
   /** Raw packets, whole 42-byte packets back to back (DOC-1970). */
   packets(to: Audience, packets: Uint8Array): void {
     this.#host.packets(to, packets);
+  }
+
+  /**
+   * More of a sub-page's ReGIS, the vector graphics a viewer's ReGIS
+   * renderer draws in place of the sub-page's teletext page (the server's
+   * REQ-6338): commands as text, or their bytes. Each connection that
+   * shows the sub-page has one stream of it. `restart` begins the stream
+   * again, with nothing drawn and no numbered drawings; without it the
+   * bytes add to the stream, and go to no connection that has not been
+   * sent a restart since it selected the sub-page. The server reads the
+   * bytes as the viewer's renderer will and refuses them, with the
+   * failure's code, if a commit in them would fail there.
+   */
+  regis(to: Audience, page: number, sub: number, data: string | Uint8Array, options: { readonly restart?: boolean } = {}): void {
+    this.#host.regis(to, page, sub, data, options.restart === true);
   }
 
   /** The connection the call came from, if it came from one. */

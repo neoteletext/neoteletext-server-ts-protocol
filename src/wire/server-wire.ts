@@ -87,6 +87,15 @@ export type WireInputEvent =
       readonly py?: number | null;
     }
   | { readonly kind: "hover"; readonly action: "enter" | "leave"; readonly column: number; readonly row: number }
+  | {
+      readonly kind: "pick";
+      readonly drawing: number;
+      readonly x: number;
+      readonly y: number;
+      readonly picture_x: number;
+      readonly picture_y: number;
+      readonly commits: number;
+    }
   | { readonly kind: "text"; readonly text: string }
   | { readonly kind: "compose"; readonly cursor: number; readonly text: string }
   | { readonly kind: "paste"; readonly text: string }

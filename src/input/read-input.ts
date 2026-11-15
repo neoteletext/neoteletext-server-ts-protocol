@@ -52,6 +52,10 @@ export function readInput(event: WireInputEvent, lost: boolean): Input {
   if (event.kind === "hover") {
     return { kind: "hover", action: event.action, column: event.column, row: event.row };
   }
+  if (event.kind === "pick") {
+    const { drawing, x, y, commits } = event;
+    return { kind: "pick", drawing, x, y, pictureX: event.picture_x, pictureY: event.picture_y, commits };
+  }
   if (event.kind === "compose") {
     return { kind: "compose", cursor: event.cursor, text: event.text };
   }

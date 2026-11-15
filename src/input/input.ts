@@ -60,6 +60,23 @@ export type Input =
   | ({ readonly kind: "wheel"; readonly dx: number; readonly dy: number; readonly column: number; readonly row: number } & Pointed)
   /** The pointer entered a control of the page or left it (DOC-1940): `column` and `row` are the control's first cell, its top-left, as the page declared it; a move from one control to the next is a leave, then an enter. */
   | { readonly kind: "hover"; readonly action: HoverAction; readonly column: number; readonly row: number }
+  /**
+   * On a page drawn in ReGIS, what lay under the pointer of the `mouse`,
+   * `touch` or `wheel` input just before this one (the server's REQ-6339):
+   * the numbered `drawing` picked, 0 for none; the place within it, `x`
+   * and `y` from its origin; the place in the picture, in its pixels; and
+   * `commits`, how many commits the viewer's picture had when they
+   * pointed, so a pick at a drawing since deleted can be dropped.
+   */
+  | {
+      readonly kind: "pick";
+      readonly drawing: number;
+      readonly x: number;
+      readonly y: number;
+      readonly pictureX: number;
+      readonly pictureY: number;
+      readonly commits: number;
+    }
   /** An input method's text as it stands while it is being composed, `cursor` code points in; empty when composing ended (DOC-1969). What it commits comes as `text`. */
   | { readonly kind: "compose"; readonly cursor: number; readonly text: string }
   /** A paste: data, never keystrokes. */

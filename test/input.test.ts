@@ -39,6 +39,16 @@ test("every kind of event the server writes is read", () => {
   });
   assert.deepEqual(read({ kind: "wheel", dx: 0, dy: -120, mods: 0, column: 1, row: 2 }), { kind: "wheel", dx: 0, dy: -120, column: 1, row: 2 });
   assert.deepEqual(read({ kind: "hover", action: "enter", column: 2, row: 20 }), { kind: "hover", action: "enter", column: 2, row: 20 });
+  // The server's REQ-6339: what lay under the pointer on a page drawn in ReGIS.
+  assert.deepEqual(read({ kind: "pick", drawing: 12, x: 20, y: -6, picture_x: 412, picture_y: 180, commits: 7 }), {
+    kind: "pick",
+    drawing: 12,
+    x: 20,
+    y: -6,
+    pictureX: 412,
+    pictureY: 180,
+    commits: 7,
+  });
   assert.deepEqual(read({ kind: "focus" }), { kind: "focus" });
   assert.deepEqual(read({ kind: "blur" }), { kind: "blur" });
   assert.deepEqual(read({ kind: "compose", cursor: 2, text: "ni" }), { kind: "compose", cursor: 2, text: "ni" });

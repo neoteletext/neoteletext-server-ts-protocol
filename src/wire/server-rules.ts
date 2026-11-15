@@ -207,10 +207,27 @@ function packetsFault(text: string): Fault | null {
   return null;
 }
 
-/** A sound's or raw packets' bytes; a denial has none. */
-function bytesMessageFault(message: Extract<ProgramMessage, { type: "sound" | "packets" | "denied" }>): Fault | null {
+/** The most ReGIS one message carries once decoded (the server's MOST_REGIS_BYTES). */
+const MOST_REGIS_BYTES = 1024 * 1024;
+/** The sub-code that names no sub-page (EN 300 706 clause 9.6.1). */
+const ANY_SUBPAGE = "3F7F";
+
+/** A sub-page's ReGIS: a sub-code that names a sub-page, and exact base64 within the bound (the server's check_regis). The commits in it are the server's to check. */
+function regisFault(message: Extract<ProgramMessage, { type: "regis" }>): Fault | null {
+  if (message.sub === ANY_SUBPAGE) {
+    return { path: "sub", rule: "out_of_range", detail: "3F7F names no sub-page" };
+  }
+  const bytes = base64Bytes("data", message.data, MOST_REGIS_BYTES);
+  return isFault(bytes) ? bytes : null;
+}
+
+/** A sound's, raw packets' or ReGIS's bytes; a denial has none. */
+function bytesMessageFault(message: Extract<ProgramMessage, { type: "sound" | "packets" | "regis" | "denied" }>): Fault | null {
   if (message.type === "sound") {
     return soundFault(message);
+  }
+  if (message.type === "regis") {
+    return regisFault(message);
   }
   return message.type === "packets" ? packetsFault(message.packets) : null;
 }
@@ -258,6 +275,7 @@ export function checkRules(message: ProgramMessage, limits: Limits): Fault | nul
     }
     case "sound":
     case "packets":
+    case "regis":
     case "denied": {
       fault = bytesMessageFault(message);
       break;
