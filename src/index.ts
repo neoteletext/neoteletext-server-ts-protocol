@@ -70,7 +70,51 @@ export {
   MOST_OPUS_PACKETS,
 } from "./sound/profile.ts";
 export type { SampleRate } from "./sound/profile.ts";
-export type { Audience, SoundObject, LiveSound, LiveBlocks, OpusSound, OpusLive, OpusPackets, Play, Stop, Gain, SoundMember } from "./sound/members.ts";
+export type {
+  Audience,
+  SoundObject,
+  LiveSound,
+  LiveBlocks,
+  OpusSound,
+  OpusLive,
+  OpusPackets,
+  Play,
+  Stop,
+  Gain,
+  SampledMember,
+  SoundMember,
+} from "./sound/members.ts";
+export {
+  INSTRUMENT_RATE,
+  INSTRUMENT_BLOCK_MS,
+  MOST_INSTRUMENT_BLOCKS,
+  MOST_LIVE_INSTRUMENT_BLOCKS,
+  SID_IMAGE_BYTES,
+  SID_IMAGES_PER_BLOCK,
+  DX7_SLOT_BYTES,
+  DX7_MOST_SLOTS,
+  DX7_PATCH_BYTES,
+  DX7_MOST_PATCHES,
+} from "./sound/instrument-profile.ts";
+export type { ImagesPerBlock } from "./sound/instrument-profile.ts";
+export type { SidChip, SidClock, SidSound, SidLive, SidBlocks, Dx7Sound, Dx7Live, Dx7Blocks, Dx7Bank, InstrumentMember } from "./sound/instrument-members.ts";
+export { SID_PAL_CLOCK_HZ, SID_NTSC_CLOCK_HZ, sidClockHz, sidFrequency } from "./sound/sid-clock.ts";
+export { SidImage } from "./sound/sid-image.ts";
+export type { SidControl, SidEnvelope, SidFilterMode, SidVoice } from "./sound/sid-image.ts";
+export { SidTrack } from "./sound/sid-track.ts";
+export type { SidSoundOptions } from "./sound/sid-track.ts";
+export { SID_HARD_RESTART_FRAMES, SID_HARD_RESTART_MS, sidGate, sidHardRestart, sidNote } from "./sound/sid-note.ts";
+export type { SidNote } from "./sound/sid-note.ts";
+export { Controller, DX7_PARTS, Midi, dx7SlotFault } from "./sound/dx7-slot.ts";
+export type { Dx7Slot } from "./sound/dx7-slot.ts";
+export { Dx7Score } from "./sound/dx7-score.ts";
+export type { Dx7Event, Dx7ScoreBlocks } from "./sound/dx7-score.ts";
+export { DX7_SYSEX_BYTES, dx7BankFromSysex, dx7Patches } from "./sound/dx7-sysex.ts";
+export { dx7InitVoice, packDx7Patch } from "./sound/dx7-patch.ts";
+export type { Dx7Four, Dx7Operator, Dx7Patch } from "./sound/dx7-patch.ts";
+export { DX7_PROGRAM_REPEAT_BLOCKS, Dx7ProgramRepeater } from "./sound/dx7-live.ts";
+export { MOST_MIDI_EVENTS, MOST_MIDI_FILE_BYTES, readMidiFile } from "./sound/midi-file.ts";
+export type { MidiDropped, MidiFileScore } from "./sound/midi-file.ts";
 export type { EncodedOpus, OpusEncoder, OpusStream } from "./sound/opus-encoder.ts";
 export { ffmpegOpus } from "./sound/ffmpeg-opus.ts";
 export type { FfmpegOptions } from "./sound/ffmpeg-opus.ts";

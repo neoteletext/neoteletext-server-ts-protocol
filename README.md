@@ -191,6 +191,25 @@ most 40 characters).
   bounded. The PCM members, which the server encodes as IMA ADPCM, are for
   microcontroller receivers. The testing entry's `fakeOpus` stands in for
   ffmpeg in tests.
+- **Instruments:** a sound may be an instrument's own data, which the
+  receiver plays on its emulation of the instrument (DEC-6410, REQ-6414).
+  The `sid`, `sidLive` and `sidBlocks` members carry images of the SID
+  chip's 25 registers, 1, 2 or 4 to a 20 ms block: `SidImage` sets the
+  registers by name, `sidFrequency` gives a pitch's frequency register on
+  the PAL or NTSC clock, `SidTrack` gathers an image a step, and `sidNote`
+  starts a note with the Commodore 64's hard restart, so that its attack
+  is not late by up to 33 ms (`src/sound/sid-note.ts` says why, and that
+  it costs the two frames before the note). The `dx7`, `dx7Live` and
+  `dx7Blocks` members carry timed MIDI messages for a Yamaha DX7, 1 to 16
+  to a block, and `dx7Bank` the bank of patches they play with:
+  `Dx7Score` places timed events in their blocks, `readMidiFile` reads a
+  Standard MIDI File as a score's events, `dx7BankFromSysex` reads the
+  instrument's 32-voice dump, `dx7Patches` chooses among its patches,
+  `packDx7Patch` packs one from its parameters (`dx7InitVoice` is a
+  start), and `Dx7ProgramRepeater` writes each part's program change into
+  a live sound's blocks again, so that a viewer who joins hears each part
+  with its patch. The testing entry's `soundBytes` reads a sent sound's
+  bytes back.
 - **TTI, for files:** `readTtiPages` reads TTI into typed sub-pages as
   the engine's reader does (rows, the packed lines OL,26 to OL,29, FL,
   PS, RE, CU and the Link Extension's LN, LK and LT); `readTti` reads it

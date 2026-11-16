@@ -14,12 +14,11 @@ import { authorLogFault, cookieFault, redirectFault } from "./connection-rules.t
 import type { Fault } from "./fault.ts";
 import type { Limits } from "./limits.ts";
 import { LAST_SUBPAGE_CODE, pageFault } from "./page-rules.ts";
-import type { PictureMessage, ProgramMessage, WireConnections, WireMagazine, WireSound, WireSubPageEntry } from "./protocol.ts";
-import { CODE_POINT_DIGITS, HEX, PAGE_DIGITS, base64Bytes, boundedTextFault, firstOf, given, hex, isFault, textFault } from "./rule-pieces.ts";
+import type { PictureMessage, ProgramMessage, WireConnections, WireMagazine, WireSubPageEntry } from "./protocol.ts";
+import { CODE_POINT_DIGITS, HEX, PAGE_DIGITS, base64Bytes, boundedTextFault, firstOf, given, hex, isFault, textFault, wholeFault } from "./rule-pieces.ts";
+import { soundFault } from "./sound-rules.ts";
 import { PACKET_BYTES, isValidStreamPacket } from "./stream-packets.ts";
 import { isReserved } from "../page/page-numbers.ts";
-import { opusRefusal } from "../sound/opus-packet.ts";
-import { MOST_SAMPLES, OPUS_FRAME_SAMPLES, OPUS_PACKET_BYTES, SAMPLE_BYTES } from "../sound/profile.ts";
 
 /** A page number's magazine: its first hexadecimal digit (EN 300 706 clause 7.1.2). */
 const MAGAZINE_SHIFT = 8;
@@ -27,9 +26,6 @@ const MAGAZINE_SHIFT = 8;
 const FIRST_MAGAZINE = 1;
 /** The most bytes of raw packets one message may carry: a megabyte (the server's MOST_RAW_BYTES). */
 const MOST_RAW_BYTES = 1024 * 1024;
-/** The most bytes of samples and of Opus packets one sound may carry: two minutes of either (the server's MOST_PCM_BYTES and MOST_OPUS_BYTES). */
-const MOST_PCM_BYTES = MOST_SAMPLES * SAMPLE_BYTES;
-const MOST_OPUS_BYTES = (MOST_SAMPLES / OPUS_FRAME_SAMPLES) * OPUS_PACKET_BYTES;
 
 /** A message naming a selection's number names exactly one connection (the server's check_answer; DEC-1759 lesson 13). */
 function answerFault(connections: WireConnections, request: number | null | undefined): Fault | null {
@@ -155,42 +151,6 @@ function descriptionFault(message: Extract<ProgramMessage, { type: "description"
       : null) ??
     (given(content) ? pageFault("content", content, limits) : null)
   );
-}
-
-/** Whole things of `size` bytes, at least one, in exact base64 within `most` bytes. */
-function wholeFault(path: string, text: string, most: number, size: number, what: string): Buffer | Fault {
-  const bytes = base64Bytes(path, text, most);
-  if (isFault(bytes)) {
-    return bytes;
-  }
-  return bytes.length === 0 || bytes.length % size !== 0 ? { path, rule: "wrong_length", detail: `${bytes.length} bytes: whole ${what} of ${size}` } : bytes;
-}
-
-/** Every packet is the profile's, as the engine's decoder judges it before decoding (the server's Sounds::check_opus, which names no path). */
-function profileFault(bytes: Buffer, packetBytes: number): Fault | null {
-  for (let index = 0; index * packetBytes < bytes.length; index += 1) {
-    const refusal = opusRefusal(bytes.subarray(index * packetBytes, (index + 1) * packetBytes));
-    if (refusal !== null) {
-      return { path: "", rule: "outside_profile", detail: `packet ${index} is outside the Opus profile: ${refusal}` };
-    }
-  }
-  return null;
-}
-
-/** A sound's samples or packets: exact base64 of whole 16-bit samples or whole packets of `packet_bytes` (the server's check_sound). */
-function soundFault(sound: WireSound): Fault | null {
-  if (sound.kind === "opus" || sound.kind === "opus_packets") {
-    const bytes = wholeFault("packets", sound.packets, MOST_OPUS_BYTES, sound.packet_bytes, "packets");
-    return isFault(bytes) ? bytes : profileFault(bytes, sound.packet_bytes);
-  }
-  if (sound.kind === "object" || sound.kind === "blocks") {
-    const bytes = base64Bytes("pcm", sound.pcm, MOST_PCM_BYTES);
-    if (isFault(bytes)) {
-      return bytes;
-    }
-    return bytes.length % SAMPLE_BYTES === 0 ? null : { path: "pcm", rule: "wrong_length", detail: "16-bit samples: an even number of bytes" };
-  }
-  return null;
 }
 
 /** Raw packets: exact base64 of whole 42-byte packets, each one a stream may carry (the server's check_packets; REQ-1462). */

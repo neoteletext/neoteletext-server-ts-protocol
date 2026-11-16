@@ -5,10 +5,11 @@
 // two cannot drift apart unnoticed: test/protocol.test.ts holds a valid
 // value of each type to the schema.
 
+import type { WireInstrumentSound } from "./instrument-wire.ts";
 import type { WireLanguageTag } from "./language-tags.ts";
 import type { WireNaplps } from "./naplps-message.ts";
 
-export type { WireLanguageTag };
+export type { WireInstrumentSound, WireLanguageTag };
 
 /** A page number: three hexadecimal digits in capitals, magazine 1 to 8 first ("100" to "8FF"). */
 export type WirePageNumber = string;
@@ -208,7 +209,8 @@ export type WireSound =
       readonly page?: WirePageNumber | null;
     }
   | { readonly kind: "stop"; readonly channel: number; readonly fade_ms: number }
-  | { readonly kind: "gain"; readonly channel: number; readonly gain: number; readonly fade_ms: number };
+  | { readonly kind: "gain"; readonly channel: number; readonly gain: number; readonly fade_ms: number }
+  | WireInstrumentSound;
 
 /** A message a program sends (the schema's $defs/ProgramMessage). */
 export type ProgramMessage =

@@ -8,5 +8,6 @@ export { serverStats } from "./server-stats.ts";
 export { keptTti } from "./kept-tti.ts";
 export { SERVER_LANGUAGES, SERVER_LIMITS } from "./server-limits.ts";
 export type { HarnessOptions } from "./harness.ts";
+export { soundBytes } from "./sent.ts";
 export type { Sent } from "./sent.ts";
 export { text, rowOf, shows } from "./rows.ts";

@@ -91,3 +91,12 @@ export function base64Bytes(path: string, text: string, most: number): Buffer | 
   const bytes = Buffer.from(text, "base64");
   return bytes.toString("base64") === text ? bytes : { path, rule: "not_base64", detail: "not the canonical base64 of its bytes" };
 }
+
+/** Whole things of `size` bytes, at least one, in exact base64 within `most` bytes. */
+export function wholeFault(path: string, text: string, most: number, size: number, what: string): Buffer | Fault {
+  const bytes = base64Bytes(path, text, most);
+  if (isFault(bytes)) {
+    return bytes;
+  }
+  return bytes.length === 0 || bytes.length % size !== 0 ? { path, rule: "wrong_length", detail: `${bytes.length} bytes: whole ${what} of ${size}` } : bytes;
+}

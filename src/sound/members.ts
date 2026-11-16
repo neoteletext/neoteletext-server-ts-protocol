@@ -3,6 +3,7 @@
 // receivers play; PCM, which the server encodes as IMA ADPCM, is for
 // microcontrollers (DOC-1972, decision 21).
 
+import type { InstrumentMember } from "./instrument-members.ts";
 import type { SampleRate } from "./profile.ts";
 
 /** Who hears a sound: one viewer (every connection of their session), everyone whose selection is a page, or the connections named ("all" or a list). */
@@ -83,8 +84,11 @@ export interface Gain {
   readonly fadeMs?: number;
 }
 
-/** One `sound` message's member. */
-export type SoundMember =
+/** One `sound` message's member: a sound or a command, or an instrument's sound (instrument-members.ts). */
+export type SoundMember = SampledMember | InstrumentMember;
+
+/** A member that is samples, Opus packets or a command. */
+export type SampledMember =
   | { readonly object: SoundObject }
   | { readonly live: LiveSound }
   | { readonly blocks: LiveBlocks }

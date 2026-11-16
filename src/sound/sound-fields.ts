@@ -4,7 +4,8 @@
 // is caught where it is made rather than refused in the server's log.
 
 import { isPageNumber, pageText } from "../page/page-numbers.ts";
-import type { SoundMember } from "./members.ts";
+import { instrumentFields, isInstrumentMember } from "./instrument-fields.ts";
+import type { Play, SampledMember, SoundMember } from "./members.ts";
 import { pcmBytes } from "./pcm.ts";
 import { opusFields, opusLiveFields, opusPacketsFields } from "./opus-fields.ts";
 import {
@@ -67,8 +68,22 @@ function channelOf(channel: number): number {
   return wholeIn("channel", channel, 0, AUDIO_CHANNELS - 1);
 }
 
-/** The member as the protocol writes it, a `sound` message's own fields by its `kind`, checked as the server checks it. */
-export function soundFields(member: SoundMember): WireSound {
+function playFields(play: Play): WireSound {
+  return {
+    kind: "play",
+    channel: channelOf(play.channel),
+    ...handleFields(play),
+    gain: wholeIn("gain", play.gain ?? FULL_GAIN, 0, FULL_GAIN),
+    fade_ms: fade(play.fadeMs),
+    loop: play.loop ?? false,
+    after: play.after ?? false,
+    duck: wholeIn("duck", play.duck ?? 0, 0, DEEPEST_DUCK),
+    page: play.page === undefined ? null : pageOf(play.page),
+  };
+}
+
+/** A member of samples, Opus packets or a command, as the protocol writes it. */
+function sampledFields(member: SampledMember): WireSound {
   if ("object" in member) {
     const { object } = member;
     return { kind: "object", ...handleFields(object), rate: rateOf(object.rate), pcm: samplesOf(object.samples) };
@@ -96,22 +111,16 @@ export function soundFields(member: SoundMember): WireSound {
     return opusPacketsFields(member.opusPackets);
   }
   if ("play" in member) {
-    const { play } = member;
-    return {
-      kind: "play",
-      channel: channelOf(play.channel),
-      ...handleFields(play),
-      gain: wholeIn("gain", play.gain ?? FULL_GAIN, 0, FULL_GAIN),
-      fade_ms: fade(play.fadeMs),
-      loop: play.loop ?? false,
-      after: play.after ?? false,
-      duck: wholeIn("duck", play.duck ?? 0, 0, DEEPEST_DUCK),
-      page: play.page === undefined ? null : pageOf(play.page),
-    };
+    return playFields(member.play);
   }
   if ("stop" in member) {
     return { kind: "stop", channel: channelOf(member.stop.channel), fade_ms: fade(member.stop.fadeMs) };
   }
   const { gain } = member;
   return { kind: "gain", channel: channelOf(gain.channel), gain: wholeIn("gain", gain.gain, 0, FULL_GAIN), fade_ms: fade(gain.fadeMs) };
+}
+
+/** The member as the protocol writes it, a `sound` message's own fields by its `kind`, checked as the server checks it. */
+export function soundFields(member: SoundMember): WireSound {
+  return isInstrumentMember(member) ? instrumentFields(member) : sampledFields(member);
 }
