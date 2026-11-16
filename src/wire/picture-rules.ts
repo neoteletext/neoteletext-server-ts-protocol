@@ -1,10 +1,11 @@
-// The server's rules for what a program says of a ReGIS sub-page's picture
+// The server's rules for what a program says of a sub-page's picture
 // beside its ReGIS: its drawing links and its cursor drawing (the server's
-// REQ-6372).
+// REQ-6372), and its NAPLPS (the NAPLPS renderer's REQ-6408 item 3).
 
 import type { Fault } from "./fault.ts";
 import type { Limits } from "./limits.ts";
 import type { PictureMessage } from "./protocol.ts";
+import { base64Bytes, isFault } from "./rule-pieces.ts";
 
 /** The sub-code that names no sub-page (EN 300 706 clause 9.6.1). */
 const ANY_SUBPAGE = "3F7F";
@@ -38,10 +39,21 @@ function regisLinksFault(message: Extract<PictureMessage, { type: "regis_links" 
   return null;
 }
 
-/** The first fault of a sub-page's drawing links or cursor drawing; null when there is none. */
+/** The most NAPLPS one message carries once decoded: what a `regis` message may (the server's MOST_REGIS_BYTES). */
+const MOST_NAPLPS_BYTES = 1024 * 1024;
+
+/** The first fault of a sub-page's drawing links, cursor drawing or NAPLPS; null when there is none. */
 export function pictureFault(message: PictureMessage, limits: Limits): Fault | null {
   if (message.type === "regis_links") {
     return regisLinksFault(message, limits);
   }
-  return message.sub === ANY_SUBPAGE ? { path: "sub", rule: "out_of_range", detail: "3F7F names no sub-page" } : null;
+  if (message.sub === ANY_SUBPAGE) {
+    return { path: "sub", rule: "out_of_range", detail: "3F7F names no sub-page" };
+  }
+  if (message.type === "naplps") {
+    // Exact base64 within the bound (the server's check_naplps); the bytes themselves are not read.
+    const bytes = base64Bytes("data", message.data, MOST_NAPLPS_BYTES);
+    return isFault(bytes) ? bytes : null;
+  }
+  return null;
 }

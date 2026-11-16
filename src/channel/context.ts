@@ -57,6 +57,7 @@ export interface Host {
   regis(to: Audience, page: number, sub: number, data: string | Uint8Array, restart: boolean): void;
   regisLinks(to: Audience, page: number, sub: number, links: readonly DrawingLink[]): void;
   regisCursor(to: Audience, page: number, sub: number, drawing: number): void;
+  naplps(to: Audience, page: number, sub: number, data: Uint8Array, restart: boolean): void;
   connection(): number | null;
   connectionsOf(session: number): number[];
 }
@@ -223,6 +224,15 @@ export class Context {
    */
   regis(to: Audience, page: number, sub: number, data: string | Uint8Array, options: { readonly restart?: boolean } = {}): void {
     this.#host.regis(to, page, sub, data, options.restart === true);
+  }
+
+  /**
+   * Sends bytes of a sub-page's NAPLPS (ANSI X3.110-1983), drawn by a viewer's NAPLPS renderer in place of the
+   * sub-page's teletext page (the NAPLPS renderer's REQ-6408). `restart` begins the sub-page's stream again; without
+   * it the bytes add to the stream, and go to no connection not yet sent a restart. The server sends them on unread.
+   */
+  naplps(to: Audience, page: number, sub: number, data: Uint8Array, options: { readonly restart?: boolean } = {}): void {
+    this.#host.naplps(to, page, sub, data, options.restart === true);
   }
 
   /**

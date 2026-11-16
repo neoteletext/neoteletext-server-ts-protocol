@@ -6,6 +6,7 @@
 // value of each type to the schema.
 
 import type { WireLanguageTag } from "./language-tags.ts";
+import type { WireNaplps } from "./naplps-message.ts";
 
 export type { WireLanguageTag };
 
@@ -276,6 +277,7 @@ export type ProgramMessage =
       readonly restart?: boolean;
       readonly data: string;
     }
+  | WireNaplps
   /** The numbered drawings of a sub-page's ReGIS picture that are links, which a viewer's browser follows itself (the server's REQ-6372). */
   | {
       readonly type: "regis_links";
@@ -289,5 +291,5 @@ export type ProgramMessage =
   /** Asks what a page's encoding costs, sent to no viewer (REQ-2216). */
   | { readonly type: "measure"; readonly request: number; readonly page: WirePage };
 
-/** What a program says of a ReGIS sub-page's picture beside its ReGIS: its drawing links and its cursor drawing. */
-export type PictureMessage = Extract<ProgramMessage, { type: "regis_links" | "regis_cursor" }>;
+/** What a program says of a sub-page's picture beside its ReGIS: its drawing links, its cursor drawing, and its NAPLPS. */
+export type PictureMessage = Extract<ProgramMessage, { type: "regis_links" | "regis_cursor" | "naplps" }>;

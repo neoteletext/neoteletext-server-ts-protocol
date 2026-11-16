@@ -102,7 +102,9 @@ export function checkProgram(message: unknown, limits: Limits): Fault | null {
   if (!isProgramMessage(message)) {
     return check(program, message);
   }
-  return message.type === "regis_links" || message.type === "regis_cursor" ? pictureFault(message, limits) : checkRules(message, limits);
+  return message.type === "regis_links" || message.type === "regis_cursor" || message.type === "naplps"
+    ? pictureFault(message, limits)
+    : checkRules(message, limits);
 }
 
 /** Whether a message the server sent is valid: null, or its first fault. */

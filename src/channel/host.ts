@@ -111,7 +111,10 @@ function regisBase64(data: string | Uint8Array): string {
   return bytes.toString("base64");
 }
 
-type MessagingHost = Pick<Host, "sound" | "authorLog" | "log" | "cookie" | "cookies" | "measure" | "packets" | "regis" | "regisLinks" | "regisCursor">;
+type MessagingHost = Pick<
+  Host,
+  "sound" | "authorLog" | "log" | "cookie" | "cookies" | "measure" | "packets" | "regis" | "regisLinks" | "regisCursor" | "naplps"
+>;
 
 /** The connections a call about `session` means: the one it came from when that is the session's, otherwise each of the session's. */
 function sessionsConnections(parts: HostParts, session: number): number[] {
@@ -137,7 +140,7 @@ function selecting(parts: HostParts): SelectionHost {
 }
 
 /** The messages that carry bytes as they are, raw packets and a sub-page's ReGIS, and what is said of that sub-page's picture. */
-function bytesMessages(sender: Sender): Pick<Host, "packets" | "regis" | "regisLinks" | "regisCursor"> {
+function bytesMessages(sender: Sender): Pick<Host, "packets" | "regis" | "regisLinks" | "regisCursor" | "naplps"> {
   return {
     packets: (to, packets): void => {
       const text = Buffer.from(packets.buffer, packets.byteOffset, packets.byteLength).toString("base64");
@@ -146,6 +149,10 @@ function bytesMessages(sender: Sender): Pick<Host, "packets" | "regis" | "regisL
     regis: (to, page, sub, data, restart): void => {
       const text = regisBase64(data);
       sender.toAudience(to, (named) => ({ type: "regis", connections: named, page: pageText(page), sub: subText(sub), restart, data: text }));
+    },
+    naplps: (to, page, sub, data, restart): void => {
+      const text = Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString("base64");
+      sender.toAudience(to, (named) => ({ type: "naplps", connections: named, page: pageText(page), sub: subText(sub), restart, data: text }));
     },
     regisLinks: (to, page, sub, links): void => {
       const listed = links.map(({ drawing, target }) => ({ drawing, target }));
