@@ -6,7 +6,7 @@
 import type { WireBudgets, WireStandard } from "./server-wire.ts";
 
 /** The protocol's version, in `start` (DEC-1482): one number, raised on every change of shape; the kit stops on any other (REQ-2215 item 3). */
-export const PROTOCOL = 11;
+export const PROTOCOL = 12;
 
 /**
  * The longest line either side may send (DOC-1965):
