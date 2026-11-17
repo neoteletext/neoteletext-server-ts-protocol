@@ -126,3 +126,20 @@ test("a file is bounded: a megabyte, and 100,000 events", () => {
   assert.equal(readMidiFile(events(MOST_MIDI_EVENTS)).events.length, 100_000);
   assert.throws(() => readMidiFile(events(MOST_MIDI_EVENTS + 1)), /over 100000 events/u);
 });
+
+test("a file read for the CS-80 keeps its pressure, and for the Jupiter-8 drops a program change past its two parts", () => {
+  const cs80 = readMidiFile(FILE, "cs80");
+  assert.deepEqual(
+    cs80.events.filter((event) => event.status === 0xa0 || event.status === 0xd0),
+    [
+      { ms: 750, status: 0xa0, data1: 60, data2: 16 },
+      { ms: 750, status: 0xd0, data1: 32, data2: 0 },
+    ],
+  );
+  assert.deepEqual(cs80.dropped, { polyPressure: 0, controlChange: 1, programChange: 1, channelPressure: 0, systemExclusive: 1 });
+  const onPartThree = Uint8Array.from([...header(0, 1, 96), ...chunk("MTrk", [0x00, 0xc2, 0x01, 0x00, 0xc1, 0x02, ...END_OF_TRACK])]);
+  const jupiter8 = readMidiFile(onPartThree, "jupiter8");
+  assert.deepEqual(jupiter8.events, [{ ms: 0, status: 0xc1, data1: 2, data2: 0 }]);
+  assert.equal(jupiter8.dropped.programChange, 1);
+  assert.equal(readMidiFile(onPartThree).events.length, 2, "the DX7 takes both");
+});

@@ -1,12 +1,13 @@
-// A Standard MIDI File as a DX7 score's events (REQ-6414 item 4; Standard
-// MIDI Files 1.0): formats 0 and 1, the tracks merged on one time line,
-// every tempo change applied, running status followed. The messages the
-// DX7 codec takes are kept and every other is dropped and counted. A file
+// A Standard MIDI File as a score's events (REQ-6414 item 4; Standard MIDI
+// Files 1.0), for the DX7 or one of the analogue synthesizers (DEC-6429):
+// formats 0 and 1, the tracks merged on one time line, every tempo change
+// applied, running status followed. The messages the instrument's codec
+// takes are kept and every other is dropped and counted. A file
 // is untrusted: its size, its tracks and its events are bounded, and no
 // length it states is believed past its bytes (midi-bytes.ts).
 
 import type { Dx7Event } from "./dx7-score.ts";
-import { Midi, dx7SlotFault, messageOf } from "./dx7-slot.ts";
+import { Midi, type SlotInstrument, instrumentSlotFault, messageOf } from "./dx7-slot.ts";
 import { MidiBytes } from "./midi-bytes.ts";
 
 /** The largest file read: a megabyte, many times any tune's. */
@@ -15,25 +16,25 @@ export const MOST_MIDI_FILE_BYTES = 1024 * 1024;
 /** The most events read from a file, its tempo changes and the messages dropped among them. */
 export const MOST_MIDI_EVENTS = 100_000;
 
-/** The messages left out, by kind: the DX7 codec does not take them. */
+/** The messages left out, by kind: the instrument's codec does not take them. */
 export interface MidiDropped {
-  /** Key pressure, status 0xA0. */
+  /** Key pressure, status 0xA0, which only the CS-80 takes. */
   polyPressure: number;
-  /** Control changes of controllers other than 1, 7, 64, 120, 121 and 123. */
+  /** Control changes of controllers other than 1, 7, 64, 120, 121 and 123 (and, for the Jupiter-8, 5, 8 and 65). */
   controlChange: number;
-  /** Program changes to a patch past 31, which no bank has. */
+  /** Program changes to a patch past 31, which no bank has, and a Jupiter-8's on a channel past 2. */
   programChange: number;
-  /** Channel pressure, status 0xD0. */
+  /** Channel pressure, status 0xD0, which only the CS-80 takes. */
   channelPressure: number;
   /** System Exclusive messages. */
   systemExclusive: number;
 }
 
-/** What a file holds for a DX7. */
+/** What a file holds for an instrument. */
 export interface MidiFileScore {
   readonly format: 0 | 1;
   readonly tracks: number;
-  /** The messages kept, in order of time: what `new Dx7Score(events)` takes. */
+  /** The messages kept, in order of time: what `new Dx7Score(events)`, or `new SynthScore(synth, events)` for the instrument it was read for, takes. */
   readonly events: readonly Dx7Event[];
   readonly dropped: Readonly<MidiDropped>;
   /** The time of the file's last event, kept or not, in milliseconds. */
@@ -160,9 +161,9 @@ function header(bytes: MidiBytes): { format: 0 | 1; tracks: number; division: nu
   return { format, tracks, division };
 }
 
-/** Whether a message is one the DX7 codec takes; one it does not is counted. */
-function taken(read: Read, dropped: MidiDropped): boolean {
-  if (dx7SlotFault({ time: 0, status: read.status, data1: read.data1, data2: read.data2 }) === null) {
+/** Whether a message is one the instrument's codec takes; one it does not is counted. */
+function taken(read: Read, dropped: MidiDropped, instrument: SlotInstrument): boolean {
+  if (instrumentSlotFault({ time: 0, status: read.status, data1: read.data1, data2: read.data2 }, instrument) === null) {
     return true;
   }
   const kind = messageOf(read.status);
@@ -179,7 +180,13 @@ function taken(read: Read, dropped: MidiDropped): boolean {
 }
 
 /** The events in order of tick, at their times in milliseconds: a tempo holds from its tick until the next. */
-function timed(read: readonly Read[], division: number, dropped: MidiDropped, endTick: number): { events: Dx7Event[]; lengthMs: number } {
+function timed(
+  read: readonly Read[],
+  division: number,
+  dropped: MidiDropped,
+  endTick: number,
+  instrument: SlotInstrument,
+): { events: Dx7Event[]; lengthMs: number } {
   // A stable sort: events of one tick stay in the order of their tracks, and within a track as written.
   const ordered = read.toSorted((one, other) => one.tick - other.tick);
   const events: Dx7Event[] = [];
@@ -192,7 +199,7 @@ function timed(read: readonly Read[], division: number, dropped: MidiDropped, en
     advance(one.tick);
     if (one.status === META) {
       ({ tempo } = one);
-    } else if (taken(one, dropped)) {
+    } else if (taken(one, dropped, instrument)) {
       events.push({ ms, status: one.status, data1: one.data1, data2: one.data2 });
     }
   }
@@ -200,8 +207,8 @@ function timed(read: readonly Read[], division: number, dropped: MidiDropped, en
   return { events, lengthMs: ms };
 }
 
-/** Reads a Standard MIDI File, format 0 or 1, as the events of a DX7 score: note on and off, pitch bend, program changes to patches 0 to 31 and the controllers the codec takes, each at its time in milliseconds by the file's tempos. A MIDI channel is a part. Refused: a file over a megabyte or of over 100,000 events, format 2, SMPTE time, and a file that is cut short or malformed. */
-export function readMidiFile(bytes: Uint8Array): MidiFileScore {
+/** Reads a Standard MIDI File, format 0 or 1, as the events of a score for `instrument`, the DX7 unless said: note on and off, pitch bend, program changes to patches 0 to 31 and the controllers the codec takes, and for the CS-80 key and channel pressure, each at its time in milliseconds by the file's tempos. A MIDI channel is a part. Refused: a file over a megabyte or of over 100,000 events, format 2, SMPTE time, and a file that is cut short or malformed. */
+export function readMidiFile(bytes: Uint8Array, instrument: SlotInstrument = "dx7"): MidiFileScore {
   if (bytes.length > MOST_MIDI_FILE_BYTES) {
     throw new RangeError(`midi file: ${bytes.length} bytes, at most ${MOST_MIDI_FILE_BYTES}`);
   }
@@ -223,5 +230,5 @@ export function readMidiFile(bytes: Uint8Array): MidiFileScore {
     throw new RangeError("midi file: it has no track");
   }
   const dropped: MidiDropped = { polyPressure: 0, controlChange: 0, programChange: 0, channelPressure: 0, systemExclusive: reading.sysex };
-  return { format, tracks: found, dropped, ...timed(reading.read, division, dropped, endTick) };
+  return { format, tracks: found, dropped, ...timed(reading.read, division, dropped, endTick, instrument) };
 }

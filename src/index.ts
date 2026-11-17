@@ -95,9 +95,36 @@ export {
   DX7_MOST_SLOTS,
   DX7_PATCH_BYTES,
   DX7_MOST_PATCHES,
+  SYNTHS,
+  SYNTH_PATCH_BYTES,
 } from "./sound/instrument-profile.ts";
-export type { ImagesPerBlock } from "./sound/instrument-profile.ts";
-export type { SidChip, SidClock, SidSound, SidLive, SidBlocks, Dx7Sound, Dx7Live, Dx7Blocks, Dx7Bank, InstrumentMember } from "./sound/instrument-members.ts";
+export type { ImagesPerBlock, Synth } from "./sound/instrument-profile.ts";
+export type {
+  SidChip,
+  SidClock,
+  SidSound,
+  SidLive,
+  SidBlocks,
+  Dx7Sound,
+  Dx7Live,
+  Dx7Blocks,
+  Dx7Bank,
+  SynthLive,
+  SynthSound,
+  SynthBlocks,
+  SynthBank,
+  JunoModel,
+  JunoLive,
+  JunoSound,
+  Prophet5Model,
+  Prophet5Live,
+  Prophet5Sound,
+  Jupiter8KeyMode,
+  Jupiter8Live,
+  Jupiter8Sound,
+  SynthMember,
+  InstrumentMember,
+} from "./sound/instrument-members.ts";
 export { SID_PAL_CLOCK_HZ, SID_NTSC_CLOCK_HZ, sidClockHz, sidFrequency } from "./sound/sid-clock.ts";
 export { SidImage } from "./sound/sid-image.ts";
 export type { SidControl, SidEnvelope, SidFilterMode, SidVoice } from "./sound/sid-image.ts";
@@ -105,14 +132,27 @@ export { SidTrack } from "./sound/sid-track.ts";
 export type { SidSoundOptions } from "./sound/sid-track.ts";
 export { SID_HARD_RESTART_FRAMES, SID_HARD_RESTART_MS, sidGate, sidHardRestart, sidNote } from "./sound/sid-note.ts";
 export type { SidNote } from "./sound/sid-note.ts";
-export { Controller, DX7_PARTS, Midi, dx7SlotFault } from "./sound/dx7-slot.ts";
-export type { Dx7Slot } from "./sound/dx7-slot.ts";
+export { Controller, DX7_PARTS, JUPITER8_PROGRAM_PARTS, Jupiter8Controller, Midi, dx7SlotFault, instrumentSlotFault } from "./sound/dx7-slot.ts";
+export type { Dx7Slot, SlotInstrument } from "./sound/dx7-slot.ts";
 export { Dx7Score } from "./sound/dx7-score.ts";
 export type { Dx7Event, Dx7ScoreBlocks } from "./sound/dx7-score.ts";
 export { DX7_SYSEX_BYTES, dx7BankFromSysex, dx7Patches } from "./sound/dx7-sysex.ts";
 export { dx7InitVoice, packDx7Patch } from "./sound/dx7-patch.ts";
 export type { Dx7Four, Dx7Operator, Dx7Patch } from "./sound/dx7-patch.ts";
 export { DX7_PROGRAM_REPEAT_BLOCKS, Dx7ProgramRepeater } from "./sound/dx7-live.ts";
+export { SynthProgramRepeater } from "./sound/synth-live.ts";
+export { SynthScore } from "./sound/synth-score.ts";
+export { synthPatchFault } from "./sound/synth-patch-rules.ts";
+export { junoInitPatch, packJunoPatch } from "./sound/juno-patch.ts";
+export type { JunoPatch, JunoRange, JunoSlider } from "./sound/juno-patch.ts";
+export { minimoogInitPatch, packMinimoogPatch } from "./sound/minimoog-patch.ts";
+export type { MinimoogContour, MinimoogOscillator, MinimoogPatch, MinimoogRange, MinimoogTunedOscillator, MinimoogWaveform } from "./sound/minimoog-patch.ts";
+export { packProphet5Patch, prophet5Dial, prophet5InitPatch } from "./sound/prophet5-patch.ts";
+export type { Prophet5Knob, Prophet5Patch, Prophet5Switch } from "./sound/prophet5-patch.ts";
+export { jupiter8InitPatch, packJupiter8Patch } from "./sound/jupiter8-patch.ts";
+export type { Jupiter8Patch } from "./sound/jupiter8-patch.ts";
+export { cs80InitPatch, cs80InitTone, packCs80Patch } from "./sound/cs80-patch.ts";
+export type { Cs80Feet, Cs80GlobalLever, Cs80Lever, Cs80Patch, Cs80SubFunction, Cs80Tone } from "./sound/cs80-patch.ts";
 export { MOST_MIDI_EVENTS, MOST_MIDI_FILE_BYTES, readMidiFile } from "./sound/midi-file.ts";
 export type { MidiDropped, MidiFileScore } from "./sound/midi-file.ts";
 export type { EncodedOpus, OpusEncoder, OpusStream } from "./sound/opus-encoder.ts";

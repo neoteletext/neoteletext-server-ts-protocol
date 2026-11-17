@@ -1,6 +1,7 @@
 // The audio profile's instrument codecs (the engine's REQ-6411, DEC-6410;
-// the server's REQ-6413): the SID chip, the Yamaha DX7 and a bank of DX7
-// patches, with the bounds the server holds each to.
+// the server's REQ-6413; DEC-6429): the SID chip, the Yamaha DX7 and a
+// bank of DX7 patches, and the five analogue synthesizers and a bank of
+// one's patches, with the bounds the server holds each to.
 
 import { MOST_SAMPLES, SECOND_MS } from "./profile.ts";
 
@@ -42,8 +43,23 @@ export const DX7_BLOCK_TIMES = INSTRUMENT_BLOCK_MS * DX7_TIMES_A_MS;
 /** One DX7 patch in the instrument's packed form: 128 bytes (the bulk dump of 32 voices). */
 export const DX7_PATCH_BYTES = 128;
 
-/** The most patches a bank holds: the instrument's 32 voices. */
+/** The most patches a bank holds: the DX7's 32 voices, and as many in a synthesizer's bank, so that a program change means the same in each (the engine's PATCH_BANK_PATCHES). */
 export const DX7_MOST_PATCHES = 32;
+
+/** The analogue synthesizers (DEC-6429): Roland's Juno-106 and Juno-60, Moog's Minimoog Model D, Sequential Circuits' Prophet-5, Roland's Jupiter-8 and Yamaha's CS-80. Each sound's block is the DX7's, slots of timed MIDI messages. */
+export type Synth = "juno" | "minimoog" | "prophet5" | "jupiter8" | "cs80";
+
+/** Every synthesizer, in the order of their codecs. */
+export const SYNTHS: readonly Synth[] = ["juno", "minimoog", "prophet5", "jupiter8", "cs80"];
+
+/** The bytes of one patch of each synthesizer, in the instrument's own layout (the engine's `<instrument>/patch.rs`; the server's *_PATCH_BYTES). */
+export const SYNTH_PATCH_BYTES = {
+  juno: 18,
+  minimoog: 36,
+  prophet5: 24,
+  jupiter8: 43,
+  cs80: 85,
+} as const satisfies Record<Synth, number>;
 
 /** The most a byte of a patch, or a MIDI data byte, holds: 7 bits. */
 export const SEVEN_BITS = 0x7f;

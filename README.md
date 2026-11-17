@@ -210,6 +210,27 @@ most 40 characters).
   a live sound's blocks again, so that a viewer who joins hears each part
   with its patch. The testing entry's `soundBytes` reads a sent sound's
   bytes back.
+- **Analogue synthesizers:** five more instruments play blocks of timed
+  MIDI messages as the DX7 does (DEC-6429): the Roland Juno-106 and
+  Juno-60, the Moog Minimoog, the Sequential Prophet-5, the Roland
+  Jupiter-8 and the Yamaha CS-80. Each has four members, `juno`,
+  `junoLive`, `junoBlocks` and `junoBank`, and the same for `minimoog`,
+  `prophet5`, `jupiter8` and `cs80`. A Juno sound names its `model`
+  (`"106"` or `"60"`), a Prophet-5 sound its revision (`"revision_3"` or
+  `"revisions_1_and_2"`), and a Jupiter-8 sound its `keyMode` (`"whole"`,
+  `"dual"` or `"split"`) and `splitKey`; part 0's program changes choose
+  its upper patch and part 1's its lower. `SynthScore` is the DX7's score
+  held to a synthesizer's codec, with `keyPressure` and `channelPressure`
+  for the CS-80 and `portamentoTime`, `balance` and `portamento` for the
+  Jupiter-8; `readMidiFile(bytes, synth)` keeps what that synthesizer
+  takes; `SynthProgramRepeater` repeats a live sound's program changes.
+  A bank holds 1 to 32 patches in the instrument's own layout, which
+  `packJunoPatch`, `packMinimoogPatch`, `packProphet5Patch`,
+  `packJupiter8Patch` and `packCs80Patch` write from the panel's controls
+  by name, each held to its range (`junoInitPatch` and its fellows are a
+  start); `synthPatchFault` says, as the server does, why a patch's bytes
+  are not one its instrument reads, since a receiver silently plays its
+  default patch in place of such a one.
 - **TTI, for files:** `readTtiPages` reads TTI into typed sub-pages as
   the engine's reader does (rows, the packed lines OL,26 to OL,29, FL,
   PS, RE, CU and the Link Extension's LN, LK and LT); `readTti` reads it
