@@ -1,4 +1,4 @@
-// DX7 patches (REQ-6414 item 3): a bank from the instrument's 32-voice
+// synth7 patches (REQ-6414 item 3): a bank from the instrument's 32-voice
 // bulk dump, checked before it is used, and one patch packed from its
 // parameters into the dump's 128 bytes (Yamaha's DX7 MIDI data format
 // sheet, "Bulk data for 32 voices" and "Bulk dump packed format").
@@ -6,7 +6,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { DX7_SYSEX_BYTES, type Dx7Operator, type Dx7Patch, dx7BankFromSysex, dx7InitVoice, dx7Patches, packDx7Patch } from "../src/index.ts";
+import {
+  SYNTH7_SYSEX_BYTES,
+  type Synth7Operator,
+  type Synth7Patch,
+  synth7BankFromSysex,
+  synth7InitVoice,
+  synth7Patches,
+  packSynth7Patch,
+} from "../src/index.ts";
 
 /** The data of a dump: 32 patches of 128 bytes, each byte its place in its patch but the first, which is the patch's number. */
 function bankData(): Uint8Array {
@@ -23,15 +31,15 @@ function dump(data: Uint8Array, channel: number): Uint8Array {
 }
 
 test("a 32-voice dump gives its 4,096 bytes of patches, whatever MIDI channel it was sent on", () => {
-  assert.equal(DX7_SYSEX_BYTES, 4104);
+  assert.equal(SYNTH7_SYSEX_BYTES, 4104);
   const data = bankData();
-  assert.deepEqual(dx7BankFromSysex(dump(data, 1)), data, "MIDI channel 2");
-  assert.deepEqual(dx7BankFromSysex(dump(data, 0)), data);
-  assert.deepEqual(dx7BankFromSysex(dump(data, 15)), data);
+  assert.deepEqual(synth7BankFromSysex(dump(data, 1)), data, "MIDI channel 2");
+  assert.deepEqual(synth7BankFromSysex(dump(data, 0)), data);
+  assert.deepEqual(synth7BankFromSysex(dump(data, 15)), data);
   // A checksum is the sum's two's complement in 7 bits: data that sums to a multiple of 128 has checksum 0.
   const zeros = dump(new Uint8Array(4096), 0);
   assert.equal(zeros[4102], 0);
-  assert.equal(dx7BankFromSysex(zeros).length, 4096);
+  assert.equal(synth7BankFromSysex(zeros).length, 4096);
 });
 
 test("a dump with a wrong length, header, checksum or end is refused", () => {
@@ -41,7 +49,7 @@ test("a dump with a wrong length, header, checksum or end is refused", () => {
     ["a byte short", good.subarray(0, 4103), /4104 bytes, not 4103/u],
     ["a byte long", Uint8Array.from([...good, 0]), /4104 bytes, not 4105/u],
     ["not System Exclusive", changed(0, 0xf1), /F0 43/u],
-    ["not Yamaha's", changed(1, 0x44), /F0 43/u],
+    ["not the maker's", changed(1, 0x44), /F0 43/u],
     ["a parameter change's sub-status", changed(2, 0x11), /sub-status/u],
     ["one voice's format", changed(3, 0x00), /format 9/u],
     ["another byte count", changed(4, 0x10), /format 9/u],
@@ -52,22 +60,22 @@ test("a dump with a wrong length, header, checksum or end is refused", () => {
     ["no end byte", changed(4103, 0x00), /end F7/u],
   ];
   for (const [what, bytes, why] of cases) {
-    assert.throws(() => dx7BankFromSysex(bytes), why, what);
+    assert.throws(() => synth7BankFromSysex(bytes), why, what);
   }
 });
 
 test("patches are chosen from a bank in any order", () => {
   const data = bankData();
-  const chosen = dx7Patches(data, [31, 0, 31]);
+  const chosen = synth7Patches(data, [31, 0, 31]);
   assert.equal(chosen.length, 3 * 128);
   assert.deepEqual([chosen[0], chosen[128], chosen[256], chosen[127]], [31, 0, 31, 127]);
-  assert.throws(() => dx7Patches(data, []), RangeError);
-  assert.throws(() => dx7Patches(data, [32]), RangeError);
-  assert.throws(() => dx7Patches(data.subarray(0, 128), [1]), RangeError);
-  assert.throws(() => dx7Patches(data.subarray(0, 100), [0]), RangeError);
+  assert.throws(() => synth7Patches(data, []), RangeError);
+  assert.throws(() => synth7Patches(data, [32]), RangeError);
+  assert.throws(() => synth7Patches(data.subarray(0, 128), [1]), RangeError);
+  assert.throws(() => synth7Patches(data.subarray(0, 100), [0]), RangeError);
   assert.throws(
     () =>
-      dx7Patches(
+      synth7Patches(
         data,
         Array.from({ length: 33 }, () => 0),
       ),
@@ -83,11 +91,11 @@ test("the instrument's INIT VOICE packs to its 128 bytes", () => {
   // Operators 6 to 2, then operator 1, the same at output level 99.
   const expected = [...Array.from({ length: 5 }, () => silent).flat(), ...silent.with(14, 99), ...after, ...Buffer.from("INIT VOICE", "ascii")];
   assert.equal(expected.length, 128);
-  assert.deepEqual(Array.from(packDx7Patch(dx7InitVoice())), expected);
+  assert.deepEqual(Array.from(packSynth7Patch(synth7InitVoice())), expected);
 });
 
 /** Operator `k`, every parameter a value that depends on it, so that an operator out of place or a field in the wrong bits shows. */
-function operator(k: number): Dx7Operator {
+function operator(k: number): Synth7Operator {
   return {
     rates: [k, 10 + k, 20 + k, 30 + k],
     levels: [40 + k, 50 + k, 60 + k, 70 + k],
@@ -107,7 +115,7 @@ function operator(k: number): Dx7Operator {
   };
 }
 
-const PATCH: Dx7Patch = {
+const PATCH: Synth7Patch = {
   operators: [operator(1), operator(2), operator(3), operator(4), operator(5), operator(6)],
   pitchRates: [1, 2, 3, 4],
   pitchLevels: [5, 6, 7, 8],
@@ -126,7 +134,7 @@ const PATCH: Dx7Patch = {
 };
 
 test("a patch's parameters are packed operator 6 first, each field in its byte and its bits", () => {
-  const bytes = Array.from(packDx7Patch(PATCH));
+  const bytes = Array.from(packSynth7Patch(PATCH));
   // Operator 6 at 0: curves 2 | 3 << 2, rate scaling 6 | detune 14 << 3, sensitivities 2 | 6 << 2, ratio | coarse 26 << 1.
   assert.deepEqual(bytes.slice(0, 17), [6, 16, 26, 36, 46, 56, 66, 76, 86, 96, 6, 14, 118, 26, 93, 52, 12]);
   // Operator 1 at 85: curves 1 | 2 << 2, rate scaling 1 | detune 9 << 3, sensitivities 1 | 1 << 2, fixed | coarse 21 << 1.
@@ -140,7 +148,7 @@ test("a patch's parameters are packed operator 6 first, each field in its byte a
 });
 
 /** Every parameter with a range: its name, its greatest value, and a patch with it set. */
-const OPERATOR_RANGES: readonly (readonly [keyof Dx7Operator, number])[] = [
+const OPERATOR_RANGES: readonly (readonly [keyof Synth7Operator, number])[] = [
   ["breakPoint", 99],
   ["leftDepth", 99],
   ["rightDepth", 99],
@@ -154,7 +162,7 @@ const OPERATOR_RANGES: readonly (readonly [keyof Dx7Operator, number])[] = [
   ["fine", 99],
   ["detune", 14],
 ];
-const PATCH_RANGES: readonly (readonly [keyof Dx7Patch, number])[] = [
+const PATCH_RANGES: readonly (readonly [keyof Synth7Patch, number])[] = [
   ["algorithm", 32],
   ["feedback", 7],
   ["lfoSpeed", 99],
@@ -167,43 +175,43 @@ const PATCH_RANGES: readonly (readonly [keyof Dx7Patch, number])[] = [
 ];
 
 /** `PATCH` with operator 4 changed. */
-function withOperator(change: Partial<Dx7Operator>): Dx7Patch {
+function withOperator(change: Partial<Synth7Operator>): Synth7Patch {
   const [one, two, three, four, five, six] = PATCH.operators;
   return { ...PATCH, operators: [one, two, three, { ...four, ...change }, five, six] };
 }
 
 test("each parameter is taken at its greatest value and refused one past it", () => {
   for (const [name, most] of OPERATOR_RANGES) {
-    assert.equal(packDx7Patch(withOperator({ [name]: most })).length, 128, name);
-    assert.throws(() => packDx7Patch(withOperator({ [name]: most + 1 })), new RegExp(`operator 4 .* is 0 to ${most}, not ${most + 1}`, "u"), name);
-    assert.throws(() => packDx7Patch(withOperator({ [name]: -1 })), RangeError, name);
+    assert.equal(packSynth7Patch(withOperator({ [name]: most })).length, 128, name);
+    assert.throws(() => packSynth7Patch(withOperator({ [name]: most + 1 })), new RegExp(`operator 4 .* is 0 to ${most}, not ${most + 1}`, "u"), name);
+    assert.throws(() => packSynth7Patch(withOperator({ [name]: -1 })), RangeError, name);
   }
   for (const [name, most] of PATCH_RANGES) {
-    assert.equal(packDx7Patch({ ...PATCH, [name]: most }).length, 128, name);
-    assert.throws(() => packDx7Patch({ ...PATCH, [name]: most + 1 }), RangeError, name);
-    assert.throws(() => packDx7Patch({ ...PATCH, [name]: 0.5 }), RangeError, name);
+    assert.equal(packSynth7Patch({ ...PATCH, [name]: most }).length, 128, name);
+    assert.throws(() => packSynth7Patch({ ...PATCH, [name]: most + 1 }), RangeError, name);
+    assert.throws(() => packSynth7Patch({ ...PATCH, [name]: 0.5 }), RangeError, name);
   }
-  assert.throws(() => packDx7Patch({ ...PATCH, algorithm: 0 }), /the algorithm is 1 to 32, not 0/u);
+  assert.throws(() => packSynth7Patch({ ...PATCH, algorithm: 0 }), /the algorithm is 1 to 32, not 0/u);
   for (const four of [
     [0, 0, 0, 100],
     [100, 0, 0, 0],
     [0, -1, 0, 0],
   ] as const) {
-    assert.throws(() => packDx7Patch(withOperator({ rates: four })), RangeError);
-    assert.throws(() => packDx7Patch(withOperator({ levels: four })), RangeError);
-    assert.throws(() => packDx7Patch({ ...PATCH, pitchRates: four }), RangeError);
-    assert.throws(() => packDx7Patch({ ...PATCH, pitchLevels: four }), RangeError);
+    assert.throws(() => packSynth7Patch(withOperator({ rates: four })), RangeError);
+    assert.throws(() => packSynth7Patch(withOperator({ levels: four })), RangeError);
+    assert.throws(() => packSynth7Patch({ ...PATCH, pitchRates: four }), RangeError);
+    assert.throws(() => packSynth7Patch({ ...PATCH, pitchLevels: four }), RangeError);
   }
 });
 
 test("a name is at most ten printable ASCII characters; a patch has six operators and an operator a mode", () => {
-  assert.equal(Buffer.from(packDx7Patch({ ...PATCH, name: "E.PIANO 1 " }).subarray(118)).toString("ascii"), "E.PIANO 1 ");
-  assert.equal(Buffer.from(packDx7Patch({ ...PATCH, name: "" }).subarray(118)).toString("ascii"), " ".repeat(10));
+  assert.equal(Buffer.from(packSynth7Patch({ ...PATCH, name: "E.PIANO 1 " }).subarray(118)).toString("ascii"), "E.PIANO 1 ");
+  assert.equal(Buffer.from(packSynth7Patch({ ...PATCH, name: "" }).subarray(118)).toString("ascii"), " ".repeat(10));
   for (const name of ["ELEVEN CHARS", "caf\u{E9}", "TAB\tBED", "\u{7F}"]) {
-    assert.throws(() => packDx7Patch({ ...PATCH, name }), /printable ASCII/u, name);
+    assert.throws(() => packSynth7Patch({ ...PATCH, name }), /printable ASCII/u, name);
   }
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a mode the type refuses, to see the check refuse it at run time
-  assert.throws(() => packDx7Patch(withOperator({ mode: "both" as "fixed" })), /ratio or fixed/u);
+  assert.throws(() => packSynth7Patch(withOperator({ mode: "both" as "fixed" })), /ratio or fixed/u);
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- five operators, which the type refuses, to see the check refuse them at run time
-  assert.throws(() => packDx7Patch({ ...PATCH, operators: PATCH.operators.slice(1) as unknown as Dx7Patch["operators"] }), /6 operators, not 5/u);
+  assert.throws(() => packSynth7Patch({ ...PATCH, operators: PATCH.operators.slice(1) as unknown as Synth7Patch["operators"] }), /6 operators, not 5/u);
 });

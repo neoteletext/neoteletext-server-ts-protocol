@@ -1,4 +1,4 @@
-// A Standard MIDI File as a DX7 score's events (REQ-6414 item 4): a small
+// A Standard MIDI File as a synth7 score's events (REQ-6414 item 4): a small
 // file written out byte by byte, its tempo change applied, running status
 // followed, the messages the codec does not take dropped and counted, and
 // a file that is too big, cut short or of a kind not read refused.
@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { Dx7Score, MOST_MIDI_EVENTS, MOST_MIDI_FILE_BYTES, readMidiFile } from "../src/index.ts";
+import { Synth7Score, MOST_MIDI_EVENTS, MOST_MIDI_FILE_BYTES, readMidiFile } from "../src/index.ts";
 
 /** A chunk: its type, its length in four bytes, its data. */
 function chunk(type: string, data: readonly number[]): number[] {
@@ -46,7 +46,7 @@ const NOTE_TRACK = chunk("MTrk", [...NOTE_EVENTS.flatMap(([, bytes]) => bytes), 
 const FILE = Uint8Array.from([...header(1, 2, 480), ...TEMPO_TRACK, ...chunk("XFIH", [1, 2, 3]), ...NOTE_TRACK]);
 
 test("a format 1 file's tracks are merged, its tempos applied, and what the codec does not take is dropped and counted", () => {
-  const read = readMidiFile(FILE);
+  const read = readMidiFile(FILE, "synth7");
   assert.equal(read.format, 1);
   assert.equal(read.tracks, 2);
   // 480 ticks at 500,000 microseconds are 500 ms; from there a tick is 250,000 / 480 microseconds, so tick 960 is 750 ms and tick 1,089 is 817.1875 ms.
@@ -65,7 +65,7 @@ test("a format 1 file's tracks are merged, its tempos applied, and what the code
 });
 
 test("a file's events are a score's: the blocks of the notes it holds", () => {
-  const { slots, blocks, lengthMs } = new Dx7Score(readMidiFile(FILE).events).build();
+  const { slots, blocks, lengthMs } = new Synth7Score(readMidiFile(FILE, "synth7").events).build();
   assert.equal(slots, 3, "three events at 750 ms");
   assert.equal(lengthMs, 820, "41 blocks");
   const block = (index: number): number[] => Array.from(blocks.subarray(index * 12, (index + 1) * 12));
@@ -77,7 +77,7 @@ test("a file's events are a score's: the blocks of the notes it holds", () => {
 
 test("a format 0 file is one track, at 120 quarter notes a minute until it says otherwise", () => {
   const file = Uint8Array.from([...header(0, 1, 96), ...chunk("MTrk", [0x60, 0x99, 0x24, 0x7f, 0x30, 0x89, 0x24, 0x40, ...END_OF_TRACK])]);
-  const read = readMidiFile(file);
+  const read = readMidiFile(file, "synth7");
   assert.equal(read.format, 0);
   assert.deepEqual(read.events, [
     { ms: 500, status: 0x99, data1: 36, data2: 127 },
@@ -110,7 +110,7 @@ test("a file that is not one read, or is cut short, is refused", () => {
     ["a header cut short", [...Buffer.from("MThd", "ascii"), 0, 0, 0, 4, 0, 1, 0, 1], /part way through/u],
   ];
   for (const [what, bytes, why] of cases) {
-    assert.throws(() => readMidiFile(Uint8Array.from(bytes)), why, what);
+    assert.throws(() => readMidiFile(Uint8Array.from(bytes), "synth7"), why, what);
   }
 });
 
@@ -122,24 +122,24 @@ function events(count: number): Uint8Array {
 
 test("a file is bounded: a megabyte, and 100,000 events", () => {
   assert.equal(MOST_MIDI_FILE_BYTES, 1024 * 1024);
-  assert.throws(() => readMidiFile(new Uint8Array(MOST_MIDI_FILE_BYTES + 1)), /at most 1048576/u);
-  assert.equal(readMidiFile(events(MOST_MIDI_EVENTS)).events.length, 100_000);
-  assert.throws(() => readMidiFile(events(MOST_MIDI_EVENTS + 1)), /over 100000 events/u);
+  assert.throws(() => readMidiFile(new Uint8Array(MOST_MIDI_FILE_BYTES + 1), "synth7"), /at most 1048576/u);
+  assert.equal(readMidiFile(events(MOST_MIDI_EVENTS), "synth7").events.length, 100_000);
+  assert.throws(() => readMidiFile(events(MOST_MIDI_EVENTS + 1), "synth7"), /over 100000 events/u);
 });
 
-test("a file read for the CS-80 keeps its pressure, and for the Jupiter-8 drops a program change past its two parts", () => {
-  const cs80 = readMidiFile(FILE, "cs80");
+test("a file read for the synth80 keeps its pressure, and for the synth8 drops a program change past its two parts", () => {
+  const synth80 = readMidiFile(FILE, "synth80");
   assert.deepEqual(
-    cs80.events.filter((event) => event.status === 0xa0 || event.status === 0xd0),
+    synth80.events.filter((event) => event.status === 0xa0 || event.status === 0xd0),
     [
       { ms: 750, status: 0xa0, data1: 60, data2: 16 },
       { ms: 750, status: 0xd0, data1: 32, data2: 0 },
     ],
   );
-  assert.deepEqual(cs80.dropped, { polyPressure: 0, controlChange: 1, programChange: 1, channelPressure: 0, systemExclusive: 1 });
+  assert.deepEqual(synth80.dropped, { polyPressure: 0, controlChange: 1, programChange: 1, channelPressure: 0, systemExclusive: 1 });
   const onPartThree = Uint8Array.from([...header(0, 1, 96), ...chunk("MTrk", [0x00, 0xc2, 0x01, 0x00, 0xc1, 0x02, ...END_OF_TRACK])]);
-  const jupiter8 = readMidiFile(onPartThree, "jupiter8");
-  assert.deepEqual(jupiter8.events, [{ ms: 0, status: 0xc1, data1: 2, data2: 0 }]);
-  assert.equal(jupiter8.dropped.programChange, 1);
-  assert.equal(readMidiFile(onPartThree).events.length, 2, "the DX7 takes both");
+  const synth8 = readMidiFile(onPartThree, "synth8");
+  assert.deepEqual(synth8.events, [{ ms: 0, status: 0xc1, data1: 2, data2: 0 }]);
+  assert.equal(synth8.dropped.programChange, 1);
+  assert.equal(readMidiFile(onPartThree, "synth7").events.length, 2, "the synth7 takes both");
 });

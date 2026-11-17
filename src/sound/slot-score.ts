@@ -2,16 +2,16 @@
 // DEC-6429): a program says when each note, program change and controller
 // happens, in milliseconds from the sound's start, and the score places
 // each in its 20 ms block with its time in tenths of a millisecond, in the
-// fewest slots a block that hold the busiest block. The DX7's score and
+// fewest slots a block that hold the busiest block. The synth7's score and
 // the analogue synthesizers' are this one, each holding its events to what
 // its instrument's codec takes.
 
-import { Controller, DX7_PARTS, type Dx7Slot, Midi, type SlotInstrument, instrumentSlotFault } from "./dx7-slot.ts";
-import { DX7_BLOCK_TIMES, DX7_MOST_PATCHES, DX7_MOST_SLOTS, DX7_SLOT_BYTES, DX7_TIMES_A_MS, INSTRUMENT_BLOCK_MS, SEVEN_BITS } from "./instrument-profile.ts";
+import { Controller, MIDI_PARTS, type Slot, Midi, instrumentSlotFault } from "./synth7-slot.ts";
+import { INSTRUMENT_BLOCK_MS, MOST_PATCHES, MOST_SLOTS, SEVEN_BITS, SLOT_BLOCK_TIMES, SLOT_BYTES, SLOT_TIMES_A_MS, type Synth } from "./instrument-profile.ts";
 import { LAST_BLOCK } from "./profile.ts";
 
 /** A MIDI message at a time, for any instrument played by slots: milliseconds from the sound's start, a status byte with its part in its low four bits, and two data bytes. */
-export interface Dx7Event {
+export interface SlotEvent {
   readonly ms: number;
   readonly status: number;
   readonly data1: number;
@@ -19,10 +19,10 @@ export interface Dx7Event {
 }
 
 /** A score as a sound's blocks. */
-export interface Dx7ScoreBlocks {
+export interface SlotScoreBlocks {
   /** The slots of each block: the events of the busiest block, at least 1. */
   readonly slots: number;
-  /** The blocks back to back, `slots` slots of 4 bytes each: what a `dx7` or `dx7Blocks` member, or a synthesizer's, carries. */
+  /** The blocks back to back, `slots` slots of 4 bytes each: what a `synth7` or `synth7Blocks` member, or a synthesizer's, carries. */
   readonly blocks: Uint8Array;
   /** How long the blocks play for, in milliseconds. */
   readonly lengthMs: number;
@@ -40,15 +40,15 @@ const MOST_SCORE_BLOCKS = LAST_BLOCK + 1;
 interface Placed {
   readonly tenths: number;
   readonly order: number;
-  readonly slot: Dx7Slot;
+  readonly slot: Slot;
 }
 
 /** Timed events for an instrument played by slots, gathered in any order. A part is a MIDI channel, 0 to 15; each plays the patch its last program change chose from the sound's bank. Every method returns the score, so calls chain. */
 export class SlotScore {
-  readonly instrument: SlotInstrument;
+  readonly instrument: Synth;
   readonly #placed: Placed[] = [];
 
-  constructor(instrument: SlotInstrument, events: readonly Dx7Event[]) {
+  constructor(instrument: Synth, events: readonly SlotEvent[]) {
     this.instrument = instrument;
     for (const event of events) {
       this.add(event);
@@ -64,20 +64,20 @@ export class SlotScore {
   }
 
   /** The events, in the order they were added. */
-  get events(): readonly Dx7Event[] {
-    return this.#placed.map(({ tenths, slot }) => ({ ms: tenths / DX7_TIMES_A_MS, status: slot.status, data1: slot.data1, data2: slot.data2 }));
+  get events(): readonly SlotEvent[] {
+    return this.#placed.map(({ tenths, slot }) => ({ ms: tenths / SLOT_TIMES_A_MS, status: slot.status, data1: slot.data1, data2: slot.data2 }));
   }
 
   /** Adds a message as its bytes: refused unless it is one the instrument's codec takes. */
-  add(event: Dx7Event): this {
+  add(event: SlotEvent): this {
     if (!Number.isFinite(event.ms) || event.ms < 0) {
       throw new RangeError(`${this.instrument}: an event's time is 0 ms or more, not ${event.ms}`);
     }
-    const tenths = Math.round(event.ms * DX7_TIMES_A_MS);
-    if (tenths >= MOST_SCORE_BLOCKS * DX7_BLOCK_TIMES) {
+    const tenths = Math.round(event.ms * SLOT_TIMES_A_MS);
+    if (tenths >= MOST_SCORE_BLOCKS * SLOT_BLOCK_TIMES) {
       throw new RangeError(`${this.instrument}: an event at ${event.ms} ms is past the ${MOST_SCORE_BLOCKS} blocks a score holds`);
     }
-    const slot = { time: tenths % DX7_BLOCK_TIMES, status: event.status, data1: event.data1, data2: event.data2 };
+    const slot = { time: tenths % SLOT_BLOCK_TIMES, status: event.status, data1: event.data1, data2: event.data2 };
     const whole = [event.status, event.data1, event.data2].every((byte) => Number.isInteger(byte) && byte >= 0);
     const fault = whole && event.status >= Midi.NoteOff ? instrumentSlotFault(slot, this.instrument) : "its bytes are a MIDI status byte and two data bytes";
     if (fault !== null) {
@@ -102,9 +102,9 @@ export class SlotScore {
     return this.noteOn(ms, part, key, velocity).noteOff(ms + lengthMs, part, key);
   }
 
-  /** A part changes to patch 0 to 31 of the sound's bank. On the Jupiter-8, part 0 chooses the upper patch and part 1 the lower. */
+  /** A part changes to patch 0 to 31 of the sound's bank. On the synth8, part 0 chooses the upper patch and part 1 the lower. */
   program(ms: number, part: number, patch: number): this {
-    return this.message(ms, Midi.ProgramChange, part, this.wholeIn("a patch", patch, DX7_MOST_PATCHES - 1), 0);
+    return this.message(ms, Midi.ProgramChange, part, this.wholeIn("a patch", patch, MOST_PATCHES - 1), 0);
   }
 
   /** A part's pitch wheel: 0 to 16,383, 8,192 at rest. */
@@ -134,28 +134,28 @@ export class SlotScore {
   }
 
   /** The score as blocks: each event in its block, a block's events in order of time (and, at one time, in the order they were added), with `tailMs` of empty blocks after the last event for its notes to die away in. Refused when a block would need more than 16 slots. */
-  build(tailMs = 0): Dx7ScoreBlocks {
+  build(tailMs = 0): SlotScoreBlocks {
     if (!Number.isFinite(tailMs) || tailMs < 0) {
       throw new RangeError(`${this.instrument}: a tail is 0 ms or more, not ${tailMs}`);
     }
     const byBlock = new Map<number, Placed[]>();
     for (const placed of this.#placed) {
-      const block = Math.floor(placed.tenths / DX7_BLOCK_TIMES);
+      const block = Math.floor(placed.tenths / SLOT_BLOCK_TIMES);
       byBlock.set(block, [...(byBlock.get(block) ?? []), placed]);
     }
     const slots = Math.max(1, ...Array.from(byBlock.values(), (events) => events.length));
-    if (slots > DX7_MOST_SLOTS) {
+    if (slots > MOST_SLOTS) {
       const [block = 0] = Array.from(byBlock.entries()).find(([, events]) => events.length === slots) ?? [];
       throw new RangeError(
-        `${this.instrument}: block ${block}, from ${block * INSTRUMENT_BLOCK_MS} ms, has ${slots} events: a block holds at most ${DX7_MOST_SLOTS}`,
+        `${this.instrument}: block ${block}, from ${block * INSTRUMENT_BLOCK_MS} ms, has ${slots} events: a block holds at most ${MOST_SLOTS}`,
       );
     }
     const count = Math.min(MOST_SCORE_BLOCKS, Math.max(0, ...byBlock.keys()) + 1 + Math.ceil(tailMs / INSTRUMENT_BLOCK_MS));
-    const blocks = new Uint8Array(count * slots * DX7_SLOT_BYTES);
+    const blocks = new Uint8Array(count * slots * SLOT_BYTES);
     for (const [block, events] of byBlock) {
       const ordered = events.toSorted((one, other) => one.tenths - other.tenths || one.order - other.order);
       for (const [index, { slot }] of ordered.entries()) {
-        blocks.set([slot.time, slot.status, slot.data1, slot.data2], (block * slots + index) * DX7_SLOT_BYTES);
+        blocks.set([slot.time, slot.status, slot.data1, slot.data2], (block * slots + index) * SLOT_BYTES);
       }
     }
     return { slots, blocks, lengthMs: count * INSTRUMENT_BLOCK_MS };
@@ -163,6 +163,6 @@ export class SlotScore {
 
   /** Adds a message of a kind to a part, 0 to 15. */
   protected message(ms: number, message: number, part: number, data1: number, data2: number): this {
-    return this.add({ ms, status: message | this.wholeIn("a part", part, DX7_PARTS - 1), data1, data2 });
+    return this.add({ ms, status: message | this.wholeIn("a part", part, MIDI_PARTS - 1), data1, data2 });
   }
 }

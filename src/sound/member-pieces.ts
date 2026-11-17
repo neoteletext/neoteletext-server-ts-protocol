@@ -4,11 +4,11 @@
 // held to their instrument's codec. A fault is a RangeError that names the
 // field, as the server would refuse it.
 
-import { type SlotInstrument, instrumentBlocksFault } from "./dx7-slot.ts";
-import type { Dx7Live } from "./instrument-members.ts";
-import { DX7_MOST_SLOTS, DX7_SLOT_BYTES } from "./instrument-profile.ts";
+import type { SynthLive } from "./instrument-members.ts";
+import { MOST_SLOTS, SLOT_BYTES, type Synth } from "./instrument-profile.ts";
 import { LAST_GENERATION, LAST_HANDLE } from "./profile.ts";
-import type { WireInstrumentSound } from "../wire/instrument-wire.ts";
+import { instrumentBlocksFault } from "./synth7-slot.ts";
+import type { WireSynthSound } from "../wire/instrument-wire.ts";
 
 export function wholeIn(name: string, value: number, least: number, most: number): number {
   if (!Number.isInteger(value) || value < least || value > most) {
@@ -44,8 +44,8 @@ export function listed<T extends string>(name: string, value: T, list: readonly 
 }
 
 /** A sound's blocks of slots as base64, once they are whole and every slot is one `instrument`'s codec takes. */
-export function slotBlocks(blocks: Uint8Array, slots: number, most: number, instrument: SlotInstrument = "dx7"): string {
-  const text = whole("blocks", blocks, DX7_SLOT_BYTES * slots, most, "blocks");
+export function slotBlocks(blocks: Uint8Array, slots: number, most: number, instrument: Synth): string {
+  const text = whole("blocks", blocks, SLOT_BYTES * slots, most, "blocks");
   const fault = instrumentBlocksFault(blocks, slots, instrument);
   if (fault !== null) {
     throw new RangeError(`sound: blocks: ${fault}`);
@@ -53,6 +53,6 @@ export function slotBlocks(blocks: Uint8Array, slots: number, most: number, inst
   return text;
 }
 
-export function dx7LiveFields(live: Dx7Live): Omit<Extract<WireInstrumentSound, { kind: "dx7_live" }>, "kind"> {
-  return { ...handleFields(live), slots: wholeIn("slots", live.slots, 1, DX7_MOST_SLOTS), bank: wholeIn("bank", live.bank, 0, LAST_HANDLE) };
+export function synthLiveFields(live: SynthLive): Omit<Extract<WireSynthSound, { kind: "synth7_live" }>, "kind"> {
+  return { ...handleFields(live), slots: wholeIn("slots", live.slots, 1, MOST_SLOTS), bank: wholeIn("bank", live.bank, 0, LAST_HANDLE) };
 }

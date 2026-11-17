@@ -34,10 +34,10 @@ export function isFor(connections: unknown, connection: number): boolean {
   return connections === "all" || (Array.isArray(connections) && connections.includes(connection));
 }
 
-/** The fields of a sound line that carry bytes, by kind: a SID sound's images, a DX7 sound's blocks, a bank's patches, Opus packets and samples. */
+/** The fields of a sound line that carry bytes, by kind: a synth6581 sound's images, a synth7 sound's blocks, a bank's patches, Opus packets and samples. */
 const BYTE_FIELDS = ["images", "blocks", "patches", "packets", "pcm"] as const;
 
-/** The bytes a sound line carries, as the program gave them: a `sid` line's images, a `dx7` line's blocks, a `dx7_bank` line's patches, an Opus line's packets or a line of samples' 16-bit little-endian PCM. A line that carries none, such as a command, fails the test that asked. */
+/** The bytes a sound line carries, as the program gave them: a `synth6581` line's images, a `synth7` line's blocks, a `synth7_bank` line's patches, an Opus line's packets or a line of samples' 16-bit little-endian PCM. A line that carries none, such as a command, fails the test that asked. */
 export function soundBytes(sent: Sent): Uint8Array {
   for (const field of BYTE_FIELDS) {
     const text = sent[field];

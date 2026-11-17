@@ -1,12 +1,12 @@
 // Every byte of an analogue synthesizer's patch held to the range of the
 // control it holds (DEC-6429), by the tables of synth-patch-tables.ts, as
 // the server's protocol/check/instrument/patch.rs at neoteletext-app-server
-// 2df311a holds it. A receiver plays its default patch in place of one its
+// e2f5e1b holds it. A receiver plays its default patch in place of one its
 // instrument's reader refuses, and says nothing, so a bank is checked here
 // where it is made, in the server's words, and again on the wire.
 
-import { SEVEN_BITS, SYNTHS, SYNTH_PATCH_BYTES, type Synth } from "./instrument-profile.ts";
-import { type Range, JUNO_FEET_BITS, JUNO_FEET_MASK, TABLES } from "./synth-patch-tables.ts";
+import { SEVEN_BITS, SYNTHS, SYNTH_FAMILY, SYNTH_PATCH_BYTES, type Synth } from "./instrument-profile.ts";
+import { type Range, SYNTH106_FEET_BITS, SYNTH106_FEET_MASK, TABLES } from "./synth-patch-tables.ts";
 
 /** The bytes a field takes. */
 function width(range: Range): number {
@@ -27,9 +27,9 @@ function fieldFault(bytes: Uint8Array, at: number, range: Range): string | null 
   if ("bits" in range) {
     return (low & ~range.bits) === 0 ? null : `is ${hex(low)}: no bit outside ${hex(range.bits)}`;
   }
-  if ("junoFeet" in range) {
-    const feet: readonly number[] = Object.values(JUNO_FEET_BITS);
-    return low <= SEVEN_BITS && feet.includes(low & JUNO_FEET_MASK)
+  if ("synth106Feet" in range) {
+    const feet: readonly number[] = Object.values(SYNTH106_FEET_BITS);
+    return low <= SEVEN_BITS && feet.includes(low & SYNTH106_FEET_MASK)
       ? null
       : `is ${hex(low)}: at most 0x7F, with exactly one of the range bits 0x01 (16'), 0x02 (8') and 0x04 (4')`;
   }
@@ -46,7 +46,13 @@ export function synthPatchFault(synth: Synth, patch: Uint8Array): string | null 
   if (patch.length !== SYNTH_PATCH_BYTES[synth]) {
     return `is ${patch.length} bytes, not a ${synth} patch's ${SYNTH_PATCH_BYTES[synth]}`;
   }
-  for (const [at, name, range] of TABLES[synth]) {
+  const family = SYNTH_FAMILY[synth];
+  if (family === "synth7") {
+    // A synth7's packed patch is its bulk dump's: every byte one a MIDI data byte can carry.
+    const high = patch.findIndex((byte) => byte > SEVEN_BITS);
+    return high === -1 ? null : `byte ${high} is ${patch[high]}: at most ${SEVEN_BITS}`;
+  }
+  for (const [at, name, range] of TABLES[family]) {
     const why = fieldFault(patch, at, range);
     if (why !== null) {
       return `byte ${at} (${name}) ${why}`;
@@ -69,7 +75,11 @@ export function synthBankFault(synth: Synth, patches: Uint8Array): string | null
 
 /** Each table covers its patch's bytes once, in order: checked when the module loads, as the server's const assertions and test check its own. */
 for (const synth of SYNTHS) {
-  const covered = TABLES[synth].flatMap(([at, , range]) => Array.from({ length: width(range) }, (_, offset) => at + offset));
+  const family = SYNTH_FAMILY[synth];
+  if (family === "synth7") {
+    continue;
+  }
+  const covered = TABLES[family].flatMap(([at, , range]) => Array.from({ length: width(range) }, (_, offset) => at + offset));
   if (covered.length !== SYNTH_PATCH_BYTES[synth] || covered.some((at, index) => at !== index)) {
     throw new RangeError(`${synth}: its patch table does not cover its ${SYNTH_PATCH_BYTES[synth]} bytes once`);
   }

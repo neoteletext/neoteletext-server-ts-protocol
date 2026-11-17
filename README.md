@@ -193,41 +193,47 @@ most 40 characters).
   ffmpeg in tests.
 - **Instruments:** a sound may be an instrument's own data, which the
   receiver plays on its emulation of the instrument (DEC-6410, REQ-6414).
-  The `sid`, `sidLive` and `sidBlocks` members carry images of the SID
-  chip's 25 registers, 1, 2 or 4 to a 20 ms block: `SidImage` sets the
-  registers by name, `sidFrequency` gives a pitch's frequency register on
-  the PAL or NTSC clock, `SidTrack` gathers an image a step, and `sidNote`
-  starts a note with the Commodore 64's hard restart, so that its attack
-  is not late by up to 33 ms (`src/sound/sid-note.ts` says why, and that
-  it costs the two frames before the note). The `dx7`, `dx7Live` and
-  `dx7Blocks` members carry timed MIDI messages for a Yamaha DX7, 1 to 16
-  to a block, and `dx7Bank` the bank of patches they play with:
-  `Dx7Score` places timed events in their blocks, `readMidiFile` reads a
-  Standard MIDI File as a score's events, `dx7BankFromSysex` reads the
-  instrument's 32-voice dump, `dx7Patches` chooses among its patches,
-  `packDx7Patch` packs one from its parameters (`dx7InitVoice` is a
-  start), and `Dx7ProgramRepeater` writes each part's program change into
+  The synthesizers carry NeoTeletext's own names (DEC-6461;
+  neoteletext-common's `docs/audio/synthesizers.md` says which instrument
+  each models), and each name is its own kind of member: no field names a
+  model or a chip.
+  The `synth6581`, `synth6581Live` and `synth6581Blocks` members, and the
+  same of `synth8580`, carry images of the instrument's 25 registers, 1, 2
+  or 4 to a 20 ms block: `Synth6581Image` sets the registers by name,
+  `synth6581Frequency` gives a pitch's frequency register on the PAL or
+  NTSC clock, `Synth6581Track` gathers an image a step and its
+  `sound("synth6581" | "synth8580", options)` makes the member, and
+  `synth6581Note` starts a note with a hard restart, so that its attack
+  is not late by up to 33 ms (`src/sound/synth6581-note.ts` says why, and that
+  it costs the two frames before the note). The `synth7`, `synth7Live` and
+  `synth7Blocks` members carry timed MIDI messages for a synth7, 1 to 16
+  to a block, and `synth7Bank` the bank of patches they play with:
+  `Synth7Score` places timed events in their blocks, `readMidiFile` reads a
+  Standard MIDI File as a score's events, `synth7BankFromSysex` reads the
+  instrument's 32-voice dump, `synth7Patches` chooses among its patches,
+  `packSynth7Patch` packs one from its parameters (`synth7InitVoice` is a
+  start), and `Synth7ProgramRepeater` writes each part's program change into
   a live sound's blocks again, so that a viewer who joins hears each part
   with its patch. The testing entry's `soundBytes` reads a sent sound's
   bytes back.
-- **Analogue synthesizers:** five more instruments play blocks of timed
-  MIDI messages as the DX7 does (DEC-6429): the Roland Juno-106 and
-  Juno-60, the Moog Minimoog, the Sequential Prophet-5, the Roland
-  Jupiter-8 and the Yamaha CS-80. Each has four members, `juno`,
-  `junoLive`, `junoBlocks` and `junoBank`, and the same for `minimoog`,
-  `prophet5`, `jupiter8` and `cs80`. A Juno sound names its `model`
-  (`"106"` or `"60"`), a Prophet-5 sound its revision (`"revision_3"` or
-  `"revisions_1_and_2"`), and a Jupiter-8 sound its `keyMode` (`"whole"`,
+- **Analogue synthesizers:** eight more names play blocks of timed
+  MIDI messages as the synth7 does (DEC-6429): `synth106` and `synth60`,
+  `synthd`, `synth53`, `synth52` and `synth51`, `synth8` and `synth80`.
+  Each has four members, `synth106`, `synth106Live`, `synth106Blocks` and
+  `synth106Bank`, and the same for every other name. A sound's bank may be
+  a bank of any name of its family (synth106 and synth60; synth53, synth52
+  and synth51). A synth8 sound names its `keyMode` (`"whole"`,
   `"dual"` or `"split"`) and `splitKey`; part 0's program changes choose
-  its upper patch and part 1's its lower. `SynthScore` is the DX7's score
+  its upper patch and part 1's its lower. `SynthScore` is the synth7's score
   held to a synthesizer's codec, with `keyPressure` and `channelPressure`
-  for the CS-80 and `portamentoTime`, `balance` and `portamento` for the
-  Jupiter-8; `readMidiFile(bytes, synth)` keeps what that synthesizer
+  for the synth80 and `portamentoTime`, `balance` and `portamento` for the
+  synth8; `readMidiFile(bytes, synth)` keeps what that synthesizer
   takes; `SynthProgramRepeater` repeats a live sound's program changes.
   A bank holds 1 to 32 patches in the instrument's own layout, which
-  `packJunoPatch`, `packMinimoogPatch`, `packProphet5Patch`,
-  `packJupiter8Patch` and `packCs80Patch` write from the panel's controls
-  by name, each held to its range (`junoInitPatch` and its fellows are a
+  `packSynth106Patch` and `packSynth60Patch`, `packSynthdPatch`,
+  `packSynth53Patch`, `packSynth52Patch` and `packSynth51Patch`,
+  `packSynth8Patch` and `packSynth80Patch` write from the panel's controls
+  by name, each held to its range (`synth106InitPatch` and its fellows are a
   start); `synthPatchFault` says, as the server does, why a patch's bytes
   are not one its instrument reads, since a receiver silently plays its
   default patch in place of such a one.

@@ -1,90 +1,78 @@
 // The instrument members as the protocol writes them (REQ-6414; the
-// server's REQ-6413; DEC-6429): bytes as base64, each member checked here
-// as the server checks it, the same bounds and the same rules for a slot
-// and for a patch, so a mistake is a RangeError where it is made rather
-// than a refusal in the server's log.
+// server's REQ-6413; DEC-6429; DEC-6461): bytes as base64, each member
+// checked here as the server checks it, the same bounds and the same rules
+// for a slot and for a patch, so a mistake is a RangeError where it is
+// made rather than a refusal in the server's log.
 
-import type { Dx7Bank, Dx7Blocks, Dx7Sound, InstrumentMember, SidBlocks, SidChip, SidClock, SidLive, SidSound } from "./instrument-members.ts";
+import type { InstrumentMember, RegisterMember, Synth6581Blocks, Synth6581Clock, Synth6581Live, Synth6581Sound } from "./instrument-members.ts";
 import {
-  DX7_MOST_PATCHES,
-  DX7_MOST_SLOTS,
-  DX7_PATCH_BYTES,
   type ImagesPerBlock,
   MOST_INSTRUMENT_BLOCKS,
   MOST_LIVE_INSTRUMENT_BLOCKS,
-  SEVEN_BITS,
-  SID_IMAGE_BYTES,
-  SID_IMAGES_PER_BLOCK,
+  REGISTER_SYNTHS,
+  type RegisterSynth,
+  SYNTH6581_IMAGE_BYTES,
+  SYNTH6581_IMAGES_PER_BLOCK,
 } from "./instrument-profile.ts";
-import { dx7LiveFields, handleFields, listed, slotBlocks, whole, wholeIn } from "./member-pieces.ts";
+import { handleFields, listed, whole, wholeIn } from "./member-pieces.ts";
 import { LAST_BLOCK } from "./profile.ts";
 import { SYNTH_KEYS, isSynthMember, synthFields } from "./synth-fields.ts";
-import type { WireInstrumentSound } from "../wire/instrument-wire.ts";
+import type { WireInstrumentSound, WireRegisterSound } from "../wire/instrument-wire.ts";
 
-const CHIPS: readonly string[] = ["6581", "8580"] satisfies readonly SidChip[];
-const CLOCKS: readonly string[] = ["pal", "ntsc"] satisfies readonly SidClock[];
+const CLOCKS: readonly string[] = ["pal", "ntsc"] satisfies readonly Synth6581Clock[];
 
 function imagesPerBlockOf(imagesPerBlock: ImagesPerBlock | undefined): ImagesPerBlock {
   const images = imagesPerBlock ?? 1;
-  if (!SID_IMAGES_PER_BLOCK.includes(images)) {
+  if (!SYNTH6581_IMAGES_PER_BLOCK.includes(images)) {
     throw new RangeError(`sound: images_per_block is 1, 2 or 4, not ${images}`);
   }
   return images;
 }
 
-function sidLiveFields(live: SidLive): Omit<Extract<WireInstrumentSound, { kind: "sid_live" }>, "kind"> {
-  return {
-    ...handleFields(live),
-    images_per_block: imagesPerBlockOf(live.imagesPerBlock),
-    chip: listed("chip", live.chip ?? "6581", CHIPS),
-    clock: listed("clock", live.clock ?? "pal", CLOCKS),
-  };
+function liveFields(live: Synth6581Live): Omit<Extract<WireRegisterSound, { kind: "synth6581_live" }>, "kind"> {
+  return { ...handleFields(live), images_per_block: imagesPerBlockOf(live.imagesPerBlock), clock: listed("clock", live.clock ?? "pal", CLOCKS) };
 }
 
-function sidFields(sid: SidSound): WireInstrumentSound {
-  const fields = sidLiveFields(sid);
-  return { kind: "sid", ...fields, images: whole("images", sid.images, SID_IMAGE_BYTES * fields.images_per_block, MOST_INSTRUMENT_BLOCKS, "blocks") };
+function storedFields(sound: Synth6581Sound): Omit<Extract<WireRegisterSound, { kind: "synth6581" }>, "kind"> {
+  const fields = liveFields(sound);
+  return { ...fields, images: whole("images", sound.images, SYNTH6581_IMAGE_BYTES * fields.images_per_block, MOST_INSTRUMENT_BLOCKS, "blocks") };
 }
 
-function sidBlocksFields(blocks: SidBlocks): WireInstrumentSound {
+function blocksFields(blocks: Synth6581Blocks): Omit<Extract<WireRegisterSound, { kind: "synth6581_blocks" }>, "kind"> {
   const imagesPerBlock = imagesPerBlockOf(blocks.imagesPerBlock);
   return {
-    kind: "sid_blocks",
     ...handleFields(blocks),
     images_per_block: imagesPerBlock,
     first: wholeIn("first", blocks.first, 0, LAST_BLOCK),
-    images: whole("images", blocks.images, SID_IMAGE_BYTES * imagesPerBlock, MOST_LIVE_INSTRUMENT_BLOCKS, "blocks"),
+    images: whole("images", blocks.images, SYNTH6581_IMAGE_BYTES * imagesPerBlock, MOST_LIVE_INSTRUMENT_BLOCKS, "blocks"),
   };
 }
 
-function dx7Fields(dx7: Dx7Sound): WireInstrumentSound {
-  const fields = dx7LiveFields(dx7);
-  return { kind: "dx7", ...fields, blocks: slotBlocks(dx7.blocks, fields.slots, MOST_INSTRUMENT_BLOCKS) };
-}
+/** Every member a synthesizer played by images of registers may be, each absent but the one a member is. */
+type AnyRegisterMember = { readonly [K in RegisterSynth]?: Synth6581Sound } & { readonly [K in `${RegisterSynth}Live`]?: Synth6581Live } & {
+  readonly [K in `${RegisterSynth}Blocks`]?: Synth6581Blocks;
+};
 
-function dx7BlocksFields(blocks: Dx7Blocks): WireInstrumentSound {
-  const slots = wholeIn("slots", blocks.slots, 1, DX7_MOST_SLOTS);
-  return {
-    kind: "dx7_blocks",
-    ...handleFields(blocks),
-    slots,
-    first: wholeIn("first", blocks.first, 0, LAST_BLOCK),
-    blocks: slotBlocks(blocks.blocks, slots, MOST_LIVE_INSTRUMENT_BLOCKS),
-  };
-}
-
-function dx7BankFields(bank: Dx7Bank): WireInstrumentSound {
-  const patches = whole("patches", bank.patches, DX7_PATCH_BYTES, DX7_MOST_PATCHES, "patches");
-  const at = bank.patches.findIndex((byte) => byte > SEVEN_BITS);
-  if (at !== -1) {
-    throw new RangeError(
-      `sound: patches: patch ${Math.floor(at / DX7_PATCH_BYTES)} byte ${at % DX7_PATCH_BYTES} is ${bank.patches[at]}: at most ${SEVEN_BITS}`,
-    );
+function registerFields(member: RegisterMember): WireRegisterSound {
+  const any: AnyRegisterMember = member;
+  for (const synth of REGISTER_SYNTHS) {
+    const sound = any[synth];
+    if (sound !== undefined) {
+      return { kind: synth, ...storedFields(sound) };
+    }
+    const live = any[`${synth}Live`];
+    if (live !== undefined) {
+      return { kind: `${synth}_live`, ...liveFields(live) };
+    }
+    const blocks = any[`${synth}Blocks`];
+    if (blocks !== undefined) {
+      return { kind: `${synth}_blocks`, ...blocksFields(blocks) };
+    }
   }
-  return { kind: "dx7_bank", ...handleFields(bank), patches };
+  throw new RangeError("sound: a member is one of an instrument's sounds");
 }
 
-const KEYS = ["sid", "sidLive", "sidBlocks", "dx7", "dx7Live", "dx7Blocks", "dx7Bank"] as const;
+const KEYS: readonly string[] = REGISTER_SYNTHS.flatMap((synth) => [synth, `${synth}Live`, `${synth}Blocks`]);
 
 /** Whether a member is an instrument's. */
 export function isInstrumentMember(member: object): member is InstrumentMember {
@@ -93,26 +81,5 @@ export function isInstrumentMember(member: object): member is InstrumentMember {
 
 /** The member as the protocol writes it, checked as the server checks it. */
 export function instrumentFields(member: InstrumentMember): WireInstrumentSound {
-  if (isSynthMember(member)) {
-    return synthFields(member);
-  }
-  if ("sid" in member) {
-    return sidFields(member.sid);
-  }
-  if ("sidLive" in member) {
-    return { kind: "sid_live", ...sidLiveFields(member.sidLive) };
-  }
-  if ("sidBlocks" in member) {
-    return sidBlocksFields(member.sidBlocks);
-  }
-  if ("dx7" in member) {
-    return dx7Fields(member.dx7);
-  }
-  if ("dx7Live" in member) {
-    return { kind: "dx7_live", ...dx7LiveFields(member.dx7Live) };
-  }
-  if ("dx7Blocks" in member) {
-    return dx7BlocksFields(member.dx7Blocks);
-  }
-  return dx7BankFields(member.dx7Bank);
+  return isSynthMember(member) ? synthFields(member) : registerFields(member);
 }

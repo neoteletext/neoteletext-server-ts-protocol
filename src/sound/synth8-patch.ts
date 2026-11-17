@@ -1,14 +1,14 @@
-// One Jupiter-8 patch packed from its panel by name (DEC-6429): the 43
-// bytes of the engine's jupiter8::Patch, one for each control in the order
+// One synth8 patch packed from its panel by name (DEC-6429): the 43
+// bytes of the engine's synth8::Patch, one for each control in the order
 // of Roland's Jupiter-8/System-8 Parameter Correspondence Table. A slider
 // is 0 to 255; a control that modulates is signed, -128 to 127, 0 none,
 // and written with 128 added; a switch or selector names its position.
-// A Jupiter-8 sound plays two patches, the upper and the lower, which its
+// A synth8 sound plays two patches, the upper and the lower, which its
 // bank holds side by side.
 
 import { SYNTH_PATCH_BYTES } from "./instrument-profile.ts";
 import { onOff, position, whole } from "./patch-field.ts";
-import { JUPITER8_VCO2_RANGE } from "./synth-patch-tables.ts";
+import { SYNTH8_VCO2_RANGE } from "./synth-patch-tables.ts";
 
 /** A slider's largest value, and what a signed control holds for none. */
 const SLIDER_MOST = 255;
@@ -16,8 +16,8 @@ const SIGNED_ZERO = 128;
 const SIGNED_LEAST = -SIGNED_ZERO;
 const SIGNED_MOST = SLIDER_MOST - SIGNED_ZERO;
 
-/** A Jupiter-8 patch: one half of the instrument's panel. */
-export interface Jupiter8Patch {
+/** A synth8 patch: one half of the instrument's panel. */
+export interface Synth8Patch {
   /** LFO: RATE and DELAY TIME, 0 to 255, and WAVEFORM. */
   readonly lfoRate: number;
   readonly lfoDelay: number;
@@ -81,46 +81,46 @@ export interface Jupiter8Patch {
 
 /** A slider's byte: 0 to 255. */
 function slider(name: string, value: number): number {
-  return whole("jupiter8", name, value, 0, SLIDER_MOST);
+  return whole("synth8", name, value, 0, SLIDER_MOST);
 }
 
 /** A signed control's byte: -128 to 127, with 128 added. */
 function signed(name: string, value: number): number {
-  return whole("jupiter8", name, value, SIGNED_LEAST, SIGNED_MOST) + SIGNED_ZERO;
+  return whole("synth8", name, value, SIGNED_LEAST, SIGNED_MOST) + SIGNED_ZERO;
 }
 
 /** A switch's byte: 1 on, 0 off. */
 function on(name: string, value: boolean): number {
-  return onOff("jupiter8", name, value) ? 1 : 0;
+  return onOff("synth8", name, value) ? 1 : 0;
 }
 
 /** Every field's byte, in the order of the bytes. */
-const FIELDS: readonly ((patch: Jupiter8Patch) => number)[] = [
+const FIELDS: readonly ((patch: Synth8Patch) => number)[] = [
   (patch) => slider("lfoRate", patch.lfoRate),
   (patch) => slider("lfoDelay", patch.lfoDelay),
-  (patch) => position("jupiter8", "lfoWaveform", patch.lfoWaveform, ["sine", "sawtooth", "square", "random"]),
+  (patch) => position("synth8", "lfoWaveform", patch.lfoWaveform, ["sine", "sawtooth", "square", "random"]),
   (patch) => signed("vcoLfoMod", patch.vcoLfoMod),
   (patch) => signed("vcoEnvMod", patch.vcoEnvMod),
   (patch) => on("vcoModulatorToVco1", patch.vcoModulatorToVco1),
   (patch) => on("vcoModulatorToVco2", patch.vcoModulatorToVco2),
   (patch) => slider("pulseWidthModulation", patch.pulseWidthModulation),
-  (patch) => position("jupiter8", "pwmSource", patch.pwmSource, ["lfo", "manual", "env-1"]),
+  (patch) => position("synth8", "pwmSource", patch.pwmSource, ["lfo", "manual", "env-1"]),
   (patch) => slider("vco1CrossMod", patch.vco1CrossMod),
-  (patch) => position("jupiter8", "vco1Range", patch.vco1Range, [16, 8, 4, 2]),
-  (patch) => position("jupiter8", "vco1Waveform", patch.vco1Waveform, ["triangle", "sawtooth", "pulse", "square"]),
+  (patch) => position("synth8", "vco1Range", patch.vco1Range, [16, 8, 4, 2]),
+  (patch) => position("synth8", "vco1Waveform", patch.vco1Waveform, ["triangle", "sawtooth", "pulse", "square"]),
   (patch) => on("vco2Sync", patch.vco2Sync),
   (patch) => on("vco2LowFrequency", patch.vco2LowFrequency),
-  (patch) => whole("jupiter8", "vco2Range", patch.vco2Range, 0, JUPITER8_VCO2_RANGE),
+  (patch) => whole("synth8", "vco2Range", patch.vco2Range, 0, SYNTH8_VCO2_RANGE),
   (patch) => signed("vco2FineTune", patch.vco2FineTune),
-  (patch) => position("jupiter8", "vco2Waveform", patch.vco2Waveform, ["sine", "sawtooth", "pulse", "noise"]),
+  (patch) => position("synth8", "vco2Waveform", patch.vco2Waveform, ["sine", "sawtooth", "pulse", "noise"]),
   (patch) => slider("mixVco1", patch.mixVco1),
   (patch) => slider("mixVco2", patch.mixVco2),
   (patch) => slider("hpfCutoff", patch.hpfCutoff),
   (patch) => slider("vcfCutoff", patch.vcfCutoff),
   (patch) => slider("vcfResonance", patch.vcfResonance),
-  (patch) => position("jupiter8", "vcfSlope", patch.vcfSlope, [24, 12]),
+  (patch) => position("synth8", "vcfSlope", patch.vcfSlope, [24, 12]),
   (patch) => signed("vcfEnvMod", patch.vcfEnvMod),
-  (patch) => position("jupiter8", "vcfEnvelope", patch.vcfEnvelope, [1, 2]),
+  (patch) => position("synth8", "vcfEnvelope", patch.vcfEnvelope, [1, 2]),
   (patch) => signed("vcfLfoMod", patch.vcfLfoMod),
   (patch) => signed("vcfKeyFollow", patch.vcfKeyFollow),
   (patch) => slider("vcaLevel", patch.vcaLevel),
@@ -129,24 +129,24 @@ const FIELDS: readonly ((patch: Jupiter8Patch) => number)[] = [
   (patch) => slider("env1Decay", patch.env1Decay),
   (patch) => slider("env1Sustain", patch.env1Sustain),
   (patch) => slider("env1Release", patch.env1Release),
-  (patch) => position("jupiter8", "env1Polarity", patch.env1Polarity, ["normal", "inverted"]),
+  (patch) => position("synth8", "env1Polarity", patch.env1Polarity, ["normal", "inverted"]),
   (patch) => slider("env2Attack", patch.env2Attack),
   (patch) => slider("env2Decay", patch.env2Decay),
   (patch) => slider("env2Sustain", patch.env2Sustain),
   (patch) => slider("env2Release", patch.env2Release),
-  (patch) => position("jupiter8", "assignMode", patch.assignMode, ["poly-1", "solo", "unison", "poly-2"]),
+  (patch) => position("synth8", "assignMode", patch.assignMode, ["poly-1", "solo", "unison", "poly-2"]),
   (patch) => on("env1KeyFollow", patch.env1KeyFollow),
   (patch) => on("env2KeyFollow", patch.env2KeyFollow),
   (patch) => on("benderToVco1", patch.benderToVco1),
   (patch) => on("benderToVco2", patch.benderToVco2),
 ];
 
-if (FIELDS.length !== SYNTH_PATCH_BYTES.jupiter8) {
-  throw new RangeError("jupiter8: a field for every byte");
+if (FIELDS.length !== SYNTH_PATCH_BYTES.synth8) {
+  throw new RangeError("synth8: a field for every byte");
 }
 
-/** The engine's jupiter8::Patch::DEFAULT, the owner's manual's basic tuning patch: VCO-1's sawtooth alone at 8' through an open filter, the amplifier's envelope at full sustain, no modulation. */
-export const jupiter8InitPatch: Jupiter8Patch = {
+/** The engine's synth8::Patch::DEFAULT, the owner's manual's basic tuning patch: VCO-1's sawtooth alone at 8' through an open filter, the amplifier's envelope at full sustain, no modulation. */
+export const synth8InitPatch: Synth8Patch = {
   lfoRate: 0,
   lfoDelay: 0,
   lfoWaveform: "sine",
@@ -193,6 +193,6 @@ export const jupiter8InitPatch: Jupiter8Patch = {
 };
 
 /** The patch's 43 bytes, every field checked: a RangeError names a field out of its range. */
-export function packJupiter8Patch(patch: Jupiter8Patch): Uint8Array {
+export function packSynth8Patch(patch: Synth8Patch): Uint8Array {
   return Uint8Array.from(FIELDS, (field) => field(patch));
 }

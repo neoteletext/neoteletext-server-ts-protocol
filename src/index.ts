@@ -89,79 +89,79 @@ export {
   INSTRUMENT_BLOCK_MS,
   MOST_INSTRUMENT_BLOCKS,
   MOST_LIVE_INSTRUMENT_BLOCKS,
-  SID_IMAGE_BYTES,
-  SID_IMAGES_PER_BLOCK,
-  DX7_SLOT_BYTES,
-  DX7_MOST_SLOTS,
-  DX7_PATCH_BYTES,
-  DX7_MOST_PATCHES,
+  SYNTH6581_IMAGE_BYTES,
+  SYNTH6581_IMAGES_PER_BLOCK,
+  SLOT_BYTES,
+  MOST_SLOTS,
+  SYNTH7_PATCH_BYTES,
+  MOST_PATCHES,
+  REGISTER_SYNTHS,
   SYNTHS,
+  SYNTH_FAMILY,
   SYNTH_PATCH_BYTES,
 } from "./sound/instrument-profile.ts";
-export type { ImagesPerBlock, Synth } from "./sound/instrument-profile.ts";
+export type { ImagesPerBlock, RegisterSynth, Synth, SynthFamily } from "./sound/instrument-profile.ts";
 export type {
-  SidChip,
-  SidClock,
-  SidSound,
-  SidLive,
-  SidBlocks,
-  Dx7Sound,
-  Dx7Live,
-  Dx7Blocks,
-  Dx7Bank,
-  SynthLive,
+  Synth6581Clock,
+  Synth6581Sound,
+  Synth6581Live,
+  Synth6581Blocks,
   SynthSound,
+  SynthLive,
   SynthBlocks,
   SynthBank,
-  JunoModel,
-  JunoLive,
-  JunoSound,
-  Prophet5Model,
-  Prophet5Live,
-  Prophet5Sound,
-  Jupiter8KeyMode,
-  Jupiter8Live,
-  Jupiter8Sound,
+  Synth8KeyMode,
+  Synth8Live,
+  Synth8Sound,
+  RegisterMember,
   SynthMember,
   InstrumentMember,
 } from "./sound/instrument-members.ts";
-export { SID_PAL_CLOCK_HZ, SID_NTSC_CLOCK_HZ, sidClockHz, sidFrequency } from "./sound/sid-clock.ts";
-export { SidImage } from "./sound/sid-image.ts";
-export type { SidControl, SidEnvelope, SidFilterMode, SidVoice } from "./sound/sid-image.ts";
-export { SidTrack } from "./sound/sid-track.ts";
-export type { SidSoundOptions } from "./sound/sid-track.ts";
-export { SID_HARD_RESTART_FRAMES, SID_HARD_RESTART_MS, sidGate, sidHardRestart, sidNote } from "./sound/sid-note.ts";
-export type { SidNote } from "./sound/sid-note.ts";
+export { SYNTH6581_PAL_CLOCK_HZ, SYNTH6581_NTSC_CLOCK_HZ, synth6581ClockHz, synth6581Frequency } from "./sound/synth6581-clock.ts";
+export { Synth6581Image } from "./sound/synth6581-image.ts";
+export type { Synth6581Control, Synth6581Envelope, Synth6581FilterMode, Synth6581Voice } from "./sound/synth6581-image.ts";
+export { Synth6581Track } from "./sound/synth6581-track.ts";
+export type { Synth6581SoundOptions } from "./sound/synth6581-track.ts";
+export { SYNTH6581_HARD_RESTART_FRAMES, SYNTH6581_HARD_RESTART_MS, synth6581Gate, synth6581HardRestart, synth6581Note } from "./sound/synth6581-note.ts";
+export type { Synth6581Note } from "./sound/synth6581-note.ts";
 export {
   Controller,
-  DX7_PARTS,
-  JUPITER8_PROGRAM_PARTS,
-  JunoController,
-  Jupiter8Controller,
+  MIDI_PARTS,
+  SYNTH8_PROGRAM_PARTS,
+  Synth106Controller,
+  Synth8Controller,
   Midi,
-  dx7SlotFault,
+  synth7SlotFault,
   instrumentSlotFault,
-} from "./sound/dx7-slot.ts";
-export type { Dx7Slot, SlotInstrument } from "./sound/dx7-slot.ts";
-export { Dx7Score } from "./sound/dx7-score.ts";
-export type { Dx7Event, Dx7ScoreBlocks } from "./sound/dx7-score.ts";
-export { DX7_SYSEX_BYTES, dx7BankFromSysex, dx7Patches } from "./sound/dx7-sysex.ts";
-export { dx7InitVoice, packDx7Patch } from "./sound/dx7-patch.ts";
-export type { Dx7Four, Dx7Operator, Dx7Patch } from "./sound/dx7-patch.ts";
-export { DX7_PROGRAM_REPEAT_BLOCKS, Dx7ProgramRepeater } from "./sound/dx7-live.ts";
+} from "./sound/synth7-slot.ts";
+export type { Slot } from "./sound/synth7-slot.ts";
+export { Synth7Score } from "./sound/synth7-score.ts";
+export type { SlotEvent, SlotScoreBlocks } from "./sound/synth7-score.ts";
+export { SYNTH7_SYSEX_BYTES, synth7BankFromSysex, synth7Patches } from "./sound/synth7-sysex.ts";
+export { synth7InitVoice, packSynth7Patch } from "./sound/synth7-patch.ts";
+export type { Synth7Four, Synth7Operator, Synth7Patch } from "./sound/synth7-patch.ts";
+export { PROGRAM_REPEAT_BLOCKS, Synth7ProgramRepeater } from "./sound/synth7-live.ts";
 export { SynthProgramRepeater } from "./sound/synth-live.ts";
 export { SynthScore } from "./sound/synth-score.ts";
 export { synthPatchFault } from "./sound/synth-patch-rules.ts";
-export { junoInitPatch, packJunoPatch } from "./sound/juno-patch.ts";
-export type { JunoPatch, JunoRange, JunoSlider } from "./sound/juno-patch.ts";
-export { minimoogInitPatch, packMinimoogPatch } from "./sound/minimoog-patch.ts";
-export type { MinimoogContour, MinimoogOscillator, MinimoogPatch, MinimoogRange, MinimoogTunedOscillator, MinimoogWaveform } from "./sound/minimoog-patch.ts";
-export { packProphet5Patch, prophet5Dial, prophet5InitPatch } from "./sound/prophet5-patch.ts";
-export type { Prophet5Knob, Prophet5Patch, Prophet5Switch } from "./sound/prophet5-patch.ts";
-export { jupiter8InitPatch, packJupiter8Patch } from "./sound/jupiter8-patch.ts";
-export type { Jupiter8Patch } from "./sound/jupiter8-patch.ts";
-export { cs80InitPatch, cs80InitTone, packCs80Patch } from "./sound/cs80-patch.ts";
-export type { Cs80Feet, Cs80GlobalLever, Cs80Lever, Cs80Patch, Cs80SubFunction, Cs80Tone } from "./sound/cs80-patch.ts";
+export { synth106InitPatch, synth60InitPatch, packSynth106Patch, packSynth60Patch } from "./sound/synth106-patch.ts";
+export type { Synth106Patch, Synth106Range, Synth106Slider, Synth60Patch } from "./sound/synth106-patch.ts";
+export { synthdInitPatch, packSynthdPatch } from "./sound/synthd-patch.ts";
+export type { SynthDContour, SynthDOscillator, SynthDPatch, SynthDRange, SynthDTunedOscillator, SynthDWaveform } from "./sound/synthd-patch.ts";
+export {
+  packSynth51Patch,
+  packSynth52Patch,
+  packSynth53Patch,
+  synth51InitPatch,
+  synth52InitPatch,
+  synth53Dial,
+  synth53InitPatch,
+} from "./sound/synth53-patch.ts";
+export type { Synth51Patch, Synth52Patch, Synth53Knob, Synth53Patch, Synth53Switch } from "./sound/synth53-patch.ts";
+export { synth8InitPatch, packSynth8Patch } from "./sound/synth8-patch.ts";
+export type { Synth8Patch } from "./sound/synth8-patch.ts";
+export { synth80InitPatch, synth80InitTone, packSynth80Patch } from "./sound/synth80-patch.ts";
+export type { Synth80Feet, Synth80GlobalLever, Synth80Lever, Synth80Patch, Synth80SubFunction, Synth80Tone } from "./sound/synth80-patch.ts";
 export { MOST_MIDI_EVENTS, MOST_MIDI_FILE_BYTES, readMidiFile } from "./sound/midi-file.ts";
 export type { MidiDropped, MidiFileScore } from "./sound/midi-file.ts";
 export type { EncodedOpus, OpusEncoder, OpusStream } from "./sound/opus-encoder.ts";

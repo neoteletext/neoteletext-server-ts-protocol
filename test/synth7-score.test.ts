@@ -1,4 +1,4 @@
-// The DX7 score and the live sound's repeated program changes (REQ-6414
+// The synth7 score and the live sound's repeated program changes (REQ-6414
 // items 2 and 5): each event in its block at its time, the fewest slots a
 // block, a seventeenth event in a block refused, and a part's program
 // change seen again within a second.
@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { DX7_PROGRAM_REPEAT_BLOCKS, Dx7ProgramRepeater, Dx7Score } from "../src/index.ts";
+import { PROGRAM_REPEAT_BLOCKS, Synth7ProgramRepeater, Synth7Score } from "../src/index.ts";
 
 /** The slots of `blocks`, four bytes each. */
 function slotsOf(blocks: Uint8Array): number[][] {
@@ -14,7 +14,7 @@ function slotsOf(blocks: Uint8Array): number[][] {
 }
 
 test("each event is in its 20 ms block at its tenth of a millisecond, a block's events in order of time", () => {
-  const score = new Dx7Score().noteOn(19.9, 0, 62, 90).noteOn(0, 0, 60, 100).program(0, 2, 31).note(45.5, 1, 64, 127, 10).noteOff(19.95, 15, 60);
+  const score = new Synth7Score().noteOn(19.9, 0, 62, 90).noteOn(0, 0, 60, 100).program(0, 2, 31).note(45.5, 1, 64, 127, 10).noteOff(19.95, 15, 60);
   const { slots, blocks, lengthMs } = score.build();
   assert.equal(slots, 3, "the busiest block has three events");
   assert.equal(lengthMs, 60);
@@ -33,11 +33,11 @@ test("each event is in its 20 ms block at its tenth of a millisecond, a block's 
     [0, 0, 0, 0],
   ]);
   assert.deepEqual(score.events[0], { ms: 19.9, status: 0x90, data1: 62, data2: 90 });
-  assert.deepEqual(slotsOf(new Dx7Score(score.events).build().blocks), slotsOf(blocks), "a score made of another's events is the same blocks");
+  assert.deepEqual(slotsOf(new Synth7Score(score.events).build().blocks), slotsOf(blocks), "a score made of another's events is the same blocks");
 });
 
 test("every kind of event is the MIDI message the codec takes", () => {
-  const score = new Dx7Score()
+  const score = new Synth7Score()
     .pitchBend(0, 3, 8192)
     .pitchBend(1, 3, 16_383)
     .modWheel(2, 4, 127)
@@ -59,7 +59,7 @@ test("every kind of event is the MIDI message the codec takes", () => {
 });
 
 test("a block holds at most 16 events: a seventeenth is refused, naming the block", () => {
-  const score = new Dx7Score();
+  const score = new Synth7Score();
   for (let key = 0; key < 16; key += 1) {
     score.noteOn(40 + key, 0, 60 + key, 100);
   }
@@ -69,31 +69,31 @@ test("a block holds at most 16 events: a seventeenth is refused, naming the bloc
 });
 
 test("a tail is empty blocks after the last event; a score of nothing is one empty block", () => {
-  const built = new Dx7Score().note(0, 0, 60, 100, 30).build(100);
+  const built = new Synth7Score().note(0, 0, 60, 100, 30).build(100);
   assert.equal(built.lengthMs, 140, "two blocks of events and five of tail");
   assert.equal(built.blocks.length, 7 * 4);
-  assert.deepEqual(new Dx7Score().build(), { slots: 1, blocks: new Uint8Array(4), lengthMs: 20 });
+  assert.deepEqual(new Synth7Score().build(), { slots: 1, blocks: new Uint8Array(4), lengthMs: 20 });
 });
 
 test("an event the codec would not take is refused where it is added", () => {
-  const score = new Dx7Score();
+  const score = new Synth7Score();
   for (const bad of [
-    (): Dx7Score => score.noteOn(0, 16, 60, 100),
-    (): Dx7Score => score.noteOn(0, 0, 128, 100),
-    (): Dx7Score => score.noteOn(0, 0, 60, 128),
-    (): Dx7Score => score.noteOn(-1, 0, 60, 100),
-    (): Dx7Score => score.noteOn(Number.NaN, 0, 60, 100),
-    (): Dx7Score => score.noteOn(65_536 * 20, 0, 60, 100),
-    (): Dx7Score => score.program(0, 0, 32),
-    (): Dx7Score => score.pitchBend(0, 0, 16_384),
-    (): Dx7Score => score.modWheel(0, 0, 128),
-    (): Dx7Score => score.volume(0, 0, -1),
-    (): Dx7Score => score.add({ ms: 0, status: 0xa0, data1: 60, data2: 1 }),
-    (): Dx7Score => score.add({ ms: 0, status: 0xb0, data1: 10, data2: 1 }),
-    (): Dx7Score => score.add({ ms: 0, status: 0x40, data1: 0, data2: 0 }),
-    (): Dx7Score => score.add({ ms: 0, status: 0, data1: 0, data2: 0 }),
-    (): Dx7Score => score.add({ ms: 0, status: 0x90, data1: 60.5, data2: 1 }),
-    (): Dx7Score => score.add({ ms: 0, status: 0x90, data1: 60, data2: -1 }),
+    (): Synth7Score => score.noteOn(0, 16, 60, 100),
+    (): Synth7Score => score.noteOn(0, 0, 128, 100),
+    (): Synth7Score => score.noteOn(0, 0, 60, 128),
+    (): Synth7Score => score.noteOn(-1, 0, 60, 100),
+    (): Synth7Score => score.noteOn(Number.NaN, 0, 60, 100),
+    (): Synth7Score => score.noteOn(65_536 * 20, 0, 60, 100),
+    (): Synth7Score => score.program(0, 0, 32),
+    (): Synth7Score => score.pitchBend(0, 0, 16_384),
+    (): Synth7Score => score.modWheel(0, 0, 128),
+    (): Synth7Score => score.volume(0, 0, -1),
+    (): Synth7Score => score.add({ ms: 0, status: 0xa0, data1: 60, data2: 1 }),
+    (): Synth7Score => score.add({ ms: 0, status: 0xb0, data1: 10, data2: 1 }),
+    (): Synth7Score => score.add({ ms: 0, status: 0x40, data1: 0, data2: 0 }),
+    (): Synth7Score => score.add({ ms: 0, status: 0, data1: 0, data2: 0 }),
+    (): Synth7Score => score.add({ ms: 0, status: 0x90, data1: 60.5, data2: 1 }),
+    (): Synth7Score => score.add({ ms: 0, status: 0x90, data1: 60, data2: -1 }),
     (): unknown => score.build(-1),
   ]) {
     assert.throws(bad, RangeError);
@@ -113,9 +113,9 @@ function blocksWith(blocks: Uint8Array, slots: number, slot: number[]): number[]
 }
 
 test("a live sound's program change is written again within a second, in a slot that was empty", () => {
-  assert.equal(DX7_PROGRAM_REPEAT_BLOCKS, 25, "half a second of 20 ms blocks");
-  const repeater = new Dx7ProgramRepeater(2);
-  const first = new Dx7Score().program(0, 3, 5).noteOn(0, 3, 60, 100).program(5, 9, 31).build();
+  assert.equal(PROGRAM_REPEAT_BLOCKS, 25, "half a second of 20 ms blocks");
+  const repeater = new Synth7ProgramRepeater(2);
+  const first = new Synth7Score().program(0, 3, 5).noteOn(0, 3, 60, 100).program(5, 9, 31).build();
   assert.equal(first.slots, 3);
   assert.throws(() => repeater.pass(first.blocks), RangeError, "blocks of another size");
   const start = Uint8Array.from([0, 0xc3, 5, 0, 0, 0x93, 60, 100]);
@@ -137,7 +137,7 @@ test("a live sound's program change is written again within a second, in a slot 
 });
 
 test("a repeated program change comes first in its block, waits for an empty slot, and follows the part's latest program", () => {
-  const repeater = new Dx7ProgramRepeater(1);
+  const repeater = new Synth7ProgramRepeater(1);
   repeater.pass(Uint8Array.from([0, 0xc0, 7, 0]));
   const full = new Uint8Array(40 * 4);
   for (let block = 0; block < 40; block += 1) {
@@ -145,11 +145,11 @@ test("a repeated program change comes first in its block, waits for an empty slo
   }
   assert.deepEqual(repeater.pass(full), full, "no slot is empty, so nothing is added and nothing is lost");
   assert.deepEqual(Array.from(repeater.pass(new Uint8Array(8))), [0, 0xc0, 7, 0, 0, 0, 0, 0], "the first empty slot takes it, and it is not sent twice");
-  const two = new Dx7ProgramRepeater(2);
+  const two = new Synth7ProgramRepeater(2);
   two.pass(Uint8Array.from([0, 0xc1, 1, 0, 0, 0xc1, 2, 0]));
   const later = new Uint8Array(25 * 8);
   later.set([120, 0x91, 60, 100], 24 * 8);
   assert.deepEqual(Array.from(two.pass(later).subarray(24 * 8)), [0, 0xc1, 2, 0, 120, 0x91, 60, 100]);
-  assert.throws(() => new Dx7ProgramRepeater(17), RangeError);
+  assert.throws(() => new Synth7ProgramRepeater(17), RangeError);
   assert.throws(() => two.pass(Uint8Array.from([200, 0x90, 60, 100, 0, 0, 0, 0])), /block 0 slot 0/u);
 });

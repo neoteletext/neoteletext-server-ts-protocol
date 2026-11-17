@@ -1,11 +1,11 @@
-// One CS-80 patch packed from its panel by name (DEC-6429): the 85 bytes
-// of the engine's cs80::Patch, channel I's tone, channel II's tone, then
-// the 33 controls that belong to neither (cs80/patch.rs has the table). A
+// One synth80 patch packed from its panel by name (DEC-6429): the 85 bytes
+// of the engine's synth80::Patch, channel I's tone, channel II's tone, then
+// the 33 controls that belong to neither (synth80/patch.rs has the table). A
 // lever is 0 to 127 from the end the panel marks low, slow, short or 0.
 
 import { SEVEN_BITS, SYNTH_PATCH_BYTES } from "./instrument-profile.ts";
 import { onOff, position, whole } from "./patch-field.ts";
-import { CS80_TONE_BYTES } from "./synth-patch-tables.ts";
+import { SYNTH80_TONE_BYTES } from "./synth-patch-tables.ts";
 
 /** A tone's levers, by the byte that holds each, in the memory panel's order (owner's manual, page 36); bytes 3 and 4 are the square and sawtooth switches. */
 const TONE_LEVERS = [
@@ -38,20 +38,20 @@ const SQUARE_BYTE = 3;
 const SAWTOOTH_BYTE = 4;
 
 /** A lever of a tone, 0 to 127: PWM SPEED, PWM, PW; NOISE; HPF and RESh, LPF and RESl; IL and AL; the filter's A, D and R; VCF LEVEL; SINE; the amplifier's A, D, S and R; LEVEL; and the touch response's INITIAL BRILLIANCE, INITIAL LEVEL, AFTER BRILLIANCE and AFTER LEVEL. */
-export type Cs80Lever = (typeof TONE_LEVERS)[number][0];
+export type Synth80Lever = (typeof TONE_LEVERS)[number][0];
 
 /** One row of the panel: what a tone selector button recalls. */
-export type Cs80Tone = { readonly [lever in Cs80Lever]: number } & {
+export type Synth80Tone = { readonly [lever in Synth80Lever]: number } & {
   /** The square and sawtooth waves' switches. */
   readonly square: boolean;
   readonly sawtooth: boolean;
 };
 
 /** A channel's pitch, as an organ's stops are named (owner's manual, page 8, item 5). */
-export type Cs80Feet = "16'" | "8'" | "5 1/3'" | "4'" | "2 2/3'" | "2'";
+export type Synth80Feet = "16'" | "8'" | "5 1/3'" | "4'" | "2 2/3'" | "2'";
 
 /** The sub oscillator's FUNCTION (owner's manual, page 9, item 11 A): "external" with nothing connected is its off. */
-export type Cs80SubFunction = "sine" | "sawtooth" | "inverted-sawtooth" | "square" | "noise" | "external";
+export type Synth80SubFunction = "sine" | "sawtooth" | "inverted-sawtooth" | "square" | "noise" | "external";
 
 /** The levers outside the tones, by the byte after the two tones that holds each. */
 const GLOBAL_LEVERS = [
@@ -83,17 +83,17 @@ const GLOBAL_LEVERS = [
 ] as const;
 
 /** A lever outside the tones, 0 to 127: DETUNE CH II and MIX; the overall BRILLIANCE and RESONANCE; KEYBOARD CONTROL's four; the SUB OSCILLATOR's SPEED, VCO, VCF and VCA; TOUCH RESPONSE's PITCHBEND, SPEED, VCO and VCF; the RING MODULATOR's five; SUSTAIN; PORTAMENTO/GLISSANDO; and TREMOLO/CHORUS SPEED and DEPTH. */
-export type Cs80GlobalLever = (typeof GLOBAL_LEVERS)[number][0];
+export type Synth80GlobalLever = (typeof GLOBAL_LEVERS)[number][0];
 
 /** The whole panel. */
-export type Cs80Patch = { readonly [lever in Cs80GlobalLever]: number } & {
+export type Synth80Patch = { readonly [lever in Synth80GlobalLever]: number } & {
   /** The tones of channel I and channel II. */
-  readonly tones: readonly [Cs80Tone, Cs80Tone];
+  readonly tones: readonly [Synth80Tone, Synth80Tone];
   /** FEET of channel I and of channel II. */
-  readonly feetI: Cs80Feet;
-  readonly feetII: Cs80Feet;
+  readonly feetI: Synth80Feet;
+  readonly feetII: Synth80Feet;
   /** SUB OSCILLATOR FUNCTION. */
-  readonly subFunction: Cs80SubFunction;
+  readonly subFunction: Synth80SubFunction;
   /** SUSTAIN I or II. */
   readonly sustainMode: "I" | "II";
   /** PORTAMENTO or GLISSANDO. */
@@ -104,15 +104,15 @@ export type Cs80Patch = { readonly [lever in Cs80GlobalLever]: number } & {
   readonly tremolo: boolean;
 };
 
-const FEET: readonly Cs80Feet[] = ["16'", "8'", "5 1/3'", "4'", "2 2/3'", "2'"];
-const SUB_FUNCTIONS: readonly Cs80SubFunction[] = ["sine", "sawtooth", "inverted-sawtooth", "square", "noise", "external"];
+const FEET: readonly Synth80Feet[] = ["16'", "8'", "5 1/3'", "4'", "2 2/3'", "2'"];
+const SUB_FUNCTIONS: readonly Synth80SubFunction[] = ["sine", "sawtooth", "inverted-sawtooth", "square", "noise", "external"];
 /** The bytes after the two tones of the selectors and switches. */
 const Global = { FeetI: 0, FeetII: 1, SubFunction: 10, SustainMode: 24, GlideMode: 26, EffectOn: 28, Chorus: 29, Tremolo: 30 } as const;
-/** A lever at rest in the middle of its travel (the engine's cs80::law::LEVER_CENTRE). */
+/** A lever at rest in the middle of its travel (the engine's synth80::law::LEVER_CENTRE). */
 const LEVER_CENTRE = 64;
 
-/** The engine's cs80::Tone::DEFAULT: a sawtooth through open filters, the amplifier's envelope a gate, no touch response. */
-export const cs80InitTone: Cs80Tone = {
+/** The engine's synth80::Tone::DEFAULT: a sawtooth through open filters, the amplifier's envelope a gate, no touch response. */
+export const synth80InitTone: Synth80Tone = {
   pwmSpeed: 0,
   pwm: 0,
   pulseWidth: 0,
@@ -141,8 +141,8 @@ export const cs80InitTone: Cs80Tone = {
   sawtooth: true,
 };
 
-/** The engine's cs80::Patch::DEFAULT: the panel at rest, both channels at 8', channel I alone, the levers that rest at their centre there. */
-export const cs80InitPatch: Cs80Patch = {
+/** The engine's synth80::Patch::DEFAULT: the panel at rest, both channels at 8', channel I alone, the levers that rest at their centre there. */
+export const synth80InitPatch: Synth80Patch = {
   detune: LEVER_CENTRE,
   mix: 0,
   brilliance: LEVER_CENTRE,
@@ -168,7 +168,7 @@ export const cs80InitPatch: Cs80Patch = {
   glideTime: 0,
   effectSpeed: 0,
   effectDepth: 0,
-  tones: [cs80InitTone, cs80InitTone],
+  tones: [synth80InitTone, synth80InitTone],
   feetI: "8'",
   feetII: "8'",
   subFunction: "sine",
@@ -179,33 +179,33 @@ export const cs80InitPatch: Cs80Patch = {
   tremolo: false,
 };
 
-function tone(bytes: Uint8Array, at: number, name: string, levers: Cs80Tone): void {
+function tone(bytes: Uint8Array, at: number, name: string, levers: Synth80Tone): void {
   for (const [lever, offset] of TONE_LEVERS) {
-    bytes[at + offset] = whole("cs80", `${name}.${lever}`, levers[lever], 0, SEVEN_BITS);
+    bytes[at + offset] = whole("synth80", `${name}.${lever}`, levers[lever], 0, SEVEN_BITS);
   }
-  bytes[at + SQUARE_BYTE] = onOff("cs80", `${name}.square`, levers.square) ? 1 : 0;
-  bytes[at + SAWTOOTH_BYTE] = onOff("cs80", `${name}.sawtooth`, levers.sawtooth) ? 1 : 0;
+  bytes[at + SQUARE_BYTE] = onOff("synth80", `${name}.square`, levers.square) ? 1 : 0;
+  bytes[at + SAWTOOTH_BYTE] = onOff("synth80", `${name}.sawtooth`, levers.sawtooth) ? 1 : 0;
 }
 
 /** The patch's 85 bytes, every field checked: a RangeError names a field out of its range. */
-export function packCs80Patch(patch: Cs80Patch): Uint8Array {
-  const bytes = new Uint8Array(SYNTH_PATCH_BYTES.cs80);
+export function packSynth80Patch(patch: Synth80Patch): Uint8Array {
+  const bytes = new Uint8Array(SYNTH_PATCH_BYTES.synth80);
   tone(bytes, 0, "tones[0]", patch.tones[0]);
-  tone(bytes, CS80_TONE_BYTES, "tones[1]", patch.tones[1]);
-  const globals = 2 * CS80_TONE_BYTES;
+  tone(bytes, SYNTH80_TONE_BYTES, "tones[1]", patch.tones[1]);
+  const globals = 2 * SYNTH80_TONE_BYTES;
   for (const [lever, offset] of GLOBAL_LEVERS) {
-    bytes[globals + offset] = whole("cs80", lever, patch[lever], 0, SEVEN_BITS);
+    bytes[globals + offset] = whole("synth80", lever, patch[lever], 0, SEVEN_BITS);
   }
   const set = (offset: number, value: number): void => {
     bytes[globals + offset] = value;
   };
-  set(Global.FeetI, position("cs80", "feetI", patch.feetI, FEET));
-  set(Global.FeetII, position("cs80", "feetII", patch.feetII, FEET));
-  set(Global.SubFunction, position("cs80", "subFunction", patch.subFunction, SUB_FUNCTIONS));
-  set(Global.SustainMode, position("cs80", "sustainMode", patch.sustainMode, ["I", "II"]));
-  set(Global.GlideMode, position("cs80", "glideMode", patch.glideMode, ["portamento", "glissando"]));
-  set(Global.EffectOn, onOff("cs80", "effectOn", patch.effectOn) ? 1 : 0);
-  set(Global.Chorus, onOff("cs80", "chorus", patch.chorus) ? 1 : 0);
-  set(Global.Tremolo, onOff("cs80", "tremolo", patch.tremolo) ? 1 : 0);
+  set(Global.FeetI, position("synth80", "feetI", patch.feetI, FEET));
+  set(Global.FeetII, position("synth80", "feetII", patch.feetII, FEET));
+  set(Global.SubFunction, position("synth80", "subFunction", patch.subFunction, SUB_FUNCTIONS));
+  set(Global.SustainMode, position("synth80", "sustainMode", patch.sustainMode, ["I", "II"]));
+  set(Global.GlideMode, position("synth80", "glideMode", patch.glideMode, ["portamento", "glissando"]));
+  set(Global.EffectOn, onOff("synth80", "effectOn", patch.effectOn) ? 1 : 0);
+  set(Global.Chorus, onOff("synth80", "chorus", patch.chorus) ? 1 : 0);
+  set(Global.Tremolo, onOff("synth80", "tremolo", patch.tremolo) ? 1 : 0);
   return bytes;
 }
