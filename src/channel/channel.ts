@@ -19,6 +19,7 @@ import { descriptionMessage } from "./description.ts";
 import { makeHost } from "./host.ts";
 import { CurrentCall } from "./current-call.ts";
 import { Measures } from "./measures.ts";
+import { Tabs } from "./tabs.ts";
 import { type PageCalls, tellLeft, tellOpened, tellRequest, tellRequestEnded } from "./page-calls.ts";
 import { type PageRequest, cookiesByName, pageRequest } from "./request.ts";
 import { Sender } from "./sender.ts";
@@ -52,6 +53,7 @@ export class Channel implements ServerEvents {
   readonly #clock: Clock;
   readonly #errors: (text: string) => void;
   readonly #sessions = new Set<number>();
+  readonly #tabs = new Tabs();
   readonly #connections = new Connections();
   readonly #copies = new Copies();
   readonly #sender: Sender;
@@ -134,6 +136,7 @@ export class Channel implements ServerEvents {
     this.#measures.forgetAll();
     this.#connections.clear();
     this.#navigation.clear();
+    this.#tabs.clear();
     this.#applications.endEvery(this.#sessions, this.#copies, this.#host, this.#clock.now());
     this.#each((application, context) => {
       application.start(context);
@@ -149,9 +152,10 @@ export class Channel implements ServerEvents {
     path: string | null = null,
     query: string | null = null,
   ): void {
+    this.#tabs.add(session, connection);
     // Added first: what `joined` sends goes to the connections open.
-    const state = this.#connections.add(connection, session, request, cookiesByName(cookies));
-    this.#applications.know(this.#sessions, session, this.#host, this.#clock.now());
+    const state = this.#connections.add(connection, connection, request, cookiesByName(cookies));
+    this.#applications.know(this.#sessions, connection, this.#host, this.#clock.now());
     const asked = selection !== null && this.#entries.has(selection.page) ? selection : null;
     const page = asked?.page ?? this.#applications.initialPage();
     this.#answering(connection, () => {
@@ -232,16 +236,14 @@ export class Channel implements ServerEvents {
   }
 
   closed(session: number): void {
-    for (const connection of this.#connections.forgetSession(session)) {
-      this.#navigation.forget(connection);
+    for (const tab of this.#tabs.take(session)) {
+      this.#connections.forgetSession(tab);
+      this.#navigation.forget(tab);
+      if (this.#sessions.delete(tab)) {
+        this.#copies.forget(tab);
+        this.#each((application, context) => application.ended?.(tab, context));
+      }
     }
-    if (!this.#sessions.delete(session)) {
-      return;
-    }
-    this.#copies.forget(session);
-    this.#each((application, context) => {
-      application.ended?.(session, context);
-    });
   }
 
   /** The server's figures came: every application may show them. */
