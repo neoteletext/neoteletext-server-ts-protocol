@@ -132,7 +132,16 @@ export { SidTrack } from "./sound/sid-track.ts";
 export type { SidSoundOptions } from "./sound/sid-track.ts";
 export { SID_HARD_RESTART_FRAMES, SID_HARD_RESTART_MS, sidGate, sidHardRestart, sidNote } from "./sound/sid-note.ts";
 export type { SidNote } from "./sound/sid-note.ts";
-export { Controller, DX7_PARTS, JUPITER8_PROGRAM_PARTS, Jupiter8Controller, Midi, dx7SlotFault, instrumentSlotFault } from "./sound/dx7-slot.ts";
+export {
+  Controller,
+  DX7_PARTS,
+  JUPITER8_PROGRAM_PARTS,
+  JunoController,
+  Jupiter8Controller,
+  Midi,
+  dx7SlotFault,
+  instrumentSlotFault,
+} from "./sound/dx7-slot.ts";
 export type { Dx7Slot, SlotInstrument } from "./sound/dx7-slot.ts";
 export { Dx7Score } from "./sound/dx7-score.ts";
 export type { Dx7Event, Dx7ScoreBlocks } from "./sound/dx7-score.ts";

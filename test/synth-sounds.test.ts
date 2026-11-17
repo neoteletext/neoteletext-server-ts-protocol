@@ -15,7 +15,9 @@ import {
   type SoundMember,
   type Synth,
   type SynthBlocks,
+  JunoController,
   checkProgram,
+  instrumentSlotFault,
   junoInitPatch,
   jupiter8InitPatch,
   packJunoPatch,
@@ -87,6 +89,17 @@ test("each synthesizer's members are written as the server reads them, with its 
   }
 });
 
+test("the Juno alone takes MIDI's four mode messages after all notes off, with a value of 0 to 127", () => {
+  for (const controller of Object.values(JunoController)) {
+    for (const synth of SYNTHS) {
+      const fault = instrumentSlotFault({ time: 0, status: 0xb0, data1: controller, data2: 0 }, synth);
+      assert.equal(fault === null, synth === "juno", `${synth} ${controller}: ${fault}`);
+    }
+    assert.equal(instrumentSlotFault({ time: 0, status: 0xb0, data1: controller, data2: 128 }, "juno"), "a controller's value is 0 to 127");
+    assert.notEqual(instrumentSlotFault({ time: 0, status: 0xb0, data1: controller, data2: 0 }, "dx7"), null);
+  }
+});
+
 test("a synthesizer member out of the server's bounds is a RangeError where it is made", () => {
   const sound = { handle: 1, generation: 0, slots: 1, bank: 0, blocks: SLOTS.subarray(0, 4) };
   const cases: readonly (readonly [SoundMember, string])[] = [
@@ -111,6 +124,14 @@ test("a synthesizer member out of the server's bounds is a RangeError where it i
     [
       { jupiter8: { ...sound, blocks: Uint8Array.from([0, 0xc5, 1, 0]) } },
       "sound: blocks: block 0 slot 0: a Jupiter-8's program change is on MIDI channel 1, the upper patch, or 2, the lower",
+    ],
+    [
+      { junoBlocks: { ...sound, first: 0, blocks: Uint8Array.from([0, 0xb0, 122, 0]) } },
+      "sound: blocks: block 0 slot 0: a Juno's control change is of one of the controllers 1, 7, 64, 120, 121, 123, 124, 125, 126, 127",
+    ],
+    [
+      { minimoog: { ...sound, blocks: Uint8Array.from([0, 0xb0, 124, 0]) } },
+      "sound: blocks: block 0 slot 0: a control change is of one of the controllers 1, 7, 64, 120, 121, 123",
     ],
     [bankMember("juno", new Uint8Array(17)), "sound: patches are whole patches of 18 bytes, not 17 bytes"],
     [bankMember("cs80", new Uint8Array(85 * 33)), "sound: patches are at most 32 patches, not 33"],

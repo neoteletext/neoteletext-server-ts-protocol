@@ -52,6 +52,18 @@ const JUPITER8_CONTROLLERS: readonly number[] = Object.values(Jupiter8Controller
 /** Every controller the Jupiter-8's codec takes, in order. */
 const JUPITER8_ALL_CONTROLLERS: readonly number[] = [...CONTROLLERS, ...JUPITER8_CONTROLLERS].toSorted((one, other) => one - other);
 
+/** The controllers the Juno's codec takes beyond {@link Controller}: MIDI's omni off, omni on, mono on and poly on, each of which is to a Juno-106 an all notes off (Roland's Juno-106 owner's manual, MIDI Implementation 2.1; the engine's receiver, analogue.rs). */
+export const JunoController = {
+  OmniOff: 124,
+  OmniOn: 125,
+  MonoOn: 126,
+  PolyOn: 127,
+} as const;
+
+const JUNO_CONTROLLERS: readonly number[] = Object.values(JunoController);
+/** Every controller the Juno's codec takes, in order. */
+const JUNO_ALL_CONTROLLERS: readonly number[] = [...CONTROLLERS, ...JUNO_CONTROLLERS].toSorted((one, other) => one - other);
+
 /** The parts whose program changes the Jupiter-8 takes: part 0 chooses its upper patch and part 1 its lower. */
 export const JUPITER8_PROGRAM_PARTS = 2;
 
@@ -139,6 +151,17 @@ function jupiter8Fault(slot: Dx7Slot): string | null | undefined {
   return undefined;
 }
 
+/** The Juno's own rules: four more controllers; undefined for what is the DX7's to judge. */
+function junoFault(slot: Dx7Slot): string | null | undefined {
+  if (messageOf(slot.status) !== Midi.ControlChange) {
+    return undefined;
+  }
+  if (JUNO_CONTROLLERS.includes(slot.data1)) {
+    return slot.data2 <= SEVEN_BITS ? null : "a controller's value is 0 to 127";
+  }
+  return CONTROLLERS.includes(slot.data1) ? undefined : `a Juno's control change is of one of the controllers ${JUNO_ALL_CONTROLLERS.join(", ")}`;
+}
+
 /** Why a message is not one `instrument`'s codec takes; null when it takes it. */
 function instrumentMessageFault(slot: Dx7Slot, instrument: SlotInstrument): string | null {
   let own: string | null | undefined = undefined;
@@ -146,11 +169,13 @@ function instrumentMessageFault(slot: Dx7Slot, instrument: SlotInstrument): stri
     own = cs80Fault(slot);
   } else if (instrument === "jupiter8") {
     own = jupiter8Fault(slot);
+  } else if (instrument === "juno") {
+    own = junoFault(slot);
   }
   return own === undefined ? messageFault(slot) : own;
 }
 
-/** Why a slot is not one `instrument`'s codec takes, in the server's words; null for an empty slot or a message it takes. Every codec takes the DX7's messages; the CS-80's also key and channel pressure, and the Jupiter-8's also {@link Jupiter8Controller}, with program changes on parts 0 and 1 only. */
+/** Why a slot is not one `instrument`'s codec takes, in the server's words; null for an empty slot or a message it takes. Every codec takes the DX7's messages; the CS-80's also key and channel pressure, the Juno's also {@link JunoController}, and the Jupiter-8's also {@link Jupiter8Controller}, with program changes on parts 0 and 1 only. */
 export function instrumentSlotFault(slot: Dx7Slot, instrument: SlotInstrument): string | null {
   if (isEmpty(slot)) {
     return null;
