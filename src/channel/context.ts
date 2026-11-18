@@ -14,13 +14,13 @@ import { Screen } from "../page/screen.ts";
 import type { Subpage } from "../page/subpage.ts";
 import type { App } from "../wire/app.ts";
 import type { Timeline } from "../animation/timeline.ts";
-import type { SubpageBody } from "../page/subpage.ts";
 import type {
   AnimationOp,
   AuthorLevel,
   FrameMarkName,
   LocalMidiEvent,
   NaplpsObject,
+  ObjectPageContent,
   ProgramMessageVariable,
   RuleName,
   RuleTable,
@@ -47,6 +47,9 @@ export interface DrawingLink {
 
 /** A `variable` command as a program gives it (page-rules.md RULE-114): the message's `op`, `variable` and operand, without what the call fills. */
 export type VariableCommand = Omit<ProgramMessageVariable, "type" | "connections" | "page" | "sub">;
+
+/** An object page's sub-page as a program gives it (animation.md ANIM-17): the schema's `ObjectPageContent`, its page a number as every call's is. */
+export type ObjectPage = Omit<ObjectPageContent, "page"> & { readonly page: number };
 
 /** What a context reaches of its channel. */
 export interface Host {
@@ -84,7 +87,7 @@ export interface Host {
   sprites(to: Audience, page: number, sub: number, sprites: readonly Sprite[]): void;
   naplpsObjects(to: Audience, page: number, sub: number, objects: readonly NaplpsObject[]): void;
   spriteSheet(to: Audience, page: number, sub: number, kind: SheetKindName, data: string | Uint8Array, restart: boolean): void;
-  objectPage(to: Audience, page: number, sub: number, objectPage: number, objectSub: number, object: SubpageBody): void;
+  objectPage(to: Audience, page: number, sub: number, object: ObjectPage): void;
   playTimeline(to: Audience, page: number, sub: number, timeline: Timeline, id: number | null): number;
   stopTimeline(to: Audience, page: number, sub: number, id: number): void;
   connection(): number | null;
@@ -395,15 +398,16 @@ export class Context {
   }
 
   /**
-   * A teletext object page whose objects the sprites of sub-page `sub` of
-   * `page` show (ANIM-17): a Public or Global Public Object Page (EN 300 706
-   * clause 10.5), numbered `objectPage` and `objectSub`, drawn on a screen
-   * or given as content, as a published sub-page is. It is no selection's
-   * answer and the server keeps none of it: send it at each selection,
-   * before the page.
+   * One sub-page of a teletext object page whose objects the sprites of
+   * sub-page `sub` of `page` show (ANIM-17): a Public or Global Public
+   * Object Page (EN 300 706 clause 10.5.1), given by the objects it defines,
+   * each its kind, index and triplets. The server writes the pointer table,
+   * each object's Object Definition triplet and Termination Marker, and the
+   * packets. It is no selection's answer and the server keeps none of it:
+   * send it at each selection, before the page.
    */
-  objectPage(to: Audience, page: number, sub: number, objectPage: number, objectSub: number, object: SubpageBody): void {
-    this.#host.objectPage(to, page, sub, objectPage, objectSub, object);
+  objectPage(to: Audience, page: number, sub: number, object: ObjectPage): void {
+    this.#host.objectPage(to, page, sub, object);
   }
 
   /**

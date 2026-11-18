@@ -11,7 +11,6 @@ import type { Sender } from "./sender.ts";
 import { textBytes } from "./text-bytes.ts";
 import { subText } from "./wire-page.ts";
 import { pageText } from "../page/page-numbers.ts";
-import { contentOf } from "../page/subpage.ts";
 
 /** What a context reaches of rules and animation. */
 export type AnimationHost = Pick<
@@ -48,8 +47,9 @@ export function animationCalls(sender: Sender): AnimationHost {
       const bytes = textBytes("spriteSheet", data);
       sender.toAudience(to, (named) => ({ type: "sprite_sheet", connections: named, page: pageText(page), sub: subText(sub), kind, data: bytes, restart }));
     },
-    objectPage: (to, page, sub, objectPage, objectSub, object): void => {
-      const encoded = { page: pageText(objectPage), sub: subText(objectSub), ...contentOf(object) };
+    objectPage: (to, page, sub, object): void => {
+      // The schema's order, so that both kits write one line (DEC-6462).
+      const encoded = { page: pageText(object.page), s1: object.s1, global: object.global, last: object.last, objects: object.objects };
       sender.toAudience(to, (named) => ({ type: "object_page", connections: named, page: pageText(page), sub: subText(sub), object: encoded }));
     },
     playTimeline: (to, page, sub, timeline, given): number => {

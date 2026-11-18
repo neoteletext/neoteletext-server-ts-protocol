@@ -31,10 +31,6 @@ function sending(send: (context: Context) => void): Harness {
   return harness;
 }
 
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 /** The lines the channel wrote since it joined, but the pages', each as its text. */
 function lines(harness: Harness): string[] {
   return harness.sent.filter((line) => !["reply", "page", "index", "subpages"].includes(String(line["type"]))).map((line) => JSON.stringify(line));
@@ -151,20 +147,27 @@ test("ANIM-19, DEC-6650: spriteSheet refuses a character above 255, naming its p
   assert.match(error.message, /^spriteSheet: .*U\+0100/u);
 });
 
-test("ANIM-17: objectPage writes the object page as a published sub-page is written, for the page whose sprites use it", () => {
+test("ANIM-17: objectPage writes the object page's sub-page by its objects, for the page whose sprites use it", () => {
+  const objects = [
+    { kind: "passive", index: 0, triplets: [{ address: 40, mode: 4, data: 0 }] },
+    { kind: "active", index: 31, triplets: [] },
+  ] as const;
   const harness = sending((context) => {
-    context.objectPage(EVERYONE, SPRITES_PAGE, SUB, 0x1a0, 0x0001, { screen: new Screen() });
+    context.objectPage(EVERYONE, SPRITES_PAGE, SUB, { page: 0x1c0, s1: 2, global: false, last: true, objects });
   });
   harness.typeText(1, "x");
   const line = harness.sent.find((message) => message["type"] === "object_page");
-  assert.ok(line !== undefined);
-  const { object, ...rest } = line;
-  assert.deepEqual(rest, { type: "object_page", connections: "all", page: "160", sub: "0001" });
-  // The blank page the channel published answered the selection: the object page is its content under its own number.
-  const selected: unknown = harness.sent.find((message) => message["type"] === "reply")?.["selected"];
-  assert.ok(isRecord(selected));
-  const { page: _page, sub: _sub, ...content } = selected;
-  assert.deepEqual(object, { page: "1A0", sub: "0001", ...content });
+  assert.equal(
+    JSON.stringify(line),
+    JSON.stringify({
+      type: "object_page",
+      connections: "all",
+      page: "160",
+      sub: "0001",
+      object: { page: "1C0", s1: 2, global: false, last: true, objects },
+    }),
+    "every field, in the schema's order",
+  );
   assert.deepEqual(harness.errors, []);
 });
 

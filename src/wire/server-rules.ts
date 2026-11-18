@@ -199,8 +199,9 @@ function bytesMessageFault(message: Extract<ProgramMessage, { type: "packets" | 
  * requests, which have none beyond the schema. A rule table, a state query,
  * the commands sent directly and every animation message: the server
  * checks them and its refusal reports the fault (page-rules.md RULE-55,
- * RULE-114; animation.md ANIM-19; DEC-6462). An object page is a page, and
- * is held to a page's rules below.
+ * RULE-114; animation.md ANIM-17, ANIM-19; DEC-6462). An object page is
+ * its objects' triplets, whose every rule beyond the schema's bounds is the
+ * server's (`invalid_object_page`).
  */
 const SCHEMA_ALONE = [
   "sound",
@@ -213,6 +214,7 @@ const SCHEMA_ALONE = [
   "animate",
   "sprites",
   "naplps_objects",
+  "object_page",
   "sprite_sheet",
   "timeline",
   "timeline_stop",
@@ -229,11 +231,8 @@ function isSchemaAlone(message: ProgramMessage): message is SchemaAlone {
   return SCHEMA_ALONE.some((type) => type === message.type);
 }
 
-/** A page's fault, of a message that carries one to be shown: a published sub-page, a page measured, or an object page (animation.md ANIM-17), which the server checks as it checks a published one (its check_page). */
-function shownPageFault(message: Extract<ProgramMessage, { readonly type: "page" | "measure" | "object_page" }>, limits: Limits): Fault | null {
-  if (message.type === "object_page") {
-    return pageFault("object", message.object, limits);
-  }
+/** A page's fault, of a message that carries one to be shown: a published sub-page or a page measured. */
+function shownPageFault(message: Extract<ProgramMessage, { readonly type: "page" | "measure" }>, limits: Limits): Fault | null {
   return (message.type === "page" ? answerFault(message.connections, message.request) : null) ?? pageFault("page", message.page, limits);
 }
 
@@ -249,8 +248,7 @@ export function checkRules(message: Exclude<ProgramMessage, PictureMessage>, lim
       break;
     }
     case "page":
-    case "measure":
-    case "object_page": {
+    case "measure": {
       fault = shownPageFault(message, limits);
       break;
     }

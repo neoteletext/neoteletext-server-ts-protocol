@@ -171,8 +171,10 @@ frames by a rule's group, at once and in the browser, or by the program:
   (`NaplpsObject`), `context.spriteSheet(to, page, sub, kind, data, restart?)`
   the drawings a sub-page's objects use, text a byte a character (a
   character above 255 throws `TextNotWritableError`, as `regis` does), and
-  `context.objectPage(to, page, sub, objectPage, objectSub, object)` a
-  teletext object page its sprites show.
+  `context.objectPage(to, page, sub, object)` one sub-page of a teletext
+  object page its sprites show, by the objects it defines (`ObjectPage`:
+  `page`, `s1`, `global`, `last` and `objects`, each a kind, an index and
+  its triplets), whose pointer table and packets the server writes.
 - `context.playTimeline(to, page, sub, timeline, id?)` has **the server**
   play a `Timeline` on its own clock, and answers the timeline's `id` for
   `context.stopTimeline(to, page, sub, id)`. The kit holds no scheduler:

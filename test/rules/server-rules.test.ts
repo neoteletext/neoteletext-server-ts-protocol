@@ -167,6 +167,7 @@ test("RULE-39, ANIM-21: every refusal protocol 15 adds is one the server may sen
     "invalid_sheet",
     "sheet_too_large",
     "too_many_timelines",
+    "invalid_object_page",
   ];
   for (const rule of added) {
     assert.equal(checkServer({ type: "refused", message: "rules", path: "table.rules[0]", rule, detail: "d", request: null, sound: null }), null, rule);
@@ -198,6 +199,21 @@ test("ANIM-17, ANIM-21: the animation messages are held to the schema's bounds, 
   expectAccepted({ type: "timeline", ...at, id: 1, steps: [{ tick: 30, ops: [show] }, step] });
   expectAccepted({ type: "timeline_stop", ...at, id: 1 });
   expectRefused({ type: "timeline_stop", connections: "all", page: "150", id: 1 }, "", "missing_field");
-  // An object page is held to a published sub-page's rules: a page's 3F7F is no object page's.
+  // An object page is its objects' triplets, held to the schema's bounds; an object defined twice is the server's to refuse.
+  const object = { page: "1C0", s1: 0, global: false, last: true };
+  const triplet = { address: 40, mode: 4, data: 0 };
+  expectAccepted({ type: "object_page", ...at, object: { ...object, objects: [{ kind: "passive", index: 0, triplets: [triplet] }] } });
+  expectAccepted({ type: "object_page", ...at, object: { ...object, objects: [0, 0].map(() => ({ kind: "passive", index: 0, triplets: [] })) } });
   expectRefused({ type: "object_page", ...at, object: { page: "1FE", sub: "0000" } }, "object", "missing_field");
+  expectRefused({ type: "object_page", ...at, object: { ...object, s1: 16, objects: [] } }, "object.s1", "out_of_range");
+  expectRefused(
+    { type: "object_page", ...at, object: { ...object, objects: [{ kind: "passive", index: 32, triplets: [] }] } },
+    "object.objects[0].index",
+    "out_of_range",
+  );
+  expectRefused(
+    { type: "object_page", ...at, object: { ...object, objects: [{ kind: "passive", index: 0, triplets: [{ ...triplet, data: 128 }] }] } },
+    "object.objects[0].triplets[0].data",
+    "out_of_range",
+  );
 });
