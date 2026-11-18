@@ -262,6 +262,9 @@ test("a selection's number names one connection; a page names its language or it
   expectRefused(description({ text: null }), "text", "missing_field");
   expectRefused(description({ content: { ...PAGE, page: "101" } }), "content.page", "wrong_page");
   expectRefused({ type: "redirect", connection: 1, request: 1, address: "https://example.com", query: "a=1" }, "query", "unknown_field");
+  // SRV-3: a sound's every kind is closed in the server's schema, as its reader is.
+  expectAccepted({ type: "sound", connections: [1], kind: "stop", channel: 0, fade_ms: 0 });
+  expectRefused({ type: "sound", connections: [1], kind: "stop", channel: 0, fade_ms: 0, loudness: 1 }, "", "unknown_field");
 });
 
 test("REQ-1033: the bounds start gives are the ones the kit holds a message to, not figures of its own", () => {

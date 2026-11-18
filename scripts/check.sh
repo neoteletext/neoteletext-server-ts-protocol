@@ -32,7 +32,7 @@ readonly CHECKED_PATHS=(.)
 # schema/protocol-13.json is a copy of: a new schema is taken by copying it
 # and naming its commit here (typescript.md TS-5 to TS-7).
 server="${NEOTELETEXT_SERVER:-$HOME/devel/neoteletext-app-server}"
-readonly SCHEMA_FROM="08023b4ff7f40298eac6e08213d836710f344d54"
+readonly SCHEMA_FROM="6e559499f1b06be3af9c55677fe4304c62bf507e"
 # neoteletext-common's repository, and the commit whose docs/audio/kit-calls.tsv
 # and docs/audio/examples.jsonl kit-calls.tsv and test/fixtures/examples.jsonl
 # are copies of: the calls and the worked examples' lines both kits must have

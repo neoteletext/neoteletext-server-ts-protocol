@@ -177,7 +177,7 @@ class Generator {
   }
 
   /** The type expression of `node`; an object or union written inline is declared as `name` (TS-10 rule 3). */
-  expression(node: Node, name: string, path: string, open = false): string {
+  expression(node: Node, name: string, path: string): string {
     this.#known(node, path);
     const reference = node["$ref"];
     if (reference !== undefined) {
@@ -190,7 +190,7 @@ class Generator {
       }
       const keyword = node["oneOf"] === undefined ? "anyOf" : "oneOf";
       const nullable = this.#nullable(union, name, `${path}/${keyword}`);
-      return nullable ?? this.#union(node, union, name, `${path}/${keyword}`, false);
+      return nullable ?? this.#union(node, union, name, `${path}/${keyword}`);
     }
     const all = node["allOf"];
     if (all !== undefined) {
@@ -216,7 +216,7 @@ class Generator {
       }
       return values.map((value: unknown) => literal(value, path)).join(" | ");
     }
-    return this.#typed(node, name, path, open);
+    return this.#typed(node, name, path);
   }
 
   /** A union of one schema and null, as \`schemars\` writes an Option of a named type: that type or null, written inline, since it is no type of its own. */
@@ -240,7 +240,7 @@ class Generator {
   }
 
   /** A node by its `type`. */
-  #typed(node: Node, name: string, path: string, open: boolean): string {
+  #typed(node: Node, name: string, path: string): string {
     const type = node["type"];
     if (Array.isArray(type)) {
       // `schemars` writes an Option as its type and "null": each is the node with that one type.
@@ -249,7 +249,7 @@ class Generator {
           if (one !== "string" && one !== "integer" && one !== "number" && one !== "boolean" && one !== "null" && one !== "array") {
             throw new GenerationError(`${path}/type: ${JSON.stringify(one)} in a list of types`);
           }
-          return this.#typed({ ...node, type: one }, name, path, open);
+          return this.#typed({ ...node, type: one }, name, path);
         })
         .join(" | ");
     }
@@ -270,7 +270,7 @@ class Generator {
         return this.#array(node, name, path);
       }
       case "object": {
-        return this.#object(node, name, path, open);
+        return this.#object(node, name, path);
       }
       default: {
         throw new GenerationError(`${path}: a schema with no type, reference, union or value`);
@@ -301,7 +301,7 @@ class Generator {
   }
 
   /** An object: an interface of readonly properties, or a map of named values. */
-  #object(node: Node, name: string, path: string, open: boolean): string {
+  #object(node: Node, name: string, path: string): string {
     const properties = node["properties"];
     const additional = node["additionalProperties"];
     if (properties === undefined && isNode(additional)) {
@@ -310,7 +310,7 @@ class Generator {
     if (!isNode(properties)) {
       throw new GenerationError(`${path}: an object without properties`);
     }
-    if (additional !== false && !open) {
+    if (additional !== false) {
       throw new GenerationError(`${path}: an object without additionalProperties: false, which every message of the protocol refuses (REQ-1475)`);
     }
     this.declare(name, path, this.#interface(node, properties, name, path, ""));
@@ -344,7 +344,9 @@ class Generator {
    * a newtype variant of an internally tagged enum (the server's
    * `ProgramMessage::Sound(Sound)`): its own tag beside the inner union, which
    * is named by that tag's value in upper camel case (`Sound`, the server's
-   * type), its branches open, since the tag is the outer object's.
+   * type). Each branch is closed and restates the tag, so that it holds the
+   * whole message (the server's schema, SRV-3); the inner union is written
+   * without it, since the outer type carries it once.
    */
   #composite(node: Node, name: string, path: string): string {
     const properties = node["properties"];
@@ -357,13 +359,27 @@ class Generator {
       throw new GenerationError(`${path}: an object with a union whose own properties are not one tag`);
     }
     const inner = upperCamel(String(tag[1]["const"]));
-    this.#union({}, union, inner, `${path}/oneOf`, true);
+    const [tagName, tagSchema] = tag;
+    const branches = union.map((branch: unknown, index) => {
+      const at = `${path}/oneOf/${index}`;
+      if (!isNode(branch) || !isNode(branch["properties"])) {
+        throw new GenerationError(`${at}: a branch of a union beside a tag that is not an object with properties`);
+      }
+      const restated = branch["properties"][tagName];
+      if (JSON.stringify(restated) !== JSON.stringify(tagSchema)) {
+        throw new GenerationError(`${at}: a branch that does not restate its message's ${tagName}, ${JSON.stringify(tagSchema)}`);
+      }
+      const { [tagName]: _tag, ...properties } = branch["properties"];
+      const required = Array.isArray(branch["required"]) ? branch["required"].filter((key: unknown) => key !== tagName) : branch["required"];
+      return { ...branch, properties, required };
+    });
+    this.#union({}, branches, inner, `${path}/oneOf`);
     this.declare(name, path, `${comment(node, "")}export type ${name} = { readonly ${propertyName(tag[0])}: ${literal(tag[1]["const"], path)} } & ${inner};\n`);
     return name;
   }
 
   /** A union: tagged branches each named by their tag (TS-10 rule 2), an object branch by its one property, any other inline. */
-  #union(node: Node, union: unknown, name: string, path: string, open: boolean): string {
+  #union(node: Node, union: unknown, name: string, path: string): string {
     if (!Array.isArray(union) || union.length === 0 || !union.every(isNode)) {
       throw new GenerationError(`${path}: not a list of schemas`);
     }
@@ -375,7 +391,7 @@ class Generator {
         const properties = branch["properties"] as Node;
         const value = String((properties[tag] as Node)["const"]);
         const branchName = `${name}${upperCamel(value)}`;
-        return this.expression(branch, branchName, at, open);
+        return this.expression(branch, branchName, at);
       }
       if (branch["type"] === "object" && branch["$ref"] === undefined) {
         const properties = branch["properties"];

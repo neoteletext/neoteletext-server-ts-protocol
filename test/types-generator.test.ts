@@ -103,9 +103,9 @@ test("TS-10: a tagged union's branches are named by the union and the tag, an in
           required: ["type"],
           oneOf: [
             {
-              type: "object",
-              properties: { kind: { type: "string", const: "synth7_bank" }, connections: { type: "string" } },
-              required: ["kind", "connections"],
+              ...CLOSED,
+              properties: { type: { type: "string", const: "sound" }, kind: { type: "string", const: "synth7_bank" }, connections: { type: "string" } },
+              required: ["type", "kind", "connections"],
             },
           ],
         },
@@ -128,10 +128,27 @@ test("TS-10: a tagged union's branches are named by the union and the tag, an in
   }
 });
 
+/** A program's message union whose one message, `sound`, holds the one branch given. */
+function soundWith(branch: object): Readonly<Record<string, unknown>> {
+  return { ProgramMessage: { oneOf: [{ type: "object", properties: { type: { type: "string", const: "sound" } }, required: ["type"], oneOf: [branch] }] } };
+}
+
 test("TS-9: a keyword the table does not list, or an object that does not refuse unknown fields, fails naming it and its path", () => {
   refuses({ Thing: { type: "string", unevaluatedProperties: false } }, /#\/\$defs\/Thing: the keyword unevaluatedProperties/u);
   refuses({ Thing: { type: "object", properties: { a: { type: "string" } } } }, /#\/\$defs\/Thing: an object without additionalProperties: false/u);
   refuses({ Thing: { $ref: "#/$defs/Nothing" } }, /names no definition/u);
+  refuses(
+    soundWith({
+      type: "object",
+      properties: { type: { type: "string", const: "sound" }, kind: { type: "string", const: "stop" } },
+      required: ["type", "kind"],
+    }),
+    /#\/\$defs\/ProgramMessage\/oneOf\/0\/oneOf\/0: an object without additionalProperties: false/u,
+  );
+  refuses(
+    soundWith({ ...CLOSED, properties: { kind: { type: "string", const: "stop" } }, required: ["kind"] }),
+    /oneOf\/0\/oneOf\/0: a branch that does not restate its message's type/u,
+  );
 });
 
 test("TS-10 rule 5: two types of one name, or a reserved word, fail rather than being renamed", () => {
