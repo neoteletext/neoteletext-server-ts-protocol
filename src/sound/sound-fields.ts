@@ -4,7 +4,6 @@
 // is caught where it is made rather than refused in the server's log.
 
 import { isPageNumber, pageText } from "../page/page-numbers.ts";
-import { instrumentFields, isInstrumentMember } from "./instrument-fields.ts";
 import type { Play, SampledMember, SoundMember } from "./members.ts";
 import { pcmBytes } from "./pcm.ts";
 import { opusFields, opusLiveFields, opusPacketsFields } from "./opus-fields.ts";
@@ -122,5 +121,5 @@ function sampledFields(member: SampledMember): WireSound {
 
 /** The member as the protocol writes it, a `sound` message's own fields by its `kind`, checked as the server checks it. */
 export function soundFields(member: SoundMember): WireSound {
-  return isInstrumentMember(member) ? instrumentFields(member) : sampledFields(member);
+  return sampledFields(member);
 }

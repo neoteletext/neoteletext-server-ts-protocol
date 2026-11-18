@@ -33,7 +33,7 @@ export const LAST_BLOCK = 0xffff;
 export const SAMPLE_BYTES = 2;
 
 /** Milliseconds in a second, for the profile's rates. */
-export const SECOND_MS = 1_000;
+const SECOND_MS = 1_000;
 
 /** Bits in a byte. */
 const BYTE_BITS = 8;
