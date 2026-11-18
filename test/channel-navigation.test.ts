@@ -156,3 +156,30 @@ test("REQ-1688: a program may send a viewer to another channel, which changes no
   assert.deepEqual(harness.redirects(1), [], "no page redirect");
   assert.equal(harness.at(1), 0x100, "still where it was");
 });
+
+test("DEC-6599, TODO-6681 item 2: each sub-page's own keys: digits typed on the sub-page that owns them reach the page, on another of the same number they select a page", () => {
+  const heard: string[] = [];
+  const games: Application = {
+    pages: (): PageEntry[] => [
+      { page: 0x100, title: "Index" },
+      { page: 0x200, title: "Games", keysOf: (_connection, sub) => ({ ownsDigits: sub === 1 }) },
+    ],
+    start: (context): void => {
+      context.publish("channel", 0x100, screen("Index"));
+      context.publishSubpages("channel", 0x200, [{ screen: screen("Quiz") }, { screen: screen("Rules") }]);
+    },
+    input: (_connection, page, input): void => {
+      heard.push(`${page.toString(16)} ${input.kind}`);
+    },
+  };
+  const harness = new Harness([games]);
+  harness.join(1, 0x100);
+  harness.open(1, 0x200, 1);
+  harness.typeText(1, "101");
+  assert.deepEqual(heard, ["200 text"], "sub-page 1 owns the digits");
+  assert.deepEqual(harness.redirects(1), []);
+  harness.open(1, 0x200, 2);
+  harness.typeText(1, "100");
+  assert.deepEqual(heard, ["200 text"], "sub-page 2 leaves them to page selection");
+  assert.deepEqual(harness.redirects(1), [0x100]);
+});

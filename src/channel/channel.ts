@@ -222,7 +222,9 @@ export class Channel implements ServerEvents {
     const entry = this.#entries.get(page);
     const view = (): PageView => viewOf(this.#copies, state, page, sub);
     this.#current.from(connection, () => {
-      const navigated = this.#navigation.take(connection, input, entry ?? {}, view().links);
+      // The keys are the sub-page's the input came from (DEC-6599): its own when the entry says each sub-page's. 3F7F names none: it is the one the connection was sent.
+      const keys = entry?.keysOf?.(connection, sub === ANY_SUB ? (state.sub ?? sub) : sub) ?? entry ?? {};
+      const navigated = this.#navigation.take(connection, input, keys, view().links);
       if (navigated.taken) {
         if (navigated.redirect !== null) {
           this.#sender.redirect(connection, navigated.redirect, ANY_SUB);

@@ -333,7 +333,8 @@ most 40 characters).
   files, for a channel's own test.
 - **Navigation:** pages that do not take digits or the coloured keys
   themselves get page selection by them, and a click a page does not take
-  follows the prompt or page number it is on.
+  follows the prompt or page number it is on. A page entry's `keysOf`
+  says it of each sub-page, which is a page of its own (DEC-6599).
 - **Sound** (typescript.md TS-19 to TS-28): one call sends every sound of
   every kind the schema gives, each synthesizer's stored sound, live
   sound, events and bank, the sampled sounds and the commands:

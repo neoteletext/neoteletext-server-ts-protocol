@@ -29,6 +29,14 @@ export interface PageEntry extends PageKeys {
   readonly title: string;
   /** The name of the section of `contents.txt` this page starts: its magazine's name (DOC-1970). */
   readonly section?: string;
+  /**
+   * The keys sub-page `sub` of the page takes itself, as the connection
+   * sees it: a sub-page is a page of its own (DEC-6599), so each may own
+   * the digits or the coloured keys while another of the same number
+   * leaves them to page selection. When given it answers for every
+   * sub-page, in place of `ownsDigits` and `ownsColourKeys`.
+   */
+  readonly keysOf?: (connection: number, sub: number) => PageKeys;
 }
 
 /**
