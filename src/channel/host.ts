@@ -3,11 +3,13 @@
 // sends to the connections an application names.
 
 // oxlint-disable import/max-dependencies -- the host is where a context meets every part of the channel: its copies, connections, sending, sounds and the TTI and numbering of what it publishes
+import { animationCalls } from "./animation-calls.ts";
 import { fitText } from "./channel-index.ts";
 import type { Connections } from "./connections.ts";
 import type { Host } from "./context.ts";
 import type { Copies, GivenSubPage, Owner } from "./copies.ts";
 import type { Measures } from "./measures.ts";
+import type { Queries } from "./queries.ts";
 import { Random } from "./random.ts";
 import type { Sender } from "./sender.ts";
 import { ANY_SUB, fitBytes, subText } from "./wire-page.ts";
@@ -37,6 +39,7 @@ export interface HostParts {
   readonly current: () => number | null;
   readonly errors: (text: string) => void;
   readonly measures: Measures;
+  readonly queries: Queries;
 }
 
 /** The sub-pages given, each with its sub-code: a whole page's numbered by place, a put's its own. */
@@ -210,6 +213,8 @@ export function makeHost(parts: HostParts): Host {
     ...selecting(parts),
     ...messaging(parts),
     ...viewing(parts),
+    ...animationCalls(parts.sender),
+    queryState: (connection, page) => parts.queries.ask(parts.app, connection, page),
     connection: parts.current,
   };
 }

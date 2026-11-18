@@ -10,7 +10,7 @@ import { ANY_SUB } from "../src/channel/channel.ts";
 import { Recorder, screen } from "./recorder.ts";
 
 function inputLine(fields: Record<string, unknown>): string {
-  return JSON.stringify({ type: "input", connection: 1, page: "100", event: { kind: "focus" }, ...fields });
+  return JSON.stringify({ type: "input", connection: 1, page: "100", rule: "keys", tick: 0, event: { kind: "focus" }, ...fields });
 }
 
 /** A sub-page with `text` on it and no links. */

@@ -1,10 +1,20 @@
-// What a program does with each of the server's messages, version 13: the
+// What a program does with each of the server's messages, version 14: the
 // generated type of each (typescript.md TS-18), its page numbers read as
 // numbers, its input as the kit's.
 
 import type { Input } from "../input/input.ts";
 import { readInput } from "../input/read-input.ts";
-import type { Handle, ServerMessageMeasured, ServerMessageRefused, ServerMessage, ServerMessageSoundBuilt, StateRefusal } from "./generated/protocol.js";
+import type {
+  Handle,
+  ServerMessage,
+  ServerMessageMeasured,
+  ServerMessagePageState,
+  ServerMessageRefused,
+  ServerMessageRuleEvent,
+  ServerMessageRulesFault,
+  ServerMessageSoundBuilt,
+  StateRefusal,
+} from "./generated/protocol.js";
 import { type Language, readLanguages } from "./languages.ts";
 import { type Limits, readLimits } from "./limits.ts";
 import { type Selection, type ServerStats, numberOf } from "./server-message.ts";
@@ -24,8 +34,14 @@ export interface ServerEvents {
   ): void;
   /** The connection selected a page (sub-code 3F7F) or one sub-page: answer with one sub-page (REQ-1472). */
   selected(connection: number, request: number, selection: Selection, path: string, query: string | null): void;
-  /** Input on the sub-page the viewer was looking at (REQ-1557). */
+  /** Input on the sub-page the viewer was looking at (REQ-1557), which a rule of the page's table sent: it names the rule, its tick and its target (page-rules.md RULE-37). */
   input(connection: number, page: number, sub: number, input: Input): void;
+  /** A rule of a page's table fired with no input of its own, or sent a value (RULE-37). */
+  ruleEvent(event: ServerMessageRuleEvent): void;
+  /** The answer to the program's `query_state` of number `state.request` (RULE-38). */
+  pageState(state: ServerMessagePageState): void;
+  /** A viewer's receiver reported a fault of a page's table (RULE-48). */
+  rulesFault(fault: ServerMessageRulesFault): void;
   /** The connection's selection left `page`, or the connection closed. */
   left(connection: number, page: number): void;
   /** The connection closed and will not come back (VS-351 item 6): forget it. */
@@ -66,7 +82,20 @@ function dispatchConnection(message: ConnectionMessage, events: ServerEvents): v
       return;
     }
     case "input": {
-      events.input(message.connection, numberOf(message.page), numberOf(message.sub), readInput(message.event, message.lost));
+      const source = { rule: message.rule, tick: message.tick, target: message.target ?? null };
+      events.input(message.connection, numberOf(message.page), numberOf(message.sub), readInput(message.event, message.lost, source));
+      return;
+    }
+    case "rule_event": {
+      events.ruleEvent(message);
+      return;
+    }
+    case "page_state": {
+      events.pageState(message);
+      return;
+    }
+    case "rules_fault": {
+      events.rulesFault(message);
       return;
     }
     case "left": {
@@ -125,6 +154,9 @@ export function dispatch(message: ServerMessage, events: ServerEvents): void {
     case "connected":
     case "selected":
     case "input":
+    case "rule_event":
+    case "page_state":
+    case "rules_fault":
     case "left":
     case "gone":
     case "viewer_began":

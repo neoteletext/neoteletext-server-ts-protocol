@@ -6,7 +6,7 @@
 import type { Budgets as WireBudgets, Standard as WireStandard } from "./generated/protocol.js";
 
 /** The protocol's version, in `start` (DEC-1482): one number, raised on every change of shape; the kit stops on any other (REQ-2215 item 3). */
-export const PROTOCOL = 13;
+export const PROTOCOL = 14;
 
 /**
  * The longest line either side may send (DOC-1965):

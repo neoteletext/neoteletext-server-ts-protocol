@@ -1,11 +1,15 @@
-// Driving a channel as the server drives it, on protocol version 13, for
+// Driving a channel as the server drives it, on protocol version 14, for
 // tests: connections that open (one a browser tab), with a fake viewer or
 // none (viewer-state.md VS-404), select pages, type, press keys, click and
 // turn the wheel, a clock the test moves, and what the program wrote, every
 // line checked against the schema as it was written; the pages the channel
 // keeps, read back as rows, links and cursor; the sounds it sent, as the
 // members it built (typescript.md TS-29); and the server's refusals and
-// reports of sounds, given only as a test says (TS-30).
+// reports of sounds, given only as a test says (TS-30). Every input names
+// the rule that sent it (page-rules.md RULE-37): the test's, or the rule the
+// server's default table would send it by (RULE-53). A test fires a rule,
+// answers a state query, and reads the `animate` messages the server would
+// send as it plays a timeline (RULE-55; animation.md ANIM-19).
 
 // oxlint-disable import/max-dependencies, max-lines -- the harness stands in for the server, so it meets every part a program uses: the channel, input, pages, the wire and the limits start gives; and its calls are every scenario of kit-calls.tsv, one method each
 import { isDeepStrictEqual } from "node:util";
@@ -13,6 +17,10 @@ import { isDeepStrictEqual } from "node:util";
 import type { Application } from "../channel/application.ts";
 import { Channel } from "../channel/channel.ts";
 import { Button, type Input } from "../input/input.ts";
+import { defaultRule } from "./default-rules.ts";
+import { ticksIn } from "../animation/ticks.ts";
+import { pageText } from "../page/page-numbers.ts";
+import { subText } from "../channel/wire-page.ts";
 import { type HoverAction, type KeyAction, isCharacterKey } from "../input/keys.ts";
 import type { Cursor } from "../page/cursor.ts";
 import { ManualClock } from "./manual-clock.ts";
@@ -26,12 +34,38 @@ import type { Rows } from "../tti/read-tti.ts";
 import { App } from "../wire/app.ts";
 import { type Language, type Limits, SERVER_LANGUAGES, SERVER_LIMITS } from "./server-limits.ts";
 import { decodeBytes } from "../wire/bytes.ts";
-import type { ProgramMessageSound, ServerMessageRefused, Rule, ServerMessageSoundBuilt, SoundMember, StateRefusal } from "../wire/generated/protocol.js";
+import type {
+  InputEvent,
+  ProgramMessageAnimate,
+  ProgramMessageSound,
+  ProgramMessageTimeline,
+  Rule,
+  RuleEventBody,
+  RuleTarget,
+  ServerMessageInput,
+  ServerMessagePageState,
+  ServerMessageRefused,
+  ServerMessageRuleEvent,
+  ServerMessageSoundBuilt,
+  SoundMember,
+  StateRefusal,
+} from "../wire/generated/protocol.js";
+import { dispatch } from "../wire/server-events.ts";
 import type { ServerStats } from "../wire/server-message.ts";
 import { checkServer } from "../wire/validate.ts";
 
 /** What a test gives of a report of a sound (`sound_built`, server.md SRV-47): everything but what names the sound, which the harness takes from the member reported. */
 export type SoundReport = Omit<ServerMessageSoundBuilt, "type" | "kind" | "handle" | "generation">;
+
+/** What a test gives of a page's state (`page_state`, page-rules.md RULE-38): everything but what names the query, which the harness takes from the `query_state` it answers; what is left out is as a page with no table has it. */
+export type PageStateAnswer = Partial<Omit<ServerMessagePageState, "type" | "connection" | "page" | "request">>;
+
+/** One `animate` message the server would send as it plays a timeline (animation.md ANIM-21): the timeline's `id`, the step's tick counted from the timeline's arrival, and the step's operations as the message. */
+export interface TimelineSend {
+  readonly id: number;
+  readonly tick: number;
+  readonly message: ProgramMessageAnimate;
+}
 
 export interface HarnessOptions {
   /** The real time when the channel starts, in milliseconds since the Unix epoch. */
@@ -61,6 +95,8 @@ export class Harness {
   /** What the channel reported on standard error. */
   readonly errors: string[] = [];
   readonly #open = new Map<number, number>();
+  /** The sub-page each connection selected, when it selected one. */
+  readonly #openSub = new Map<number, number>();
   /** Each open connection's fake viewer, if it has one. */
   readonly #viewerOf = new Map<number, FakeViewer>();
   readonly #viewers = new FakeViewers();
@@ -123,6 +159,7 @@ export class Harness {
     const connection = typeof who === "number" ? who : this.#nextConnection;
     this.#nextConnection = Math.max(this.#nextConnection, connection + 1);
     this.#open.set(connection, page);
+    this.#openSub.delete(connection);
     this.#went.delete(connection);
     this.#requests.set(connection, 1);
     const viewer = typeof who === "number" ? undefined : who;
@@ -142,6 +179,11 @@ export class Harness {
       this.channel.left(connection, before);
     }
     this.#open.set(connection, page);
+    if (sub === ANY_SUB) {
+      this.#openSub.delete(connection);
+    } else {
+      this.#openSub.set(connection, sub);
+    }
     this.#went.delete(connection);
     const request = (this.#requests.get(connection) ?? 0) + 1;
     this.#requests.set(connection, request);
@@ -155,18 +197,130 @@ export class Harness {
       this.channel.left(connection, page);
     }
     this.#open.delete(connection);
+    this.#openSub.delete(connection);
     this.#went.delete(connection);
     this.#viewerOf.delete(connection);
     this.channel.gone(connection);
   }
 
-  /** Input from `connection` on the page it has open. */
-  send(connection: number, input: Input): void {
+  /** The page the connection has open; a test that names a connection with none fails. */
+  #pageOf(connection: number): number {
     const page = this.#open.get(connection);
     if (page === undefined) {
       throw new Error(`connection ${connection} has no page open`);
     }
-    this.channel.input(connection, page, ANY_SUB, input);
+    return page;
+  }
+
+  /** The tick an input or a rule's event carries when a test names none: the clock in ticks, sixty a second (page-rules.md RULE-4). */
+  #tick(): number {
+    return ticksIn(this.clock.time);
+  }
+
+  /**
+   * Input from `connection` on the page it has open, as a rule of the
+   * page's table sent it (page-rules.md RULE-37): the `rule`, `tick` and
+   * `target` the input carries, or, for each it lacks, the rule the
+   * server's default table would send it by (RULE-53), the clock in ticks,
+   * and no target: what a program of a channel with `default_rules:
+   * send_all` hears.
+   */
+  send(connection: number, input: Input): void {
+    const page = this.#pageOf(connection);
+    const sent: Input = { ...input, rule: input.rule ?? defaultRule(input), tick: input.tick ?? this.#tick(), target: input.target ?? null };
+    this.channel.input(connection, page, ANY_SUB, sent);
+  }
+
+  /**
+   * Gives the channel what the rule `rule` of the table of the connection's
+   * page sends when it fires (RULE-37, RULE-55): with no `event`, a
+   * `rule_event` saying it fired; with a `rule_event`'s body, such as a
+   * value read, that `rule_event`; with an input event as the server
+   * writes one, the `input` naming the rule, and `target` when the rule
+   * named one. `tick` is the page tick: the clock in ticks when none is
+   * given.
+   */
+  fire(connection: number, rule: string, event?: InputEvent | RuleEventBody, tick?: number, target?: RuleTarget): void {
+    const page = pageText(this.#pageOf(connection));
+    const at = tick ?? this.#tick();
+    const body = event ?? ({ kind: "fired" } as const);
+    if (body.kind === "fired" || body.kind === "value") {
+      const fired: ServerMessageRuleEvent = {
+        type: "rule_event",
+        connection,
+        page,
+        sub: subText(this.#openSub.get(connection) ?? 0),
+        rule,
+        tick: at,
+        event: body,
+      };
+      this.#fromServer(fired);
+      this.channel.ruleEvent(fired);
+      return;
+    }
+    const input: ServerMessageInput = {
+      type: "input",
+      connection,
+      page,
+      sub: subText(ANY_SUB),
+      lost: false,
+      rule,
+      tick: at,
+      target: target ?? null,
+      event: body,
+    };
+    this.#fromServer(input);
+    dispatch(input, this.channel);
+  }
+
+  /**
+   * Answers `query`, a `query_state` the channel wrote, with the
+   * `page_state` a receiver would send (RULE-38, RULE-55): what `state`
+   * gives, and for what it leaves out a page with no table, on the
+   * sub-page the connection selected. The channel hears it as from the
+   * server.
+   */
+  answerState(query: Sent, state?: PageStateAnswer): void {
+    const { connection, page, request } = query;
+    if (query["type"] !== "query_state" || typeof connection !== "number" || typeof page !== "string" || typeof request !== "number") {
+      throw new Error("answerState: not a query_state the channel wrote");
+    }
+    const answer: ServerMessagePageState = {
+      type: "page_state",
+      connection,
+      page,
+      sub: subText(this.#openSub.get(connection) ?? 0),
+      request,
+      tick: this.#tick(),
+      table: false,
+      variables: {},
+      timers: {},
+      enabled: [],
+      targets: [],
+      values: [],
+      ...state,
+    };
+    this.#fromServer(answer);
+    this.channel.pageState(answer);
+  }
+
+  /**
+   * The `animate` messages the server would send `connection` as it plays
+   * each timeline the channel wrote for it, once through (animation.md
+   * ANIM-19, ANIM-21): timelines in the order written, each one's steps in
+   * the order sent. The harness does not stop, replace or loop a timeline:
+   * those are the server's.
+   */
+  timelineSends(connection: number): TimelineSend[] {
+    return (
+      this.sent
+        .filter((message) => message["type"] === "timeline" && isFor(message["connections"], connection))
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the channel's App held each line to the schema as it was written
+        .map((message) => decodeBytes(message, "ProgramMessage") as ProgramMessageTimeline)
+        .flatMap(({ id, connections, page, sub, steps }) =>
+          steps.map(({ tick, ops }) => ({ id, tick, message: { type: "animate", connections, page, sub, ops } as const })),
+        )
+    );
   }
 
   /** Raw text, as an input method or a phone commits it (DOC-1930). */
@@ -407,6 +561,7 @@ export class Harness {
   /** The server restarts (VS-404; TS-31): it says `start` again, every connection is gone, and connection numbers start again; viewers' handles do not change. */
   restart(): void {
     this.#open.clear();
+    this.#openSub.clear();
     this.#went.clear();
     this.#requests.clear();
     this.#viewerOf.clear();

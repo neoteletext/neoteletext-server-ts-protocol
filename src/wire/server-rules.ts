@@ -193,10 +193,37 @@ function bytesMessageFault(message: Extract<ProgramMessage, { type: "packets" | 
   return message.type === "packets" ? packetsFault(message.packets) : null;
 }
 
+/**
+ * The messages held to the schema alone. A sound: every other rule of it is
+ * the server's, which its refusal reports (typescript.md TS-17). The viewer's
+ * requests, which have none beyond the schema. A rule table, a state query
+ * and every animation message: the server checks them and its refusal
+ * reports the fault (page-rules.md RULE-55; animation.md ANIM-19; DEC-6462).
+ */
+const SCHEMA_ALONE = [
+  "sound",
+  "request_state",
+  "end_state",
+  "offer_remember",
+  "rules",
+  "query_state",
+  "frame",
+  "animate",
+  "sprites",
+  "naplps_objects",
+  "sprite_sheet",
+  "timeline",
+  "timeline_stop",
+] as const;
+type SchemaAlone = Extract<ProgramMessage, { readonly type: (typeof SCHEMA_ALONE)[number] }>;
+
+function isSchemaAlone(message: ProgramMessage): message is SchemaAlone {
+  return SCHEMA_ALONE.some((type) => type === message.type);
+}
+
 /** The first fault of a message the schema has passed, by the server's rules and `start`'s limits; null when it has none. What is said of a ReGIS sub-page's picture has its rules in picture-rules.ts. */
 export function checkRules(message: Exclude<ProgramMessage, PictureMessage>, limits: Limits): Fault | null {
-  // A sound is held to the schema alone: every other rule of it is the server's, which its refusal reports (typescript.md TS-17). The viewer's requests have none beyond the schema.
-  if (message.type === "sound" || message.type === "request_state" || message.type === "end_state" || message.type === "offer_remember") {
+  if (isSchemaAlone(message)) {
     return null;
   }
   let fault: Fault | null;

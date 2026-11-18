@@ -16,6 +16,8 @@ export const HANDLER_ARGUMENTS = {
   opened: ["connection", "page"],
   leftPage: ["connection", "page"],
   input: ["connection", "page", "input event", "sub-page"],
+  ruleEvent: ["event"],
+  rulesFault: ["fault"],
   wake: [],
   gone: ["connection"],
   stats: ["stats"],

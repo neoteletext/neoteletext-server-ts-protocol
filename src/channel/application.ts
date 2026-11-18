@@ -14,7 +14,13 @@ import type { PageRequest } from "./request.ts";
 import type { Viewer } from "./viewer.ts";
 import type { Input } from "../input/input.ts";
 import type { PageKeys } from "../navigation/page-keys.ts";
-import type { ServerMessageRefused, ServerMessageSoundBuilt, StateRefusal } from "../wire/generated/protocol.js";
+import type {
+  ServerMessageRefused,
+  ServerMessageRuleEvent,
+  ServerMessageRulesFault,
+  ServerMessageSoundBuilt,
+  StateRefusal,
+} from "../wire/generated/protocol.js";
 import type { ServerStats } from "../wire/server-message.ts";
 
 /** One page an application serves: its number, its title, which keys it uses itself, and the section it starts, if any. */
@@ -63,9 +69,25 @@ export interface Application {
    * Input on the sub-page `sub` of one of this application's pages, the
    * one the viewer was looking at, that navigation did not take. Answer
    * true for a click the page took; any other click follows the Fastext
-   * prompt or the page number it is on.
+   * prompt or the page number it is on. An input comes only when a rule of
+   * the page's table sent it, and names that rule, its tick and its target
+   * (page-rules.md RULE-37).
    */
   input?(connection: number, page: number, input: Input, context: Context, sub: number): boolean | void;
+  /**
+   * A rule of the table of one of this application's pages fired with no
+   * input of its own (`open`, `close`, `becomes`, `every`, `after`), or sent
+   * one value (page-rules.md RULE-37): the server's message as it is, with
+   * the rule's name, its tick, and the value read when it sent one.
+   */
+  ruleEvent?(event: ServerMessageRuleEvent, context: Context): void;
+  /**
+   * A viewer's receiver reported a fault of the table of one of this
+   * application's pages (RULE-48): a table it could not decode, ticks that
+   * overran, sends or events dropped, actions skipped, and how many times
+   * since its last report.
+   */
+  rulesFault?(fault: ServerMessageRulesFault, context: Context): void;
   /** The time asked for with {@link Context.wakeAt} has come. */
   wake?(context: Context): void;
   /** The connection closed and will not come back, because the server said so or because `start` came and ended them all (REQ-1056; VS-351 item 6): forget it. It is called before that `start`. */

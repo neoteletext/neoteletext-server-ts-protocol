@@ -1,4 +1,4 @@
-// A channel's applications in one program, on protocol version 13
+// A channel's applications in one program, on protocol version 14
 // (DEC-1482): one connection a browser tab, one selection a connection
 // (DEC-1527). Each `connected` and `selected` is answered with one
 // sub-page (answers.ts); what an application publishes is kept (copies.ts)
@@ -19,6 +19,7 @@ import { descriptionMessage } from "./description.ts";
 import { makeHost } from "./host.ts";
 import { CurrentCall } from "./current-call.ts";
 import { Measures } from "./measures.ts";
+import { Queries } from "./queries.ts";
 import { type PageCalls, tellLeft, tellOpened, tellRequest, tellRequestEnded } from "./page-calls.ts";
 import { pageRequest } from "./request.ts";
 import { Sender } from "./sender.ts";
@@ -32,7 +33,18 @@ import { pageText } from "../page/page-numbers.ts";
 import type { App } from "../wire/app.ts";
 import type { Language } from "../wire/languages.ts";
 import type { Limits } from "../wire/limits.ts";
-import type { Handle, Magazine, ServerMessageMeasured, ServerMessageRefused, ServerMessageSoundBuilt, StateRefusal } from "../wire/generated/protocol.js";
+import type {
+  Handle,
+  Magazine,
+  ServerMessageMeasured,
+  ServerMessagePageState,
+  ServerMessageRefused,
+  ServerMessageRuleEvent,
+  ServerMessageRulesFault,
+  ServerMessageSoundBuilt,
+  StateRefusal,
+} from "../wire/generated/protocol.js";
+import { numberOf } from "../wire/server-message.ts";
 import type { ServerEvents } from "../wire/server-events.ts";
 import type { Selection, ServerStats } from "../wire/server-message.ts";
 
@@ -57,6 +69,7 @@ export class Channel implements ServerEvents {
   readonly #answers: AnswerParts;
   readonly #calls: PageCalls;
   readonly #measures = new Measures();
+  readonly #queries = new Queries();
   readonly #current = new CurrentCall();
   #epochAtStart = 0;
 
@@ -88,6 +101,7 @@ export class Channel implements ServerEvents {
       current: () => this.#current.connection,
       errors: this.#errors,
       measures: this.#measures,
+      queries: this.#queries,
     });
     this.#answers = {
       copies: this.#copies,
@@ -128,6 +142,7 @@ export class Channel implements ServerEvents {
     this.#epochAtStart = epochMs - this.#clock.now();
     this.#app.started(limits, languages);
     this.#measures.forgetAll();
+    this.#queries.forgetAll();
     this.#connections.clear();
     this.#navigation.clear();
     this.#applications.endEvery(this.#known, this.#copies, this.#host, this.#clock.now());
@@ -226,6 +241,27 @@ export class Channel implements ServerEvents {
     });
   }
 
+  /** A rule of a page's table fired with no input of its own, or sent a value (page-rules.md RULE-37): the page's application hears it unchanged, as a call from the connection. */
+  ruleEvent(event: ServerMessageRuleEvent): void {
+    this.#current.from(event.connection, () => {
+      this.#callOwner(numberOf(event.page), (application, context) => application.ruleEvent?.(event, context));
+    });
+  }
+
+  /** A viewer's receiver reported a fault of a page's table (RULE-48): the page's application hears it unchanged. */
+  rulesFault(fault: ServerMessageRulesFault): void {
+    this.#current.from(fault.connection, () => {
+      this.#callOwner(numberOf(fault.page), (application, context) => application.rulesFault?.(fault, context));
+    });
+  }
+
+  /** The answer to a state query (RULE-38). */
+  pageState(state: ServerMessagePageState): void {
+    if (!this.#queries.answered(state)) {
+      this.#errors(`the server answered state query ${state.request}, which nothing waits for`);
+    }
+  }
+
   /** The connection closed and will not come back (VS-351 item 6): forgotten, and every application told. */
   gone(connection: number): void {
     this.#connections.forget(connection);
@@ -295,9 +331,9 @@ export class Channel implements ServerEvents {
     }
   }
 
-  /** A refusal (typescript.md TS-22): a measure's rejects its promise; any other reaches every application's `refused`, or is reported when none has one. */
+  /** A refusal (typescript.md TS-22): a measure's or a state query's rejects its promise; any other reaches every application's `refused`, or is reported when none has one. */
   refused(refusal: ServerMessageRefused): void {
-    if (this.#measures.refused(refusal)) {
+    if (this.#measures.refused(refusal) || this.#queries.refused(refusal)) {
       return;
     }
     if (this.#applications.hearsRefusals()) {

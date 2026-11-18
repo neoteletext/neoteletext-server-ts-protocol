@@ -14,7 +14,7 @@ const SELECTED_LINE = '{"type":"selected","connection":3,"request":2,"path":"100
 const CONNECTED_LINE = '{"type":"connected","connection":3,"request":1,"remembered":false,"selection":null}';
 /** The server's start, 5 ms after the epoch. */
 const START_AT_5 = START_LINE.replace('"epoch_ms":0', '"epoch_ms":5');
-const FOCUS_LINE = '{"type":"input","connection":3,"page":"100","sub":"3F7F","lost":false,"event":{"kind":"focus"}}';
+const FOCUS_LINE = '{"type":"input","connection":3,"page":"100","sub":"3F7F","lost":false,"rule":"focus","tick":0,"event":{"kind":"focus"}}';
 
 test("lines are split across chunks, a return before the newline dropped", () => {
   const lines: string[] = [];
@@ -66,6 +66,9 @@ const QUIET = {
   stateRefused: ignored,
   viewersReset: ignored,
   soundBuilt: ignored,
+  ruleEvent: ignored,
+  pageState: ignored,
+  rulesFault: ignored,
   measured: ignored,
   describe: ignored,
 };
@@ -138,6 +141,9 @@ function unheard(): ServerEvents {
     stateRefused: never,
     viewersReset: never,
     soundBuilt: never,
+    ruleEvent: never,
+    pageState: never,
+    rulesFault: never,
     stats: never,
     refused: never,
     measured: never,

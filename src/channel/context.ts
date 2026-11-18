@@ -13,7 +13,19 @@ import type { Viewer } from "./viewer.ts";
 import { Screen } from "../page/screen.ts";
 import type { Subpage } from "../page/subpage.ts";
 import type { App } from "../wire/app.ts";
-import type { AuthorLevel, ServerMessageMeasured, SoundMember } from "../wire/generated/protocol.js";
+import type { Timeline } from "../animation/timeline.ts";
+import type {
+  AnimationOp,
+  AuthorLevel,
+  FrameMarkName,
+  NaplpsObject,
+  RuleTable,
+  ServerMessageMeasured,
+  SheetKindName,
+  SoundMember,
+  Sprite,
+} from "../wire/generated/protocol.js";
+import type { PageState } from "../rules/page-state.ts";
 import type { Language } from "../wire/languages.ts";
 import type { Limits } from "../wire/limits.ts";
 
@@ -48,6 +60,15 @@ export interface Host {
   regisLinks(to: Audience, page: number, sub: number, links: readonly DrawingLink[]): void;
   regisCursor(to: Audience, page: number, sub: number, drawing: number): void;
   naplps(to: Audience, page: number, sub: number, data: Uint8Array, restart: boolean): void;
+  rules(to: Audience, page: number, table: RuleTable | null): void;
+  queryState(connection: number, page: number): Promise<PageState>;
+  frame(to: Audience, page: number, sub: number, mark: FrameMarkName): void;
+  animate(to: Audience, page: number, sub: number, ops: readonly AnimationOp[]): void;
+  sprites(to: Audience, page: number, sub: number, sprites: readonly Sprite[]): void;
+  naplpsObjects(to: Audience, page: number, sub: number, objects: readonly NaplpsObject[]): void;
+  spriteSheet(to: Audience, page: number, kind: SheetKindName, data: string | Uint8Array, restart: boolean): void;
+  playTimeline(to: Audience, page: number, sub: number, timeline: Timeline, id: number | null): number;
+  stopTimeline(to: Audience, page: number, id: number): void;
   connection(): number | null;
   viewer(connection: number): Viewer | null;
   remembered(connection: number): boolean;
@@ -244,6 +265,94 @@ export class Context {
    */
   regisCursor(to: Audience, page: number, sub: number, drawing: number): void {
     this.#host.regisCursor(to, page, sub, drawing);
+  }
+
+  /**
+   * Gives a page its rule table for the connections named, or with `null`
+   * removes it (page-rules.md RULE-35): the one bounded list of rules, each
+   * binding an event to local actions, that the viewer's receiver evaluates
+   * sixty times a second, and the only way a page asks for the viewer's
+   * input: a program hears an `input` only when a rule of the page's table
+   * sent it (RULE-37). The server keeps the table for each connection and
+   * sends it before the page whenever the connection selects the page
+   * (RULE-40). The kit holds the table to the schema and checks nothing
+   * more: every other fault is the server's, which a `refused` handler
+   * hears (RULE-39, RULE-55).
+   */
+  rules(to: Audience, page: number, table: RuleTable | null): void {
+    this.#host.rules(to, page, table);
+  }
+
+  /**
+   * Asks one connection's receiver for the local state of `page` (RULE-38):
+   * its variables, timers, enabled rules, targets and the values its rules
+   * read, once, for resynchronising or debugging, never a stream. It
+   * rejects with a {@link QueryRefusedError} when the server refuses the
+   * query (the connection has another page selected, a second query within
+   * a second) or no answer comes within the server's ten seconds.
+   */
+  queryState(connection: number, page: number): Promise<PageState> {
+    return this.#host.queryState(connection, page);
+  }
+
+  /**
+   * Sends what `body` sends for a sub-page as one frame (animation.md
+   * ANIM-2, ANIM-19): the frame's begin, the body's messages, its end. The
+   * viewer's receiver holds everything of the frame that changes what the
+   * page shows and applies it on one tick, so no picture between is ever
+   * shown; a whole new page sent in a frame is swapped in at once (ANIM-3).
+   * The end is sent even when `body` throws, so that no frame is left open.
+   */
+  frame(to: Audience, page: number, sub: number, body: () => void): void {
+    this.#host.frame(to, page, sub, "begin");
+    try {
+      body();
+    } finally {
+      this.#host.frame(to, page, sub, "end");
+    }
+  }
+
+  /** Animation operations on a sub-page's objects, applied in order by the viewer's receiver (ANIM-19, ANIM-21): 1 to 64 of show, hide, look, move, order, frame, cycle, stop_cycle and reset. */
+  animate(to: Audience, page: number, sub: number, ops: readonly AnimationOp[]): void {
+    this.#host.animate(to, page, sub, ops);
+  }
+
+  /** A teletext sub-page's sprites, which replace those it had (ANIM-7, ANIM-21); an empty list removes them. */
+  sprites(to: Audience, page: number, sub: number, sprites: readonly Sprite[]): void {
+    this.#host.sprites(to, page, sub, sprites);
+  }
+
+  /** A NAPLPS sub-page's objects, which replace those it had (ANIM-11, ANIM-21); an empty list removes them. */
+  naplpsObjects(to: Audience, page: number, sub: number, objects: readonly NaplpsObject[]): void {
+    this.#host.naplpsObjects(to, page, sub, objects);
+  }
+
+  /**
+   * More of a page's sprite sheet, the drawings its sub-pages' objects
+   * share (ANIM-17, ANIM-21): ReGIS commands as text or bytes, or NAPLPS
+   * bytes. `restart` begins a new generation of the sheet; without it the
+   * bytes add to it.
+   */
+  spriteSheet(to: Audience, page: number, kind: SheetKindName, data: string | Uint8Array, restart = false): void {
+    this.#host.spriteSheet(to, page, kind, data, restart);
+  }
+
+  /**
+   * Has the server play `timeline` on a sub-page (ANIM-19, ANIM-21): each
+   * step's operations are sent when its tick is due on the server's clock,
+   * sixty ticks a second from the message's arrival, and again from the
+   * start every `loopTicks` when the timeline has them. It answers the
+   * timeline's `id`, 1 to 65,535, for {@link Context.stopTimeline}: the one
+   * given, or the next the kit counts. A timeline played with a playing
+   * one's `id` replaces it.
+   */
+  playTimeline(to: Audience, page: number, sub: number, timeline: Timeline, id?: number): number {
+    return this.#host.playTimeline(to, page, sub, timeline, id ?? null);
+  }
+
+  /** Stops the timeline `id` of `page` (ANIM-21): its objects stay as its last step sent left them. */
+  stopTimeline(to: Audience, page: number, id: number): void {
+    this.#host.stopTimeline(to, page, id);
   }
 
   /** The connection the call came from, if it came from one. */

@@ -5,7 +5,7 @@ import { Button, character, clicked, decimalDigit, Held, type Input, Key, Mods, 
 
 /** An input event as the server's line carries it, read whole. */
 function read(event: unknown): Input | string {
-  const message = readMessage(JSON.stringify({ type: "input", connection: 1, page: "100", sub: "0000", lost: false, event }));
+  const message = readMessage(JSON.stringify({ type: "input", connection: 1, page: "100", sub: "0000", lost: false, rule: "keys", tick: 0, event }));
   if (typeof message === "string") {
     return message;
   }
@@ -89,6 +89,8 @@ test("protocol 11: the pointer's going and a second finger reach a program (REQ-
       page: "100",
       sub: "0000",
       lost: true,
+      rule: "release",
+      tick: 0,
       event: { kind: "touch", action: "release", contact: 1, column: 0, row: 0 },
     }),
   );

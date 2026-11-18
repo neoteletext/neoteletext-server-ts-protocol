@@ -1,7 +1,23 @@
 // What a viewer did, as the server sends it (DOC-1968;
-// DOC-1969).
+// DOC-1969), and the rule of the page's table that sent it (page-rules.md
+// RULE-37): a program hears only the input a rule of its page asked for.
 
 import type { HoverAction, KeyAction } from "./keys.ts";
+import type { RuleTarget } from "../wire/generated/protocol.js";
+
+/**
+ * Where an input came from (page-rules.md RULE-37): the rule of the page's
+ * table that sent it, by its name; the page tick at which it fired, sixty a
+ * second from the page's opening in that view (RULE-4); and the control,
+ * object or rectangle the pointer was inside, for a pointer trigger whose
+ * rule named one, else null. Every input the server gives carries all three;
+ * they are optional only so that a test may write an input without them.
+ */
+export interface InputSource {
+  readonly rule?: string;
+  readonly tick?: number;
+  readonly target?: RuleTarget | null;
+}
 
 /** What comes with the pointer: the `mods` held, when any is, as {@link Mods} bits, and the dot of the page image under it, `px` across and `py` down, when the receiver knows it. */
 export interface Pointed {
@@ -16,83 +32,85 @@ export interface Pointed {
  * moved away, the keys left the page or the connection went (REQ-207). It
  * is no click.
  */
-export type Input =
+export type Input = InputSource &
   /** Text typed: whole characters. */
-  | { readonly kind: "text"; readonly text: string }
-  /** A key pressed, repeating or released: every one is sent, with the `text` it produced, its `base` when that differs, and the `mods` held (DOC-1935). */
-  | {
-      readonly kind: "key";
-      readonly action: KeyAction;
-      readonly key: string;
-      readonly mods?: number;
-      readonly text?: string;
-      readonly base?: string;
-      readonly lost?: true;
-    }
-  /** A mouse button pressed or released on a cell, with what comes with the pointer. */
-  | ({
-      readonly kind: "mouse";
-      readonly action: "press" | "release";
-      readonly button: number;
-      readonly column: number;
-      readonly row: number;
-      readonly lost?: true;
-    } & Pointed)
-  /** The pointer moved over the page, a button held or not (DOC-1945); `buttons` are those held, a bit each ({@link Held}). */
-  | ({ readonly kind: "mouse"; readonly action: "move"; readonly buttons: number; readonly column: number; readonly row: number } & Pointed)
-  /** The pointer left the page, or the receiver lost it, at the cell it was last over, so the page can stop showing what follows it (REQ-1355, REQ-1367); a button held comes first as a release marked `lost`. */
-  | ({ readonly kind: "mouse"; readonly action: "gone"; readonly column: number; readonly row: number } & Pointed)
-  /**
-   * A finger after the first, which comes as `mouse` (REQ-1366, DOC-1938):
-   * down, up, moved, or gone when the receiver lost it, on a cell.
-   * `contact` names it from its beginning to its end. Only on a connection
-   * that agreed TOUCH; a release the page lost is marked `lost`.
-   */
-  | ({
-      readonly kind: "touch";
-      readonly action: "press" | "release" | "move" | "gone";
-      readonly contact: number;
-      readonly column: number;
-      readonly row: number;
-      readonly lost?: true;
-    } & Pointed)
-  /** The wheel turned over a cell, in 1/120ths of a line, positive right and down. */
-  | ({ readonly kind: "wheel"; readonly dx: number; readonly dy: number; readonly column: number; readonly row: number } & Pointed)
-  /** The pointer entered a control of the page or left it (DOC-1940): `column` and `row` are the control's first cell, its top-left, as the page declared it; a move from one control to the next is a leave, then an enter. */
-  | { readonly kind: "hover"; readonly action: HoverAction; readonly column: number; readonly row: number }
-  /**
-   * On a page drawn in ReGIS, what lay under the pointer of the `mouse`,
-   * `touch` or `wheel` input just before this one (the server's REQ-6339):
-   * the numbered `drawing` picked, 0 for none; the place within it, `x`
-   * and `y` from its origin; the place in the picture, in its pixels; and
-   * `commits`, how many commits the viewer's picture had when they
-   * pointed, so a pick at a drawing since deleted can be dropped.
-   */
-  | {
-      readonly kind: "pick";
-      readonly drawing: number;
-      readonly x: number;
-      readonly y: number;
-      readonly pictureX: number;
-      readonly pictureY: number;
-      readonly commits: number;
-    }
-  /**
-   * On a page drawn in ReGIS, the pointer came onto a detectable numbered
-   * `drawing` or, with `leave`, went off it (the server's REQ-6372);
-   * `commits` is how many commits the viewer's picture had. A move from
-   * one drawing to the next is a leave, then an enter. The drawing's hover
-   * look, if it has one, is drawn by the viewer's browser without this.
-   */
-  | { readonly kind: "drawingHover"; readonly drawing: number; readonly leave: boolean; readonly commits: number }
-  /** An input method's text as it stands while it is being composed, `cursor` code points in; empty when composing ended (DOC-1969). What it commits comes as `text`. */
-  | { readonly kind: "compose"; readonly cursor: number; readonly text: string }
-  /** A paste: data, never keystrokes. */
-  | { readonly kind: "paste"; readonly text: string }
-  /** The page has the keyboard's focus. */
-  | { readonly kind: "focus" }
-  /** The page lost the keyboard's focus; it stays selected and is still kept up to date. */
-  | { readonly kind: "blur" };
+  (
+    | { readonly kind: "text"; readonly text: string }
+    /** A key pressed, repeating or released: every one is sent, with the `text` it produced, its `base` when that differs, and the `mods` held (DOC-1935). */
+    | {
+        readonly kind: "key";
+        readonly action: KeyAction;
+        readonly key: string;
+        readonly mods?: number;
+        readonly text?: string;
+        readonly base?: string;
+        readonly lost?: true;
+      }
+    /** A mouse button pressed or released on a cell, with what comes with the pointer. */
+    | ({
+        readonly kind: "mouse";
+        readonly action: "press" | "release";
+        readonly button: number;
+        readonly column: number;
+        readonly row: number;
+        readonly lost?: true;
+      } & Pointed)
+    /** The pointer moved over the page, a button held or not (DOC-1945); `buttons` are those held, a bit each ({@link Held}). */
+    | ({ readonly kind: "mouse"; readonly action: "move"; readonly buttons: number; readonly column: number; readonly row: number } & Pointed)
+    /** The pointer left the page, or the receiver lost it, at the cell it was last over, so the page can stop showing what follows it (REQ-1355, REQ-1367); a button held comes first as a release marked `lost`. */
+    | ({ readonly kind: "mouse"; readonly action: "gone"; readonly column: number; readonly row: number } & Pointed)
+    /**
+     * A finger after the first, which comes as `mouse` (REQ-1366, DOC-1938):
+     * down, up, moved, or gone when the receiver lost it, on a cell.
+     * `contact` names it from its beginning to its end. Only on a connection
+     * that agreed TOUCH; a release the page lost is marked `lost`.
+     */
+    | ({
+        readonly kind: "touch";
+        readonly action: "press" | "release" | "move" | "gone";
+        readonly contact: number;
+        readonly column: number;
+        readonly row: number;
+        readonly lost?: true;
+      } & Pointed)
+    /** The wheel turned over a cell, in 1/120ths of a line, positive right and down. */
+    | ({ readonly kind: "wheel"; readonly dx: number; readonly dy: number; readonly column: number; readonly row: number } & Pointed)
+    /** The pointer entered a control of the page or left it (DOC-1940): `column` and `row` are the control's first cell, its top-left, as the page declared it; a move from one control to the next is a leave, then an enter. */
+    | { readonly kind: "hover"; readonly action: HoverAction; readonly column: number; readonly row: number }
+    /**
+     * On a page drawn in ReGIS, what lay under the pointer of the `mouse`,
+     * `touch` or `wheel` input just before this one (the server's REQ-6339):
+     * the numbered `drawing` picked, 0 for none; the place within it, `x`
+     * and `y` from its origin; the place in the picture, in its pixels; and
+     * `commits`, how many commits the viewer's picture had when they
+     * pointed, so a pick at a drawing since deleted can be dropped.
+     */
+    | {
+        readonly kind: "pick";
+        readonly drawing: number;
+        readonly x: number;
+        readonly y: number;
+        readonly pictureX: number;
+        readonly pictureY: number;
+        readonly commits: number;
+      }
+    /**
+     * On a page drawn in ReGIS, the pointer came onto a detectable numbered
+     * `drawing` or, with `leave`, went off it (the server's REQ-6372);
+     * `commits` is how many commits the viewer's picture had. A move from
+     * one drawing to the next is a leave, then an enter. The drawing's hover
+     * look, if it has one, is drawn by the viewer's browser without this.
+     */
+    | { readonly kind: "drawingHover"; readonly drawing: number; readonly leave: boolean; readonly commits: number }
+    /** An input method's text as it stands while it is being composed, `cursor` code points in; empty when composing ended (DOC-1969). What it commits comes as `text`. */
+    | { readonly kind: "compose"; readonly cursor: number; readonly text: string }
+    /** A paste: data, never keystrokes. */
+    | { readonly kind: "paste"; readonly text: string }
+    /** The page has the keyboard's focus. */
+    | { readonly kind: "focus" }
+    /** The page lost the keyboard's focus; it stays selected and is still kept up to date. */
+    | { readonly kind: "blur" }
+  );
 
 /** The modifier keys, a bit each, as DOC-1935 numbers them: Control-C comes as the key `c` with {@link Mods.Control} in `mods`. */
 export const Mods = { Shift: 1, Alt: 2, Control: 4, Super: 8, Hyper: 16, Meta: 32, CapsLock: 64, NumLock: 128 } as const;

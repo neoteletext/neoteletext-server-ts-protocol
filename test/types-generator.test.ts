@@ -151,6 +151,49 @@ test("TS-9: a keyword the table does not list, or an object that does not refuse
   );
 });
 
+test("RULE-35, PY-75: action and of tag a union, and an untagged branch of several properties is named by the first it requires that no other branch has", () => {
+  const written = typesOf({
+    Action: {
+      oneOf: [
+        { ...CLOSED, properties: { action: { const: "start_timer", type: "string" }, timer: { type: "string" } }, required: ["action", "timer"] },
+        { ...CLOSED, properties: { action: { const: "send", type: "string" } }, required: ["action"] },
+      ],
+    },
+    Value: { oneOf: [{ ...CLOSED, properties: { of: { const: "keys_down", type: "string" } }, required: ["of"] }] },
+    Condition: {
+      anyOf: [
+        { ...CLOSED, properties: { not: { $ref: "#/$defs/Condition" } }, required: ["not"] },
+        { ...CLOSED, properties: { read: { $ref: "#/$defs/Value" }, op: { type: "string" }, value: { type: "integer" } }, required: ["read", "op", "value"] },
+        { ...CLOSED, properties: { read: { $ref: "#/$defs/Value" }, in_range: { type: "array", items: { type: "integer" } } }, required: ["read", "in_range"] },
+      ],
+    },
+  });
+  assert.ok(written.includes("export type Action =\n  | ActionStartTimer\n  | ActionSend;"), written);
+  assert.ok(written.includes("export type Value =\n  | ValueKeysDown;"), written);
+  assert.ok(written.includes("export type Condition =\n  | ConditionNot\n  | ConditionOp\n  | ConditionInRange;"), written);
+  assert.ok(written.includes("export interface ConditionOp {\n  readonly read: Value;\n  readonly op: string;\n  readonly value: number;\n}"), written);
+  const same = { ...CLOSED, properties: { read: { type: "string" } }, required: ["read"] };
+  refuses(
+    { Condition: { anyOf: [same, same] } },
+    /#\/\$defs\/Condition\/anyOf\/0: an object branch of an untagged union with no required property of its own/u,
+  );
+});
+
+test("RULE-38, PY-74: a map of names that match one pattern is a record of its values, and any other patternProperties fails", () => {
+  const map = { type: "object", additionalProperties: false, patternProperties: { "^[a-z]+$": { type: "integer" } } };
+  const written = typesOf({ State: { ...CLOSED, properties: { variables: map }, required: ["variables"] } });
+  assert.ok(written.includes("  readonly variables: Readonly<Record<string, number>>;"), written);
+  refuses(
+    { State: { ...CLOSED, properties: { variables: { ...map, properties: { a: { type: "string" } } } } } },
+    /properties\/variables\/patternProperties: not one pattern, alone and with additionalProperties: false/u,
+  );
+  refuses({ State: { ...CLOSED, properties: { variables: { ...map, additionalProperties: true } } } }, /patternProperties: not one pattern/u);
+  refuses(
+    { State: { ...CLOSED, properties: { variables: { ...map, patternProperties: { "^a$": { type: "integer" }, "^b$": { type: "integer" } } } } } },
+    /patternProperties: not one pattern/u,
+  );
+});
+
 test("TS-10 rule 5: two types of one name, or a reserved word, fail rather than being renamed", () => {
   refuses({ A: { oneOf: [{ ...CLOSED, properties: { kind: { const: "b", type: "string" } } }] }, AB: { type: "string" } }, /would both be named AB/u);
   refuses({ None: { type: "string" } }, /reserved word/u);

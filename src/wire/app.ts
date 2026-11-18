@@ -1,4 +1,4 @@
-// The program's side of the protocol, version 13 (DEC-1482): each message
+// The program's side of the protocol, version 14 (DEC-1482): each message
 // it writes is the generated type of its message (typescript.md TS-8),
 // written with its bytes fields as base64 (TS-21) and checked first against
 // the server's schema by the precompiled validators (validate.ts, TS-16), so

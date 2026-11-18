@@ -107,6 +107,15 @@ function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
     soundBuilt: then((...given: Parameters<ServerEvents["soundBuilt"]>) => {
       channel.soundBuilt(...given);
     }),
+    ruleEvent: then((...given: Parameters<ServerEvents["ruleEvent"]>) => {
+      channel.ruleEvent(...given);
+    }),
+    pageState: then((...given: Parameters<ServerEvents["pageState"]>) => {
+      channel.pageState(...given);
+    }),
+    rulesFault: then((...given: Parameters<ServerEvents["rulesFault"]>) => {
+      channel.rulesFault(...given);
+    }),
   };
 }
 

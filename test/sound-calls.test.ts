@@ -2,6 +2,8 @@
 // and what the server says back reaching an application (TS-22, TS-23).
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
 
 import { type Application, type Context, MeasureRefusedError, type PageEntry, Screen } from "../src/index.ts";
@@ -49,6 +51,41 @@ test("TS-19: a member of every kind is written as built, with type and connectio
     assert.deepEqual(Object.keys(rest), Object.keys(MEMBERS[index] ?? {}), "the member's own fields, in its order");
   });
   assert.deepEqual(harness.sounds(1), MEMBERS, "read back, each is the member built, bytes as bytes");
+});
+
+test("TS-19, RULE-61: the members are one of every kind the schema gives, the local sounds among them, in its order", () => {
+  // Read as text, as the language tags' test reads the schema: the kinds are the consts of the schema's SoundKind.
+  const schema = readFileSync(join(import.meta.dirname, "..", "schema", "protocol-14.json"), "utf8");
+  const kinds = /"SoundKind": \{.*?\n {4}\},\n/su.exec(schema)?.[0] ?? "";
+  assert.deepEqual(
+    MEMBERS.map((member) => member.kind),
+    [...kinds.matchAll(/"const": "(\w+)"/gu)].map((found) => found[1]),
+  );
+});
+
+test("RULE-61: a local sound and its play are written as the document's JSON, field for field", () => {
+  const harness = sending((context) => {
+    const everyone = { connections: "all" } as const;
+    context.sound(everyone, {
+      kind: "synth106_local",
+      handle: 1,
+      generation: 1,
+      banks: [2],
+      setup: [{ event: "program_change", channel: 1, program: 0, time_us: 0 }],
+    });
+    context.sound(everyone, { kind: "play", channel: 0, handle: 1, generation: 1, gain: 100, fade_ms: 5, duck: 0, loop: false, after: false, page: "101" });
+  });
+  harness.join(1, INDEX);
+  harness.typeText(1, "x");
+  // The document's two lines; the kit writes `connections` before the member's own fields (TS-19), so they are compared as values.
+  assert.deepEqual(soundLines(harness), [
+    JSON.parse(
+      '{"type":"sound","kind":"synth106_local","connections":"all","handle":1,"generation":1,"banks":[2],"setup":[{"event":"program_change","channel":1,"program":0,"time_us":0}]}',
+    ),
+    JSON.parse(
+      '{"type":"sound","kind":"play","connections":"all","channel":0,"handle":1,"generation":1,"gain":100,"fade_ms":5,"duck":0,"loop":false,"after":false,"page":"101"}',
+    ),
+  ]);
 });
 
 test("TS-19: an audience is chunked by start's named_connections, lines in the order of the calls, nothing for no connection", () => {

@@ -1,5 +1,5 @@
 // Writes the protocol's TypeScript types from the server's published schema
-// (schema/protocol-13.json, the server's protocol/schema-13.json, generated
+// (schema/protocol-14.json, the server's protocol/schema-14.json, generated
 // from its Rust types): typescript.md TS-8 to TS-15. No library writes them
 // (DEC-6477 answer 2): the schema uses few keywords, each mapped below, and
 // any other keyword fails generation, naming it and its path, so a schema
@@ -35,6 +35,7 @@ const KNOWN = new Set([
   "properties",
   "required",
   "additionalProperties",
+  "patternProperties",
   "items",
   "minItems",
   "maxItems",
@@ -53,8 +54,13 @@ const KNOWN = new Set([
   "contentEncoding",
 ]);
 
-/** The properties that tag a union's branches (TS-10 rule 2), and `packet`, which tags a packed line (the schema's PackedLine, which TS-10 does not name). */
-const TAGS = ["type", "kind", "event", "form", "packet"] as const;
+/**
+ * The properties that tag a union's branches (TS-10 rule 2); `packet`, which
+ * tags a packed line (the schema's PackedLine, which TS-10 does not name);
+ * and `action` and `of`, which tag protocol 14's rule actions, animation
+ * operations and rule values (page-rules.md RULE-35, animation.md ANIM-21).
+ */
+const TAGS = ["type", "kind", "event", "form", "packet", "action", "of"] as const;
 
 /** The longest fixed-length array written as a tuple (TS-9: as SRV-23's 16-entry channel map). */
 const LONGEST_TUPLE = 16;
@@ -130,6 +136,26 @@ function tagOf(branches: readonly Node[]): string | undefined {
       const properties = branch["properties"];
       return isNode(properties) && isNode(properties[tag]) && typeof properties[tag]["const"] === "string";
     }),
+  );
+}
+
+/**
+ * The property an object branch of an untagged union is named by: the first
+ * of its required properties, in the schema's order, that no other object
+ * branch of the union has (page-rules.md RULE-35's conditions: `read` is in
+ * three branches, which `op`, `in_range` and `in_set` tell apart). A branch
+ * with one property is the plain case of it.
+ */
+function distinguishing(branch: Node, branches: readonly Node[]): string | undefined {
+  const required = branch["required"];
+  const properties = branch["properties"];
+  if (!isNode(properties) || !Array.isArray(required)) {
+    return undefined;
+  }
+  const others = branches.filter((other) => other !== branch && other["type"] === "object" && other["$ref"] === undefined);
+  return required.find(
+    (property: unknown): property is string =>
+      typeof property === "string" && others.every((other) => !isNode(other["properties"]) || other["properties"][property] === undefined),
   );
 }
 
@@ -307,6 +333,10 @@ class Generator {
     if (properties === undefined && isNode(additional)) {
       return `Readonly<Record<string, ${this.expression(additional, name, `${path}/additionalProperties`)}>>`;
     }
+    const patterned = node["patternProperties"];
+    if (patterned !== undefined) {
+      return this.#patterned(node, patterned, name, path);
+    }
     if (!isNode(properties)) {
       throw new GenerationError(`${path}: an object without properties`);
     }
@@ -315,6 +345,16 @@ class Generator {
     }
     this.declare(name, path, this.#interface(node, properties, name, path, ""));
     return name;
+  }
+
+  /** A map whose names all match one pattern, as the server writes a map keyed by a rule table's names (RULE-38): a record of the one value type, the pattern in its comment. */
+  #patterned(node: Node, patterned: unknown, name: string, path: string): string {
+    const entries = isNode(patterned) ? Object.entries(patterned) : [];
+    const [entry] = entries;
+    if (entry === undefined || entries.length !== 1 || !isNode(entry[1]) || node["properties"] !== undefined || node["additionalProperties"] !== false) {
+      throw new GenerationError(`${path}/patternProperties: not one pattern, alone and with additionalProperties: false`);
+    }
+    return `Readonly<Record<string, ${this.expression(entry[1], name, `${path}/patternProperties/${entry[0]}`)}>>`;
   }
 
   /** The body of an interface of `properties`. */
@@ -394,11 +434,11 @@ class Generator {
         return this.expression(branch, branchName, at);
       }
       if (branch["type"] === "object" && branch["$ref"] === undefined) {
-        const properties = branch["properties"];
-        if (!isNode(properties) || Object.keys(properties).length !== 1) {
-          throw new GenerationError(`${at}: an object branch of an untagged union with other than one property, which has no name`);
+        const property = distinguishing(branch, branches);
+        if (property === undefined) {
+          throw new GenerationError(`${at}: an object branch of an untagged union with no required property of its own, which has no name`);
         }
-        return this.expression(branch, `${name}${upperCamel(Object.keys(properties)[0] ?? "")}`, at);
+        return this.expression(branch, `${name}${upperCamel(property)}`, at);
       }
       return this.expression(branch, name, at);
     });
@@ -523,7 +563,7 @@ function firstDifference(one: string, two: string): number {
 
 function main(): void {
   const root = join(import.meta.dirname, "..");
-  const source = "schema/protocol-13.json";
+  const source = "schema/protocol-14.json";
   const out = join(root, "src", "wire", "generated");
   const { types, bytes } = generate(readFileSync(join(root, source), "utf8"), source);
   const files: readonly (readonly [string, string])[] = [

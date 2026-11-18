@@ -22,6 +22,7 @@ const SMALLEST = 100;
 /** Numbers equal to one of start's figures that are not that figure, by file and the name they are given. */
 const NOT_LIMITS: ReadonlyMap<string, string> = new Map([
   ["page/page-numbers.ts RESERVED_IN_EVERY_MAGAZINE", "page mFD, 0xFD, a page number Annex A.10 reserves, not the 253 pages a magazine may have"],
+  ["animation/ticks.ts MS_PER_SECOND", "milliseconds in a second"],
   ["sound/ffmpeg-opus.ts MILLISECOND_US", "microseconds in a millisecond"],
   ["sound/ogg-opus.ts LONGEST_HEADER", "the longest Ogg Opus header the reader takes (RFC 7845), not the connections a message may name"],
   ["sound/profile.ts SAMPLE_RATES", "the sample rates the server takes, 16,000 among them"],

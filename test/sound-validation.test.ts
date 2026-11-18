@@ -35,7 +35,7 @@ function faultOf(line: unknown): { readonly path: string; readonly rule: string 
 const SYNTHESIZERS = MEMBERS.filter((member) => member.kind.startsWith("synth"));
 
 test("TS-16: for each synthesizer kind, a missing field, a wrong type and a value out of range are refused at the server's path and rule", () => {
-  assert.equal(SYNTHESIZERS.length, 42, "the 42 synthesizer kinds of SRV-3");
+  assert.equal(SYNTHESIZERS.length, 51, "the 42 synthesizer kinds of SRV-3 and the 9 local sounds of page-rules.md RULE-61");
   for (const member of SYNTHESIZERS) {
     assert.deepEqual(faultOf(lineOf(member, ({ handle: _handle, ...rest }) => rest)), { path: "", rule: "missing_field" }, `${member.kind} without its handle`);
     assert.deepEqual(faultOf(lineOf(member, (line) => ({ ...line, handle: "3" }))), { path: "handle", rule: "wrong_type" }, member.kind);

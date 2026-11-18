@@ -22,7 +22,10 @@ const NOTES = [
 ] as const;
 const LENGTH = { tail_us: 100_000 } as const;
 
-/** The four kinds of a family of the MIDI synthesizers: a stored sound, a live one, its events and a bank, each of `bank` bytes. */
+/** A local sound's setup: every event at time 0, here the first program (page-rules.md RULE-61). */
+const SETUP = [{ event: "program_change", time_us: 0, channel: 1, program: 0 }] as const;
+
+/** The five kinds of a family of the MIDI synthesizers: a stored sound, a live one, its events, a local one and a bank, each of `bank` bytes. */
 type MidiFamily = "synth7" | "synth106" | "synth60" | "synthd" | "synth53" | "synth52" | "synth51" | "synth80";
 
 function family(name: MidiFamily, bank: Uint8Array): SoundMember[] {
@@ -31,6 +34,7 @@ function family(name: MidiFamily, bank: Uint8Array): SoundMember[] {
     { kind: name, ...NAMED, banks: [BANK], lift_banks: [], length: LENGTH, music: { form: "events", events: NOTES } },
     { kind: `${name}_live`, ...NAMED, banks: [BANK] },
     { kind: `${name}_events`, ...NAMED, until_us: 200_000, events: NOTES },
+    { kind: `${name}_local`, ...NAMED, banks: [BANK], setup: SETUP },
     { kind: `${name}_bank`, ...NAMED, bank: { form: "bytes", bytes: bank } },
   ] as SoundMember[];
 }
@@ -64,6 +68,7 @@ export const MEMBERS: readonly SoundMember[] = [
   { kind: "synth8", ...NAMED, key_mode: "split", split_key: 60, banks: [BANK], lift_banks: [], length: LENGTH, music: { form: "events", events: NOTES } },
   { kind: "synth8_live", ...NAMED, key_mode: "whole", split_key: 0, banks: [BANK] },
   { kind: "synth8_events", ...NAMED, until_us: 200_000, events: NOTES },
+  { kind: "synth8_local", ...NAMED, key_mode: "whole", split_key: 0, banks: [BANK], setup: SETUP },
   { kind: "synth8_bank", ...NAMED, bank: { form: "bytes", bytes: new Uint8Array([0xf0, 0xf7]) } },
   ...family("synth80", new Uint8Array([0x00])),
   { kind: "play", channel: 0, ...NAMED, gain: 100, fade_ms: 0, loop: false, after: false, duck: 0 },

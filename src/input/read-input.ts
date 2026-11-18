@@ -1,7 +1,7 @@
 // An input event as the server writes it, which the schema has checked
 // (validate.ts), as the kit's own Input.
 
-import { Button, Held, type Input, type Pointed } from "./input.ts";
+import { Button, Held, type Input, type InputSource, type Pointed } from "./input.ts";
 import type { Buttons, InputEvent } from "../wire/generated/protocol.js";
 
 /** The modifiers held, when any is. */
@@ -23,8 +23,8 @@ function heldOf(buttons: Buttons | null | undefined): number {
   return (buttons.left ? Held.Left : 0) | (buttons.middle ? Held.Middle : 0) | (buttons.right ? Held.Right : 0);
 }
 
-/** An event as the kit's Input; `lost` marks a release the page lost. */
-export function readInput(event: InputEvent, lost: boolean): Input {
+/** The event itself, without where it came from. */
+function eventInput(event: InputEvent, lost: boolean): Input {
   const marked = lost ? ({ lost: true } as const) : {};
   if (event.kind === "key") {
     const { action, key } = event;
@@ -66,4 +66,9 @@ export function readInput(event: InputEvent, lost: boolean): Input {
     return { kind: event.kind, text: event.text };
   }
   return { kind: event.kind };
+}
+
+/** An event as the kit's Input; `lost` marks a release the page lost, and `source` is the rule that sent it, with its tick and target (page-rules.md RULE-37). */
+export function readInput(event: InputEvent, lost: boolean, source: InputSource = {}): Input {
+  return { ...eventInput(event, lost), ...source };
 }

@@ -2,7 +2,10 @@
 // exports at run time. The protocol's types are types only, from
 // neoteletext-server-ts-protocol/protocol; for sound the main entry gives the
 // Opus encoder and the profile's constants it uses, and nothing of a
-// synthesizer.
+// synthesizer. For a page's rules and animation it gives the timeline
+// builder, the clock's rate, the error a refused state query rejects with and
+// the small builders of a table's pieces, each of which only constructs
+// (page-rules.md RULE-55; animation.md ANIM-19).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -54,6 +57,7 @@ const KIT = [
   "PROTOCOL",
   "ProtocolError",
   "ProtocolVersionError",
+  "QueryRefusedError",
   "ROWS",
   "RUN_CHARACTERS",
   "Random",
@@ -61,6 +65,8 @@ const KIT = [
   "SIXELS_ACROSS",
   "SIXELS_DOWN",
   "SPACE",
+  "TICKS_PER_SECOND",
+  "Timeline",
   "Screen",
   "Sixels",
   "Viewer",
@@ -69,6 +75,7 @@ const KIT = [
   "cellsOf",
   "channelIndex",
   "character",
+  "characterKey",
   "checkProgram",
   "checkServer",
   "clicked",
@@ -86,14 +93,17 @@ const KIT = [
   "isPageNumber",
   "isReserved",
   "keyText",
+  "level",
   "mosaicColour",
   "mostNumbered",
+  "namedKey",
   "numberAt",
   "numbered",
   "oggCrc",
   "packedLinksLine",
   "pageText",
   "pcmBytes",
+  "physicalKey",
   "pressed",
   "processStreams",
   "promptAt",

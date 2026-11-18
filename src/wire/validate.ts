@@ -68,7 +68,7 @@ const LANGUAGE_FIELD = "/language";
 const VAGUE: ReadonlySet<string> = new Set(["type", "anyOf", "oneOf", "const", "enum"]);
 
 /** The properties a union's branches are told apart by: its tags (typescript.md TS-10 rule 2). */
-const TAG_CONST = /\/properties\/(?:type|kind|event|form|packet)\/const$/u;
+const TAG_CONST = /\/properties\/(?:type|kind|event|form|packet|action|of)\/const$/u;
 
 /**
  * The faults of the branches the message is of: a branch whose tag the

@@ -1,7 +1,9 @@
 // The kit's public calls, handlers, audiences and harness calls are the
 // Python kit's, held to neoteletext-common's kit-calls.tsv, of which
 // kit-calls.tsv here is a copy the commit gate checks (typescript.md TS-2;
-// python.md PY-19).
+// python.md PY-19), the calls of the page rule table and of animation and
+// the timeline builder among them (page-rules.md RULE-55; animation.md
+// ANIM-19).
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -10,7 +12,7 @@ import { test } from "node:test";
 
 import type { Application } from "../src/channel/application.ts";
 import { HANDLER_ARGUMENTS, type OptionalHandler } from "../src/channel/handlers.ts";
-import { Context } from "../src/index.ts";
+import { Context, Timeline } from "../src/index.ts";
 import { Harness } from "../src/testing/index.ts";
 
 /** One row of the file. */
@@ -120,6 +122,21 @@ test("TS-2: the audiences are kit-calls.tsv's", () => {
       .map((row) => row.typescript),
     ["{ connection }", "{ page }", "{ connections: [...] }", '{ connections: "all" }'],
   );
+});
+
+test("ANIM-19: the timeline builder's members are kit-calls.tsv's, each with its arguments", () => {
+  // Its constructor, written by the class's name, takes its one option; `steps` is read, not called.
+  const members = new Map([...methodsOf(Timeline.prototype)].map(([name, method]) => [name, parameterCount(method)]));
+  const steps = Object.getOwnPropertyDescriptor(Timeline.prototype, "steps");
+  assert.equal(typeof steps?.get, "function");
+  members.set("steps", 0).set("Timeline", Timeline.length + 1);
+  assert.equal(new Timeline({ loopTicks: 2 }).loopTicks, 2, "the one option");
+  holds("timeline", members);
+});
+
+test("ANIM-19: a step's calls are kit-calls.tsv's, each with its arguments", () => {
+  const step: object = new Timeline().at(0);
+  holds("step", new Map([...methodsOf(parentOf(step) ?? {})].map(([name, method]) => [name, parameterCount(method)])));
 });
 
 /** What a handler's parameters count when they are its arguments and its context, but `describe`'s, which has none. */
