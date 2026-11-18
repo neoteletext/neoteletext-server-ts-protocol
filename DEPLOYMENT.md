@@ -46,6 +46,37 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
+## Release 18.2.0: kept pictures, picture text, and the ReGIS and NAPLPS builders
+
+Release 18.2.0 still speaks program protocol 15, at the server's schema of
+neoteletext-app-server `25bc0e7` (branch `parity`, not yet merged), whose
+picture messages renderer parity adds (neoteletext-common's
+`docs/renderer-parity.md`, PAR-16 to PAR-26). A program that uses the new
+calls needs a server built from that commit or later; one that does not
+changes nothing. It adds:
+
+- **`{ kept: true }`**, a `PictureAudience` that only `regis`,
+  `regisLinks`, `regisCursor`, `naplps`, `naplpsObjects`, `naplpsLinks` and
+  `naplpsCursor` take: the server keeps what they send for the page and
+  sub-code named and sends it to every viewer of them, now or later, until
+  **`context.forgetPicture(page, sub)`**.
+- **`context.naplpsLinks(to, page, sub, links)`** and
+  **`context.naplpsCursor(to, page, sub, object)`**, a NAPLPS picture's
+  object links and cursor.
+- **`context.regis` and `context.naplps`** take a list of parts too, each
+  bytes or `{ text, language?, outside? }`, Unicode text the server writes
+  in the provided character sets; `naplps` takes text written a byte a
+  character as `regis` does.
+- **`context.measurePictureText(text, { language, outside })`**, what a
+  text part costs, or `PictureTextRefusedError`.
+- **`PageDescription.picture`**, a public page's ReGIS or NAPLPS picture.
+- **`Regis` and `Naplps`**, builders of the parts, with the renderers'
+  limits by their names, `regisLimits` and `naplpsLimits`.
+
+While the server's commit is unpublished, a consumer takes the release
+built from this repository's branch `parity` as any other (below): the
+tarball names no server commit, which is the consumer's to run.
+
 ## Release 18.1.0: NAPLPS labels, the picture's title and one object redefined
 
 Release 18.1.0 still speaks program protocol 15, at the server's schema of
