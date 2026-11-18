@@ -84,7 +84,7 @@ export * from "./rules/limits.ts";
 export { characterKey, fired, level, namedKey, noteOff, noteOn, phase, physicalKey, plus, row, variable } from "./rules/builders.ts";
 export { Modes, modes } from "./rules/modes.ts";
 export type { PageState } from "./rules/page-state.ts";
-export type { DrawingLink, ObjectPage, VariableCommand } from "./channel/context.ts";
+export type { DrawingLink, NaplpsObjectSet, ObjectPage, VariableCommand } from "./channel/context.ts";
 export type { DeniedStatus } from "./channel/connections.ts";
 export { Viewer } from "./channel/viewer.ts";
 export { ANY_SUB, Channel } from "./channel/channel.ts";

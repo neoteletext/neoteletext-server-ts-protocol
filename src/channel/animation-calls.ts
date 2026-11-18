@@ -6,7 +6,8 @@
 // Nothing here checks a table, an operation or a sprite: the schema holds
 // each line and every other rule is the server's (DEC-6462).
 
-import type { Host } from "./context.ts";
+import type { Host, NaplpsObjectSet } from "./context.ts";
+import type { NaplpsObject } from "../wire/generated/protocol.js";
 import type { Sender } from "./sender.ts";
 import { textBytes } from "./text-bytes.ts";
 import { subText } from "./wire-page.ts";
@@ -22,6 +23,17 @@ export type AnimationHost = Pick<
 const FIRST_TIMELINE = 1;
 /** A timeline's last identifier. */
 const LAST_TIMELINE = 65_535;
+
+/**
+ * A `naplps_objects` message's own fields (ANIM-11): a list is the objects alone; a set adds the title or one, each
+ * written after the objects only when given, in the order the Python kit writes them, so that both write one line
+ * (DEC-6462).
+ */
+function naplpsFields(given: readonly NaplpsObject[] | NaplpsObjectSet): NaplpsObjectSet {
+  const set: NaplpsObjectSet = "objects" in given ? given : { objects: given };
+  const title = set.title === undefined || set.title === null ? {} : { title: set.title };
+  return { objects: set.objects, ...title, ...(set.one === true ? { one: true } : {}) };
+}
 
 /** The calls of rules and animation, writing through `sender`. */
 export function animationCalls(sender: Sender): AnimationHost {
@@ -40,8 +52,8 @@ export function animationCalls(sender: Sender): AnimationHost {
     sprites: (to, page, sub, sprites): void => {
       sender.toAudience(to, (named) => ({ type: "sprites", connections: named, page: pageText(page), sub: subText(sub), sprites }));
     },
-    naplpsObjects: (to, page, sub, objects): void => {
-      sender.toAudience(to, (named) => ({ type: "naplps_objects", connections: named, page: pageText(page), sub: subText(sub), objects }));
+    naplpsObjects: (to, page, sub, given): void => {
+      sender.toAudience(to, (named) => ({ type: "naplps_objects", connections: named, page: pageText(page), sub: subText(sub), ...naplpsFields(given) }));
     },
     spriteSheet: (to, page, sub, kind, data, restart): void => {
       const bytes = textBytes("spriteSheet", data);

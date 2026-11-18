@@ -22,6 +22,7 @@ import type {
   NaplpsObject,
   ObjectPageContent,
   ProgramMessageVariable,
+  RuleCommandNaplpsObjects,
   RuleName,
   RuleTable,
   RuleValue,
@@ -50,6 +51,13 @@ export type VariableCommand = Omit<ProgramMessageVariable, "type" | "connections
 
 /** An object page's sub-page as a program gives it (animation.md ANIM-17): the schema's `ObjectPageContent`, its page a number as every call's is. */
 export type ObjectPage = Omit<ObjectPageContent, "page"> & { readonly page: number };
+
+/**
+ * A NAPLPS sub-page's objects as a program gives them with the picture's title, or one object redefined (animation.md
+ * ANIM-11; DEC-6638 items 3 and 6): the schema's `naplps_objects` without what the call fills. A title is 1 to 64
+ * bytes of plain text, and `one` takes exactly one object and no title, keeping every other object and the title.
+ */
+export type NaplpsObjectSet = Omit<RuleCommandNaplpsObjects, "type">;
 
 /** What a context reaches of its channel. */
 export interface Host {
@@ -85,7 +93,7 @@ export interface Host {
   frame(to: Audience, page: number, sub: number, mark: FrameMarkName): void;
   animate(to: Audience, page: number, sub: number, ops: readonly AnimationOp[]): void;
   sprites(to: Audience, page: number, sub: number, sprites: readonly Sprite[]): void;
-  naplpsObjects(to: Audience, page: number, sub: number, objects: readonly NaplpsObject[]): void;
+  naplpsObjects(to: Audience, page: number, sub: number, objects: readonly NaplpsObject[] | NaplpsObjectSet): void;
   spriteSheet(to: Audience, page: number, sub: number, kind: SheetKindName, data: string | Uint8Array, restart: boolean): void;
   objectPage(to: Audience, page: number, sub: number, object: ObjectPage): void;
   playTimeline(to: Audience, page: number, sub: number, timeline: Timeline, id: number | null): number;
@@ -381,8 +389,11 @@ export class Context {
     this.#host.sprites(to, page, sub, sprites);
   }
 
-  /** A NAPLPS sub-page's objects, which replace those it had (ANIM-11, ANIM-21); an empty list removes them. */
-  naplpsObjects(to: Audience, page: number, sub: number, objects: readonly NaplpsObject[]): void {
+  /**
+   * A NAPLPS sub-page's objects, which replace those it had (ANIM-11, ANIM-21); an empty list removes them. Given as a
+   * list, the picture has no title; given as a set, with its `title`, or with `one` to redefine its one object alone.
+   */
+  naplpsObjects(to: Audience, page: number, sub: number, objects: readonly NaplpsObject[] | NaplpsObjectSet): void {
     this.#host.naplpsObjects(to, page, sub, objects);
   }
 

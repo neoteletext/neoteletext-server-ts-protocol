@@ -168,7 +168,10 @@ frames by a rule's group, at once and in the browser, or by the program:
 - `context.animate(to, page, sub, ops)` sends animation operations
   (`AnimationOp`); `context.sprites` a teletext sub-page's sprites
   (`Sprite`), `context.naplpsObjects` a NAPLPS sub-page's objects
-  (`NaplpsObject`), `context.spriteSheet(to, page, sub, kind, data, restart?)`
+  (`NaplpsObject`, each with an optional `label` a screen reader says), as
+  a list, or as a `NaplpsObjectSet` with the picture's `title`, or with
+  `one: true` to redefine its one object and keep the rest (ANIM-11),
+  `context.spriteSheet(to, page, sub, kind, data, restart?)`
   the drawings a sub-page's objects use, text a byte a character (a
   character above 255 throws `TextNotWritableError`, as `regis` does), and
   `context.objectPage(to, page, sub, object)` one sub-page of a teletext
