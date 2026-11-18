@@ -59,7 +59,7 @@ readonly LIMITS_FROM="33d9089610d1ee2d920dd26d42fb22388c97e709"
 readonly LIMITS_SOURCE="crates/neoteletext-rules/src/limits.rs"
 # The server commit whose PROGRAM_REPLY_LIMIT_MS the testing entry's
 # SERVER_LIMITS must equal (DEC-2438).
-readonly REPLY_LIMIT_FROM="fa18b08928651a6161c1158375171b61aabf56f7"
+readonly REPLY_LIMIT_FROM="9d5eb99f0bb281dad8bb51e3fa26d35132a783be"
 readonly REPLY_LIMIT_SOURCE="crates/teletext-runtime/src/channel.rs"
 
 . scripts/gate.sh
