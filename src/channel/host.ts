@@ -156,11 +156,11 @@ function pictures(parts: HostParts): PictureHost {
   return {
     regis: (to, page, sub, data, restart): void => {
       const fields = pictureFields("regis", data);
-      sender.toPictureAudience(to, (named) => ({ type: "regis", connections: named, page: pageText(page), sub: subText(sub), restart, ...fields }));
+      sender.toPictureAudience(to, (named) => ({ type: "regis", connections: named, page: pageText(page), sub: subText(sub), ...fields, restart }));
     },
     naplps: (to, page, sub, data, restart): void => {
       const fields = pictureFields("naplps", data);
-      sender.toPictureAudience(to, (named) => ({ type: "naplps", connections: named, page: pageText(page), sub: subText(sub), restart, ...fields }));
+      sender.toPictureAudience(to, (named) => ({ type: "naplps", connections: named, page: pageText(page), sub: subText(sub), ...fields, restart }));
     },
     regisLinks: (to, page, sub, links): void => {
       const listed = links.map(({ drawing, target }) => ({ drawing, target }));

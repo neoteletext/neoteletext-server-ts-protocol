@@ -128,6 +128,11 @@ test("PAR-21: a list goes as parts, bytes that stand together joined, text with 
   ]);
   assert.equal(regis?.["data"], undefined, "a list is never data");
   assert.deepEqual(naplps?.["parts"], [{ data: "Dg==" }, { text: "Hi" }]);
+  // The line both kits write (DEC-6462, DEC-6792 item 3): the bytes in the place `data` has always taken, before `restart`.
+  assert.equal(
+    JSON.stringify(naplps),
+    '{"type":"naplps","connections":"all","page":"200","sub":"0001","parts":[{"data":"Dg=="},{"text":"Hi"}],"restart":false}',
+  );
 });
 
 test("PAR-21: exactly one of data and parts, 1 to 64 parts, each part's text and bytes held as the server holds them", () => {
