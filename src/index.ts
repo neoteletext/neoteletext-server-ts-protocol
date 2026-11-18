@@ -78,8 +78,15 @@ export { MeasureRefusedError } from "./channel/measure-refused.ts";
 export { QueryRefusedError } from "./channel/query-refused.ts";
 export { PictureTextRefusedError } from "./channel/picture-text-refused.ts";
 export type { MeasuredPictureText, PictureTextOptions } from "./channel/picture-text-measures.ts";
-// A sub-page's picture as parts (renderer parity PAR-21).
+// A sub-page's picture as parts, and the builders of ReGIS and NAPLPS (renderer parity PAR-21, PAR-39, PAR-40), with
+// the renderers' limits they hold their calls to, by the renderers' names.
 export type { PictureData, PicturePart, PictureText } from "./picture/parts.ts";
+export { Regis } from "./picture/regis.ts";
+export type { RegisDrawingAttributes, RegisTextOptions } from "./picture/regis.ts";
+export { Naplps } from "./picture/naplps.ts";
+export type { DesignPoint, NaplpsObjectSpec } from "./picture/naplps.ts";
+export * as regisLimits from "./picture/regis-limits.ts";
+export * as naplpsLimits from "./picture/naplps-limits.ts";
 export { TextNotWritableError } from "./channel/text-bytes.ts";
 export { Timeline } from "./animation/timeline.ts";
 export type { TimelineStep } from "./animation/step.ts";

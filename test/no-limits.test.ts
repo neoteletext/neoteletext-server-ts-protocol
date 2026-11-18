@@ -37,6 +37,9 @@ const NOT_LIMITS: ReadonlyMap<string, string> = new Map([
     "wire/picture-rules.ts MOST_PART_CHARACTERS",
     "the characters of one picture text part (the server's MOST_PART_CHARACTERS, renderer parity PAR-21), not a figure start gives",
   ],
+  ["picture/naplps-limits.ts MAX_MACRO_BYTES", "the bytes of one NAPLPS macro, the NAPLPS renderer's limit, not a figure start gives"],
+  ["picture/naplps-limits.ts MAX_VERTICES", "the vertices of one NAPLPS polygon, the NAPLPS renderer's limit, not a figure start gives"],
+  ["picture/regis-limits.ts SCREEN_WIDTH", "the VT340's 800 pixels across, the ReGIS renderer's, not a figure start gives"],
   ["wire/protocol.ts WireSampleRate", "the sample rates the server takes, 16,000 among them"],
 ]);
 

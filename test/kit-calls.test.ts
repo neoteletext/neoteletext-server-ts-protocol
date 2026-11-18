@@ -14,7 +14,7 @@ import { test } from "node:test";
 import type { Application } from "../src/channel/application.ts";
 import { HANDLER_ARGUMENTS, type OptionalHandler } from "../src/channel/handlers.ts";
 import * as packageExports from "../src/index.ts";
-import { Context, Modes, Timeline } from "../src/index.ts";
+import { Context, Modes, Naplps, Regis, Timeline } from "../src/index.ts";
 import { Harness } from "../src/testing/index.ts";
 
 /** One row of the file. */
@@ -157,6 +157,18 @@ test("RULE-55: the builders are kit-calls.tsv's, each a function of the package 
   const listed = rows().filter((row) => row.what === "builder");
   const exported: Readonly<Record<string, unknown>> = packageExports;
   holds("builder", new Map(listed.map((row) => [row.typescript, parameterCount(exported[row.typescript])])));
+});
+
+test("PAR-39, PAR-40: the picture builders' methods are kit-calls.tsv's regis and naplps rows, each with its arguments, and their constructors take nothing", () => {
+  for (const [what, builder] of [
+    ["regis", Regis],
+    ["naplps", Naplps],
+  ] as const) {
+    holds(
+      what,
+      new Map([...[...methodsOf(builder.prototype)].map(([name, method]) => [name, parameterCount(method)] as const), [builder.name, builder.length] as const]),
+    );
+  }
 });
 
 test("RULE-110: the mode set's methods are kit-calls.tsv's modes, each with its arguments", () => {

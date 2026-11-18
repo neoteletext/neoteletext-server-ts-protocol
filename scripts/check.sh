@@ -18,6 +18,9 @@
 #                             test/fixtures against neoteletext-common's
 #   scripts/check.sh limits   src/rules/limits.ts against the engine's
 #                             neoteletext_rules::limits
+#   scripts/check.sh picture_limits
+#                             src/picture/regis-limits.ts and
+#                             naplps-limits.ts against the renderers'
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -39,7 +42,8 @@ readonly SCHEMA_FROM="25bc0e752deacd36d005e3e91f0ce763a72c5d6b"
 # copies below are copies of: the calls and the worked examples' lines both
 # kits must have (typescript.md TS-2, TS-6), and protocol 15's rule tables and
 # timelines as both kits must write them (python.md PY-80; page-rules.md
-# section 7.5 and RULE-93; animation.md ANIM-19).
+# section 7.5 and RULE-93; animation.md ANIM-19), and the picture builders'
+# calls and bytes (renderer-parity.md PAR-39, PAR-40).
 common="${NEOTELETEXT_COMMON:-$HOME/devel/neoteletext-common}"
 readonly COMMON_FROM="bad17b2ed23d7029cadd3f093dd8de46c79f2603"
 # Each copy and the file of neoteletext-common it is a copy of.
@@ -49,6 +53,7 @@ readonly SHARED_COPIES=(
     "test/fixtures/rules-examples.jsonl:docs/rules-examples.jsonl"
     "test/fixtures/timelines.jsonl:docs/timelines.jsonl"
     "test/fixtures/command-lines.jsonl:docs/command-lines.jsonl"
+    "test/fixtures/picture-examples.jsonl:docs/picture-examples.jsonl"
 )
 # The engine's repository, and the commit whose
 # crates/neoteletext-rules/src/limits.rs src/rules/limits.ts is generated
@@ -57,6 +62,16 @@ readonly SHARED_COPIES=(
 engine="${NEOTELETEXT_ENGINE:-$HOME/devel/neoteletext-renderer-teletext}"
 readonly LIMITS_FROM="33d9089610d1ee2d920dd26d42fb22388c97e709"
 readonly LIMITS_SOURCE="crates/neoteletext-rules/src/limits.rs"
+# The ReGIS and NAPLPS renderers' repositories, and the commits whose limits
+# src/picture/regis-limits.ts and naplps-limits.ts are generated from
+# (renderer parity PAR-39, PAR-40): the commits the server of SCHEMA_FROM
+# pins, so that the builders' bounds are the receivers' and the server's.
+regis="${NEOTELETEXT_REGIS:-$HOME/devel/neoteletext-renderer-regis}"
+readonly REGIS_FROM="9c1a162cc1a8d17d727e19fa9a2253dee7f8bcc2"
+readonly REGIS_SOURCES=(crates/regis/src/limits.rs crates/regis/src/palette.rs crates/regis/src/surface.rs)
+naplps="${NEOTELETEXT_NAPLPS:-$HOME/devel/neoteletext-renderer-naplps}"
+readonly NAPLPS_FROM="27000408468141b3e7e708f5da130f4e6e52c926"
+readonly NAPLPS_SOURCES=(crates/naplps/src/limits.rs crates/naplps/src/surface.rs crates/naplps-render/src/main.rs)
 # The server commit whose PROGRAM_REPLY_LIMIT_MS the testing entry's
 # SERVER_LIMITS must equal (DEC-2438).
 readonly REPLY_LIMIT_FROM="9d5eb99f0bb281dad8bb51e3fa26d35132a783be"
@@ -71,6 +86,12 @@ server_git() { env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE git -C "$server
 common_git() { env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE git -C "$common" "$@"; }
 # Git in the engine's repository, for the same reason.
 engine_git() { env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE git -C "$engine" "$@"; }
+# Git in a renderer's repository, for the same reason.
+renderer_git() {
+    local repository="$1"
+    shift
+    env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE git -C "$repository" "$@"
+}
 
 sha256_of() {
     if command -v sha256sum >/dev/null; then
@@ -123,7 +144,7 @@ process.exit(newer === -1 || found[newer] > least[newer] ? 0 : 1);
     # The quality tools run on TypeScript 7: oxlint's type-aware rules are
     # typescript-go's own.
     step "formatting (Prettier, .prettierrc.json)"
-    npx --no -- prettier --check src test scripts/validators.ts scripts/types.ts scripts/limits.ts
+    npx --no -- prettier --check src test scripts/validators.ts scripts/types.ts scripts/limits.ts scripts/picture-limits.ts
 
     step "lint, type-aware, warnings fail (oxlint, .oxlintrc.json)"
     npx --no -- oxlint --type-aware --tsconfig tsconfig.json --deny-warnings src test
@@ -186,6 +207,31 @@ limits() {
         fail "src/rules/limits.ts is not what the engine's $LIMITS_SOURCE at $LIMITS_FROM gives: run node scripts/limits.ts on it, or name in scripts/check.sh the commit it is from"
 }
 
+# The copies are generated from the renderers' files at the commits named
+# (PAR-39, PAR-40). Read on this machine only, as the engine's are.
+picture_limits() {
+    step "src/picture/regis-limits.ts and naplps-limits.ts are generated from the renderers' at ${REGIS_FROM:0:7} and ${NAPLPS_FROM:0:7}"
+    local sources="tmp/picture-limits" name repository from path
+    rm -rf "$sources"
+    for name in regis naplps; do
+        if [[ "$name" == regis ]]; then
+            repository="$regis" from="$REGIS_FROM"
+            local -a paths=("${REGIS_SOURCES[@]}")
+        else
+            repository="$naplps" from="$NAPLPS_FROM"
+            local -a paths=("${NAPLPS_SOURCES[@]}")
+        fi
+        renderer_git "$repository" rev-parse --git-dir >/dev/null 2>&1 || fail "the $name renderer's repository is needed at $repository (or NEOTELETEXT_${name^^}) to check the picture limits' copy"
+        for path in "${paths[@]}"; do
+            renderer_git "$repository" cat-file -e "$from:$path" 2>/dev/null || fail "$repository has no $path at $from"
+            mkdir -p "$sources/$name/$(dirname "$path")"
+            renderer_git "$repository" show "$from:$path" >"$sources/$name/$path"
+        done
+    done
+    node scripts/picture-limits.ts "$sources" --check ||
+        fail "src/picture/regis-limits.ts or naplps-limits.ts is not what the renderers' files give: run node scripts/picture-limits.ts on them, or name in scripts/check.sh the commits they are from"
+}
+
 reply_limit() {
     step "SERVER_LIMITS's replyLimitMs is the server's PROGRAM_REPLY_LIMIT_MS at ${REPLY_LIMIT_FROM:0:7}"
     server_git rev-parse --git-dir >/dev/null 2>&1 || fail "the server's repository is needed at $server (or NEOTELETEXT_SERVER) to read its reply limit"
@@ -203,6 +249,7 @@ commit_steps() {
     schema
     shared
     limits
+    picture_limits
     reply_limit
     stage
 }
@@ -219,7 +266,7 @@ linux_steps() {
 }
 
 case "${1:-}" in
-schema | shared | limits | reply_limit | stage | build)
+schema | shared | limits | picture_limits | reply_limit | stage | build)
     "$1"
     step "All checks passed ($1)"
     step_name=""
