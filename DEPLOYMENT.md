@@ -46,6 +46,28 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
+## Release 18.0.0: the object page by its objects, and the rule table's limits
+
+Release 18.0.0 still speaks program protocol 15, at the server's schema of
+neoteletext-app-server `db7f927`, whose `object_page` carries the object
+page by its objects. What a consumer changes to take it:
+
+- **`context.objectPage(to, page, sub, object)`** takes the object page's
+  sub-page whole (`ObjectPage`: `page`, `s1`, `global`, `last`, and
+  `objects`, each a `kind`, an `index` and its `triplets`), in place of an
+  object page number, a sub-code and a page's content. A channel that
+  never called it changes nothing.
+- **A sequence started with `at` null** is written with no `at`, as one
+  started with none; the server reads both alike.
+- **The rule table's limits** are exported by the engine's names
+  (`MAX_RULES`, `MAX_RECTS`, …, `TICKS_PER_SECOND`): a consumer that wrote
+  a figure, or found one by probing the kit's check, uses the constant,
+  and may test its own repository with `limitFigureLines` of
+  `neoteletext-server-ts-protocol/testing` (REQ-6608).
+- **`PageEntry.keysOf(connection, sub)`**, new and optional, says the keys
+  each sub-page takes itself (DEC-6599); an entry without it is read as
+  before.
+
 ## Release 17.0.0: program protocol 15
 
 Release 17.0.0 speaks program protocol 15 (the second form of the page
