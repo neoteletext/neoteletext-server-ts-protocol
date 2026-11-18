@@ -79,7 +79,8 @@ export { QueryRefusedError } from "./channel/query-refused.ts";
 export { TextNotWritableError } from "./channel/text-bytes.ts";
 export { Timeline } from "./animation/timeline.ts";
 export type { TimelineStep } from "./animation/step.ts";
-export { TICKS_PER_SECOND } from "./animation/ticks.ts";
+// The limits of a page's rule table by the engine's names (page-rules.md RULE-57, REQ-6608), TICKS_PER_SECOND among them.
+export * from "./rules/limits.ts";
 export { characterKey, fired, level, namedKey, noteOff, noteOn, phase, physicalKey, plus, row, variable } from "./rules/builders.ts";
 export { Modes, modes } from "./rules/modes.ts";
 export type { PageState } from "./rules/page-state.ts";

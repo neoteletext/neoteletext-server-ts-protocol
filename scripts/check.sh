@@ -16,6 +16,8 @@
 #   scripts/check.sh schema   schema/protocol-15.json against the server's
 #   scripts/check.sh shared   kit-calls.tsv and the shared fixtures of
 #                             test/fixtures against neoteletext-common's
+#   scripts/check.sh limits   src/rules/limits.ts against the engine's
+#                             neoteletext_rules::limits
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -48,6 +50,13 @@ readonly SHARED_COPIES=(
     "test/fixtures/timelines.jsonl:docs/timelines.jsonl"
     "test/fixtures/command-lines.jsonl:docs/command-lines.jsonl"
 )
+# The engine's repository, and the commit whose
+# crates/neoteletext-rules/src/limits.rs src/rules/limits.ts is generated
+# from (page-rules.md RULE-57, REQ-6608): the one home of the rule table's
+# limits, at the commit the server pins.
+engine="${NEOTELETEXT_ENGINE:-$HOME/devel/neoteletext-renderer-teletext}"
+readonly LIMITS_FROM="33d9089610d1ee2d920dd26d42fb22388c97e709"
+readonly LIMITS_SOURCE="crates/neoteletext-rules/src/limits.rs"
 # The server commit whose PROGRAM_REPLY_LIMIT_MS the testing entry's
 # SERVER_LIMITS must equal (DEC-2438).
 readonly REPLY_LIMIT_FROM="fa18b08928651a6161c1158375171b61aabf56f7"
@@ -60,6 +69,8 @@ readonly REPLY_LIMIT_SOURCE="crates/teletext-runtime/src/channel.rs"
 server_git() { env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE git -C "$server" "$@"; }
 # Git in neoteletext-common's repository, for the same reason.
 common_git() { env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE git -C "$common" "$@"; }
+# Git in the engine's repository, for the same reason.
+engine_git() { env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE git -C "$engine" "$@"; }
 
 sha256_of() {
     if command -v sha256sum >/dev/null; then
@@ -112,7 +123,7 @@ process.exit(newer === -1 || found[newer] > least[newer] ? 0 : 1);
     # The quality tools run on TypeScript 7: oxlint's type-aware rules are
     # typescript-go's own.
     step "formatting (Prettier, .prettierrc.json)"
-    npx --no -- prettier --check src test scripts/validators.ts scripts/types.ts
+    npx --no -- prettier --check src test scripts/validators.ts scripts/types.ts scripts/limits.ts
 
     step "lint, type-aware, warnings fail (oxlint, .oxlintrc.json)"
     npx --no -- oxlint --type-aware --tsconfig tsconfig.json --deny-warnings src test
@@ -162,6 +173,19 @@ shared() {
     done
 }
 
+# The copy is generated from the engine's file at the commit named, and is
+# what generating it again gives (REQ-6608: "a kit may carry a generated
+# copy checked against it"). Read on this machine only, as the schema is.
+limits() {
+    step "src/rules/limits.ts is generated from the engine's $LIMITS_SOURCE at ${LIMITS_FROM:0:7}"
+    engine_git rev-parse --git-dir >/dev/null 2>&1 || fail "the engine's repository is needed at $engine (or NEOTELETEXT_ENGINE) to check the limits' copy"
+    engine_git cat-file -e "$LIMITS_FROM:$LIMITS_SOURCE" 2>/dev/null || fail "$engine has no $LIMITS_SOURCE at $LIMITS_FROM"
+    mkdir -p tmp
+    engine_git show "$LIMITS_FROM:$LIMITS_SOURCE" >tmp/limits.rs
+    node scripts/limits.ts tmp/limits.rs --check ||
+        fail "src/rules/limits.ts is not what the engine's $LIMITS_SOURCE at $LIMITS_FROM gives: run node scripts/limits.ts on it, or name in scripts/check.sh the commit it is from"
+}
+
 reply_limit() {
     step "SERVER_LIMITS's replyLimitMs is the server's PROGRAM_REPLY_LIMIT_MS at ${REPLY_LIMIT_FROM:0:7}"
     server_git rev-parse --git-dir >/dev/null 2>&1 || fail "the server's repository is needed at $server (or NEOTELETEXT_SERVER) to read its reply limit"
@@ -178,6 +202,7 @@ reply_limit() {
 commit_steps() {
     schema
     shared
+    limits
     reply_limit
     stage
 }
@@ -194,7 +219,7 @@ linux_steps() {
 }
 
 case "${1:-}" in
-schema | shared | reply_limit | stage | build)
+schema | shared | limits | reply_limit | stage | build)
     "$1"
     step "All checks passed ($1)"
     step_name=""

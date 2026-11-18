@@ -1,10 +1,9 @@
 // The presentation clock every rule and animation runs on (animation.md
 // ANIM-1; page-rules.md RULE-4): sixty ticks a second, on which the server
 // plays a timeline's steps (ANIM-21) and a receiver evaluates a page's
-// rules.
+// rules. Its rate is the engine's TICKS_PER_SECOND (rules/limits.ts).
 
-/** Ticks in a second (ANIM-1, RULE-4). */
-export const TICKS_PER_SECOND = 60;
+import { TICKS_PER_SECOND } from "../rules/limits.ts";
 
 /** Milliseconds in a second. */
 const MS_PER_SECOND = 1000;

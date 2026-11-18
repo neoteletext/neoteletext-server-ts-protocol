@@ -325,6 +325,12 @@ most 40 characters).
   `stopTimeline`; the `Timeline` builder; `PageState`, `QueryRefusedError`
   and `TICKS_PER_SECOND`; and the builders `physicalKey`, `characterKey`,
   `namedKey` and `level`.
+- **The rule table's limits** (page-rules.md RULE-57, REQ-6608): every
+  limit by the engine's name (`MAX_RULES`, `MAX_RECTS`, `MAX_GROUPS`, …,
+  `TICKS_PER_SECOND`), generated from `neoteletext_rules::limits`; write a
+  limit by its name, never its figure. `limitFigureLines` of the testing
+  entry finds a figure written beside a limit's name in a repository's
+  files, for a channel's own test.
 - **Navigation:** pages that do not take digits or the coloured keys
   themselves get page selection by them, and a click a page does not take
   follows the prompt or page number it is on.
