@@ -46,6 +46,7 @@ readonly SHARED_COPIES=(
     "test/fixtures/examples.jsonl:docs/audio/examples.jsonl"
     "test/fixtures/rules-examples.jsonl:docs/rules-examples.jsonl"
     "test/fixtures/timelines.jsonl:docs/timelines.jsonl"
+    "test/fixtures/command-lines.jsonl:docs/command-lines.jsonl"
 )
 # The server commit whose PROGRAM_REPLY_LIMIT_MS the testing entry's
 # SERVER_LIMITS must equal (DEC-2438).

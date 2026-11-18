@@ -49,17 +49,17 @@ consumer takes the JavaScript and declarations in `dist/`.
   `protocol/schema-15.json` at that commit, read from the server's
   repository at `~/devel/neoteletext-app-server` (or `NEOTELETEXT_SERVER`).
 - **The shared files:** `kit-calls.tsv`, `test/fixtures/examples.jsonl`,
-  `test/fixtures/rules-examples.jsonl` and `test/fixtures/timelines.jsonl`
-  are copies of neoteletext-common's `docs/audio/kit-calls.tsv`,
-  `docs/audio/examples.jsonl`, `docs/rules-examples.jsonl` and
-  `docs/timelines.jsonl` at the commit `COMMON_FROM` names in
+  `test/fixtures/rules-examples.jsonl`, `test/fixtures/timelines.jsonl` and
+  `test/fixtures/command-lines.jsonl` are copies of neoteletext-common's
+  `docs/audio/kit-calls.tsv`, `docs/audio/examples.jsonl`,
+  `docs/rules-examples.jsonl`, `docs/timelines.jsonl` and
+  `docs/command-lines.jsonl` at the commit `COMMON_FROM` names in
   `scripts/check.sh`; `scripts/check.sh shared` and the commit gate fail
   when any differs, read from `~/devel/neoteletext-common` (or
   `NEOTELETEXT_COMMON`). They hold this kit to the Python kit's calls and
-  lines (typescript.md TS-2), and to the rule tables of page-rules.md
-  section 7.5 and RULE-93 and the timelines of animation.md ANIM-19 as
-  both kits must write them (python.md PY-80).
-
+  lines (typescript.md TS-2), to the rule tables of page-rules.md
+  section 7.5 and RULE-93, the timelines of animation.md ANIM-19 and the
+  commands of RULE-114 as both kits must write them (python.md PY-80).
 ## Check
 
     scripts/check.sh stage    # the locked tools, the types and validators,

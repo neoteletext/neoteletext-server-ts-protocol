@@ -36,8 +36,8 @@ export function commandCalls(sender: Sender): CommandHost {
       sender.toAudience(to, (named) => ({ type: "run", connections: named, ...at(page, sub), group }));
     },
     sequence: (to, page, sub, op, sequence, start): void => {
-      // `at` left out is the next tick (RULE-103), and a stop has none: the field is written only when the program gives it.
-      const when = start === undefined ? {} : { at: start };
+      // No `at`, or null, is the next tick (RULE-103), and a stop has none: both kits leave the field out then and write it only when the program gives a time (TODO-6681 item 4, command-lines.jsonl).
+      const when = start === undefined || start === null ? {} : { at: start };
       sender.toAudience(to, (named) => ({ type: "sequence", connections: named, ...at(page, sub), op, sequence, ...when }));
     },
   };

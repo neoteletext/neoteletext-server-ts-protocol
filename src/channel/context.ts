@@ -347,8 +347,8 @@ export class Context {
    * Starts or stops a sequence of the page's table (RULE-114, RULE-103):
    * `sequence` by its name, or `null` with `stop` for every one. A start
    * begins at the next tick, or with `at` at a page tick (`{ tick }`) or at
-   * a timer's next expiry of a period (`{ beat }`); `at` left out is not
-   * written, which is the next tick, and a stop takes none.
+   * a timer's next expiry of a period (`{ beat }`); `at` left out or null
+   * is not written, which is the next tick, and a stop takes none.
    */
   sequence(to: Audience, page: number, sub: number, op: StartStop, sequence: RuleName | null, at?: SequenceAt | null): void {
     this.#host.sequence(to, page, sub, op, sequence, at);

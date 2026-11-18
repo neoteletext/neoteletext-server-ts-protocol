@@ -5,47 +5,56 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { fixtureLines } from "./fixture.ts";
 import { INDEX, SUB, calling } from "./serving.ts";
 
-test("RULE-114: each command sent directly writes the document's message", () => {
-  const to = { connection: 7 } as const;
-  const harness = calling((context) => {
-    context.localMidi(to, 0x101, SUB, 0, { event: "note_on", channel: 1, key: 60, velocity: 100 });
-    context.variable(to, 0x101, SUB, { op: "set", variable: "v0", value: 4 });
-    context.variable(to, 0x101, SUB, { op: "add", variable: "v0", value: { plus: 0, variable: "v1" } });
-    context.variable(to, 0x101, SUB, { op: "set", variable: "v2", value: { read: { of: "sound", channel: 0, property: "level" } } });
-    context.variable(to, 0x101, SUB, { op: "wrap", variable: "v0", low: 0, high: 3 });
-    context.variable(to, 0x101, SUB, { op: "clear", variable: "all" });
-    context.timer(to, 0x101, SUB, "start", "t0");
-    context.report(to, 0x101, SUB, { of: "variable", variable: "v0" });
-    context.run(to, 0x101, SUB, "flash");
-    context.sequence(to, 0x101, SUB, "start", "pulse", null);
-    context.sequence(to, 0x101, SUB, "start", "flash_once", { tick: 5400 });
-    context.sequence(to, 0x101, SUB, "start", "pulse", { beat: { timer: "t0", ticks: 30 } });
-    context.sequence(to, 0x101, SUB, "stop", null);
-  });
-  const page = { connections: [7], page: "101", sub: "0001" };
-  const commands = harness.sent.filter((line) => ["local_midi", "variable", "timer", "report", "run", "sequence"].includes(String(line["type"])));
-  // RULE-114's examples, each with its fields in the document's order.
+/** The calls a line of the fixture may name: the commands' (RULE-114). */
+const COMMAND_CALLS = ["localMidi", "variable", "timer", "report", "run", "sequence"] as const;
+type CommandCall = (typeof COMMAND_CALLS)[number];
+
+function isCommandCall(name: unknown): name is CommandCall {
+  return COMMAND_CALLS.some((call) => call === name);
+}
+
+const HEXADECIMAL = 16;
+
+/** A fixture line's arguments, each as JSON gives it. */
+function argumentsOf(value: unknown): unknown[] {
+  assert.ok(Array.isArray(value));
+  return value.map((item: unknown) => item);
+}
+
+/** Whether a fixture line's message writes `at`. */
+function writesAt(message: unknown): boolean {
+  return typeof message === "object" && message !== null && "at" in message;
+}
+
+test("RULE-114, RULE-55: each command sent directly writes the shared fixture's line, which both kits write", () => {
+  const lines = fixtureLines("command-lines.jsonl");
+  for (const line of lines) {
+    const { call, connection, page, sub } = line;
+    const given = argumentsOf(line["arguments"]);
+    assert.ok(isCommandCall(call) && typeof connection === "number" && typeof page === "string" && typeof sub === "string", String(line["line"]));
+    const harness = calling((context) => {
+      // The fixture's arguments are JSON, as a program written in JavaScript could give them: the schema's check is the server's.
+      Reflect.apply(context[call], context, [{ connection }, Number.parseInt(page, HEXADECIMAL), Number.parseInt(sub, HEXADECIMAL), ...given]);
+    });
+    const sent = harness.sent.filter((written) => COMMAND_CALLS.some((name) => written["type"] === (name === "localMidi" ? "local_midi" : name)));
+    assert.deepEqual(
+      sent.map((written) => JSON.stringify(written)),
+      [JSON.stringify(line["message"])],
+      `${String(line["line"])}: the same text, every field in its order`,
+    );
+    assert.deepEqual(harness.errors, []);
+  }
+});
+
+test("TODO-6681 item 4: a sequence started with no time, or with null, is written with no at", () => {
+  const starts = fixtureLines("command-lines.jsonl").filter((line) => String(line["line"]).startsWith("sequence-start-") && !writesAt(line["message"]));
   assert.deepEqual(
-    commands.map((line) => JSON.stringify(line)),
-    [
-      { type: "local_midi", ...page, channel: 0, message: { event: "note_on", channel: 1, key: 60, velocity: 100 } },
-      { type: "variable", ...page, op: "set", variable: "v0", value: 4 },
-      { type: "variable", ...page, op: "add", variable: "v0", value: { plus: 0, variable: "v1" } },
-      { type: "variable", ...page, op: "set", variable: "v2", value: { read: { of: "sound", channel: 0, property: "level" } } },
-      { type: "variable", ...page, op: "wrap", variable: "v0", low: 0, high: 3 },
-      { type: "variable", ...page, op: "clear", variable: "all" },
-      { type: "timer", ...page, op: "start", timer: "t0" },
-      { type: "report", ...page, value: { of: "variable", variable: "v0" } },
-      { type: "run", ...page, group: "flash" },
-      { type: "sequence", ...page, op: "start", sequence: "pulse", at: null },
-      { type: "sequence", ...page, op: "start", sequence: "flash_once", at: { tick: 5400 } },
-      { type: "sequence", ...page, op: "start", sequence: "pulse", at: { beat: { timer: "t0", ticks: 30 } } },
-      { type: "sequence", ...page, op: "stop", sequence: null },
-    ].map((line) => JSON.stringify(line)),
+    starts.map((line) => line["line"]),
+    ["sequence-start-no-at", "sequence-start-at-null"],
   );
-  assert.deepEqual(harness.errors, []);
 });
 
 test("RULE-114, DEC-6462: what only the server refuses of a command is sent, and what the schema refuses is not", () => {
