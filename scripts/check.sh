@@ -14,6 +14,8 @@
 #                             tests: what the gates run, here or on the host
 #   scripts/check.sh build    the release build into dist/
 #   scripts/check.sh schema   schema/protocol-13.json against the server's
+#   scripts/check.sh shared   kit-calls.tsv and test/fixtures/examples.jsonl
+#                             against neoteletext-common's
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -31,6 +33,14 @@ readonly CHECKED_PATHS=(.)
 # and naming its commit here (typescript.md TS-5 to TS-7).
 server="${NEOTELETEXT_SERVER:-$HOME/devel/neoteletext-app-server}"
 readonly SCHEMA_FROM="08023b4ff7f40298eac6e08213d836710f344d54"
+# neoteletext-common's repository, and the commit whose docs/audio/kit-calls.tsv
+# and docs/audio/examples.jsonl kit-calls.tsv and test/fixtures/examples.jsonl
+# are copies of: the calls and the worked examples' lines both kits must have
+# (typescript.md TS-2, TS-6).
+common="${NEOTELETEXT_COMMON:-$HOME/devel/neoteletext-common}"
+readonly COMMON_FROM="38a754001238dba23f646d39fc09acf2f5afc714"
+# Each copy and the file of neoteletext-common it is a copy of.
+readonly SHARED_COPIES=("kit-calls.tsv:docs/audio/kit-calls.tsv" "test/fixtures/examples.jsonl:docs/audio/examples.jsonl")
 # The server commit whose PROGRAM_REPLY_LIMIT_MS the testing entry's
 # SERVER_LIMITS must equal (DEC-2438).
 readonly REPLY_LIMIT_FROM="fa18b08928651a6161c1158375171b61aabf56f7"
@@ -41,6 +51,8 @@ readonly REPLY_LIMIT_SOURCE="crates/teletext-runtime/src/channel.rs"
 # Git in the server's repository. A hook in a linked worktree inherits GIT_DIR
 # and its neighbours, which would override -C and read this repository.
 server_git() { env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE git -C "$server" "$@"; }
+# Git in neoteletext-common's repository, for the same reason.
+common_git() { env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE git -C "$common" "$@"; }
 
 sha256_of() {
     if command -v sha256sum >/dev/null; then
@@ -128,6 +140,21 @@ schema() {
         fail "schema/protocol-13.json differs from $server's protocol/schema-13.json at $SCHEMA_FROM; copy that file, or name in scripts/check.sh the commit the copy is from"
 }
 
+# The copies are neoteletext-common's files at the commit named, byte for byte,
+# so that both kits are held to one list of calls and one set of lines.
+shared() {
+    step "kit-calls.tsv and examples.jsonl are neoteletext-common's at ${COMMON_FROM:0:7}"
+    common_git rev-parse --git-dir >/dev/null 2>&1 || fail "neoteletext-common's repository is needed at $common (or NEOTELETEXT_COMMON) to check the shared files' copies"
+    local pair copy source
+    for pair in "${SHARED_COPIES[@]}"; do
+        copy="${pair%%:*}"
+        source="${pair#*:}"
+        common_git cat-file -e "$COMMON_FROM:$source" 2>/dev/null || fail "$common has no $source at $COMMON_FROM"
+        cmp -s "$copy" <(common_git show "$COMMON_FROM:$source") ||
+            fail "$copy differs from $common's $source at $COMMON_FROM; copy that file, or name in scripts/check.sh the commit the copy is from"
+    done
+}
+
 reply_limit() {
     step "SERVER_LIMITS's replyLimitMs is the server's PROGRAM_REPLY_LIMIT_MS at ${REPLY_LIMIT_FROM:0:7}"
     server_git rev-parse --git-dir >/dev/null 2>&1 || fail "the server's repository is needed at $server (or NEOTELETEXT_SERVER) to read its reply limit"
@@ -143,6 +170,7 @@ reply_limit() {
 
 commit_steps() {
     schema
+    shared
     reply_limit
     stage
 }
@@ -159,7 +187,7 @@ linux_steps() {
 }
 
 case "${1:-}" in
-schema | reply_limit | stage | build)
+schema | shared | reply_limit | stage | build)
     "$1"
     step "All checks passed ($1)"
     step_name=""
