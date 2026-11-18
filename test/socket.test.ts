@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Socket } from "node:net";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { createInterface } from "node:readline";
 import { test } from "node:test";
 
@@ -19,8 +19,13 @@ import { SOCKET_VARIABLE } from "../src/wire/socket.ts";
 import { START_LINE } from "./fixtures/start-line.ts";
 
 const FIXTURES = join(import.meta.dirname, "fixtures");
-/** The repository's scratch folder, ignored by git; short enough that a socket's path in it fits the 104 bytes macOS allows. */
-const SCRATCH = join(import.meta.dirname, "..", "tmp");
+/**
+ * The repository's scratch folder, ignored by git, named from the working
+ * directory, which the program started below shares: a socket's path may be
+ * no longer than 104 bytes on macOS and 108 on Linux, which the folder's
+ * whole path passes in a checkout that lies deep, such as a worktree.
+ */
+const SCRATCH = relative(process.cwd(), join(import.meta.dirname, "..", "tmp"));
 /**
  * The ceiling on a connection or a line. Node's start and the kit's import
  * take well under a second on this machine, and the program connects again
