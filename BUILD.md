@@ -26,7 +26,11 @@ consumer takes the JavaScript and declarations in `dist/`.
   amounts of page-rules.md RULE-106) is one type wherever the schema writes
   it inline, named by its properties as the Python kit names it (`Amount`
   for `plus` and a variable, the row or the firing; `TargetAmount` for
-  `plus` and the row or the firing); a union nested in a union joins it;
+  `plus` and the row or the firing); a message with fields of its own of
+  which exactly one of some optional ones is given (`regis` and `naplps`,
+  `data` or `parts`: renderer parity PAR-21) is its object with those
+  fields optional, which one is given being the validators' to hold; a
+  union nested in a union joins it;
   and a group's `sound` command, which is no program message, is the union
   `RuleCommandSound` of `RuleCommandSoundPlay`, `…Stop` and `…Gain`.
   `scripts/validators.ts` turns off Ajv's one strict rule that refuses a

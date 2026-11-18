@@ -176,6 +176,34 @@ function isExclusive(node: Node): boolean {
   );
 }
 
+/**
+ * Whether `node` is a message with fields of its own of which exactly one of
+ * some optional ones is given (renderer parity PAR-21: `regis` and `naplps`
+ * take `data` or `parts`): an object with a `required` list beside a `oneOf`
+ * whose every branch is a bare `required` list of its optional properties.
+ * Its type is the object's, those properties optional; which one is given is
+ * the validators' to hold.
+ */
+function isOneOfGiven(node: Node): boolean {
+  const union = node["oneOf"];
+  const properties = node["properties"];
+  const required = node["required"];
+  return (
+    node["type"] === "object" &&
+    isNode(properties) &&
+    Array.isArray(required) &&
+    Array.isArray(union) &&
+    union.length > 1 &&
+    union.every(
+      (branch: unknown) =>
+        isNode(branch) &&
+        Object.keys(branch).length === 1 &&
+        Array.isArray(branch["required"]) &&
+        branch["required"].every((property: unknown) => typeof property === "string" && properties[property] !== undefined && !required.includes(property)),
+    )
+  );
+}
+
 /** A branch of a union that is itself only a union, as the server nests an amount's union in a wider one: its branches, which join the outer union's. */
 function flattened(branches: readonly Node[]): readonly Node[] {
   return branches.flatMap((branch) => {
@@ -250,6 +278,10 @@ class Generator {
     if (union !== undefined) {
       if (isExclusive(node)) {
         return this.#exclusive(node, path);
+      }
+      if (isOneOfGiven(node)) {
+        const { oneOf: _given, ...fields } = node;
+        return this.#typed(fields, name, path);
       }
       if (node["type"] === "object") {
         return this.#composite(node, name, path);
@@ -596,7 +628,7 @@ function members(schema: Node, generator: Generator): string {
       generator.declare(`${wire}Member`, `#/$defs/ProgramMessage (${type})`, "");
     }
     const kinds = branch["oneOf"];
-    if (Array.isArray(kinds)) {
+    if (Array.isArray(kinds) && !isOneOfGiven(branch)) {
       for (const kind of kinds as readonly Node[]) {
         const value = String(((kind["properties"] as Node)["kind"] as Node)["const"]);
         const sound = `${upperCamel(type)}${upperCamel(value)}`;

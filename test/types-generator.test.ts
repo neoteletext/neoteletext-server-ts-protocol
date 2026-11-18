@@ -230,3 +230,49 @@ test("RULE-106, PY-10: an amount is one type by its properties wherever it is wr
   assert.ok(!written.includes("maximum 32767"), "a shape's bounds are its fields', not the type's");
   refuses({ Odd: { ...CLOSED, properties: { a: { anyOf: [{ type: "integer" }, amount(1, ["key"])] } } } }, /name no amount the generator knows/u);
 });
+
+test("PAR-21: a message of which one of some optional fields is given is its object, those fields optional, and still a program's message", () => {
+  const written = typesOf({
+    ProgramMessage: {
+      oneOf: [
+        {
+          ...CLOSED,
+          properties: {
+            type: { type: "string", const: "regis" },
+            connections: { type: "string" },
+            data: { anyOf: [{ type: "string", contentEncoding: "base64" }, { type: "null" }] },
+            parts: { anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }] },
+          },
+          required: ["type", "connections"],
+          oneOf: [{ required: ["data"] }, { required: ["parts"] }],
+        },
+        {
+          type: "object",
+          properties: { type: { type: "string", const: "sound" } },
+          required: ["type"],
+          oneOf: [{ ...CLOSED, properties: { type: { type: "string", const: "sound" }, kind: { type: "string", const: "stop" } }, required: ["type", "kind"] }],
+        },
+      ],
+    },
+  });
+  for (const line of [
+    "export interface ProgramMessageRegis {",
+    "readonly data?: Uint8Array | null;",
+    "readonly parts?: readonly string[] | null;",
+    'export type ProgramMessageRegisMember = Omit<ProgramMessageRegis, "type" | "connections">;',
+  ]) {
+    assert.ok(written.includes(line), `${line}\n${written}`);
+  }
+  // Only fields of its own: a branch requiring one it has not is no such message.
+  refuses(
+    {
+      Odd: {
+        ...CLOSED,
+        properties: { type: { type: "string", const: "x" }, data: { type: "string" } },
+        required: ["type"],
+        oneOf: [{ required: ["data"] }, { required: ["other"] }],
+      },
+    },
+    /union whose own properties are not one tag/u,
+  );
+});
