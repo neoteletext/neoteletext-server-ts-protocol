@@ -46,33 +46,40 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
-## Release 16.0.0: program protocol 14
+## Release 17.0.0: program protocol 15
 
-Release 16.0.0 speaks program protocol 14 (the page rule table and
-animation: neoteletext-common's `docs/page-rules.md` and
-`docs/animation.md`) and nothing else, so it runs only under a server that
-speaks 14, and a server that speaks 14 runs no program on an older kit. The
-server, every channel and the browser are deployed together, because the
-browser's push protocol changes with it and refuses the old one both ways
-(page-rules.md RULE-49).
+Release 17.0.0 speaks program protocol 15 (the second form of the page
+rule table, a rule running one group of protocol commands, and animation:
+neoteletext-common's `docs/page-rules.md` and `docs/animation.md`) and
+nothing else, so it runs only under a server that speaks 15, and a server
+that speaks 15 runs no program on an older kit. The server, every channel
+and the browser are deployed together, because the browser's push
+protocol changes with it (push protocol 10).
 
 What a consumer changes to take it:
 
 - **Nothing in a channel's source,** when the server's channel
   configuration gives the channel `"default_rules": "send_all"`
-  (RULE-53): its pages are sent the default table and it hears the input
-  it heard, each input now also naming its `rule`, `tick` and `target`.
-- **A test that compares a whole input** with a literal now finds those
-  three fields in it, from the harness as from the server; compare the
-  fields the test is about, or add the three.
-- **A program that implements `ServerEvents` itself,** in place of
-  `runChannel`, adds `ruleEvent`, `pageState` and `rulesFault`.
+  (RULE-53) and the channel calls none of the calls below: its pages are
+  sent the default table and it hears the input it heard, each input now
+  also naming its `ruleRow` (null under the default table).
+- **Every call that concerns a page takes its sub-code** (DEC-6599):
+  `rules(to, page, sub, table)`, `queryState(connection, page, sub)`,
+  `spriteSheet(to, page, sub, kind, data, restart?)` and
+  `stopTimeline(to, page, sub, id)`. The server keeps nothing for a viewer
+  who selects a page later or reconnects: send the page's table, sheet
+  and objects at every selection.
+- **A table of protocol 14 is rewritten:** a rule's `do` holds protocol
+  commands (`{ type: "report" }`, `{ type: "animate", ops }`,
+  `{ type: "variable", … }`, …), never the first form's actions; the
+  sixteen variables `v0` to `v15` and the timers `t0` to `t7` are not
+  declared; a mode is a variable a condition tests (`modes`); a row is one
+  parameter, read as `row(plus)`.
+- **A test that compares a whole input** finds `ruleRow` in it; a test
+  that answers a state query gives sixteen `variables` and `sequences`.
 - **A program that reads `harness.sent` for every line's type** meets the
-  new ones: `rules`, `query_state`, `frame`, `animate`, `sprites`,
-  `naplps_objects`, `sprite_sheet`, `timeline` and `timeline_stop`.
-
-A channel then moves to tables of its own, page by page, and its
-configuration to `"default_rules": "none"` (RULE-53, RULE-54).
+  new ones: `local_midi`, `variable`, `timer`, `report`, `run`, `sequence`
+  and `object_page`.
 
 ## To the host
 

@@ -7,14 +7,18 @@ import type { RuleTarget } from "../wire/generated/protocol.js";
 
 /**
  * Where an input came from (page-rules.md RULE-37): the rule of the page's
- * table that sent it, by its name; the page tick at which it fired, sixty a
- * second from the page's opening in that view (RULE-4); and the control,
- * object or rectangle the pointer was inside, for a pointer trigger whose
- * rule named one, else null. Every input the server gives carries all three;
- * they are optional only so that a test may write an input without them.
+ * table that sent it, by its name; the place of the row that fired within
+ * the rule's row set, or null for a rule without rows (`ruleRow`: the
+ * protocol's `row`, which a pointer input already names its cell row); the
+ * page tick at which it fired, sixty a second from the page's opening in
+ * that view (RULE-4); and the control, object or rectangle the pointer was
+ * inside, for a pointer trigger whose rule named one, else null. Every input
+ * the server gives carries all four; they are optional only so that a test
+ * may write an input without them.
  */
 export interface InputSource {
   readonly rule?: string;
+  readonly ruleRow?: number | null;
   readonly tick?: number;
   readonly target?: RuleTarget | null;
 }

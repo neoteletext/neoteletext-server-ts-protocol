@@ -1,6 +1,6 @@
-// The animation calls (animation.md ANIM-19): each writes the message of
-// ANIM-21 as the document's example has it, and checks nothing beyond the
-// schema (DEC-6462).
+// The animation calls (animation.md ANIM-17, ANIM-19): each writes the
+// message of ANIM-21 as the document's example has it, for a page and its
+// sub-code (DEC-6599), and checks nothing beyond the schema (DEC-6462).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -29,6 +29,10 @@ function sending(send: (context: Context) => void): Harness {
   const harness = new Harness([application]);
   harness.join(1, PAGE);
   return harness;
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** The lines the channel wrote since it joined, but the pages', each as its text. */
@@ -113,16 +117,38 @@ test("ANIM-19, ANIM-21: animate, sprites and naplpsObjects write the document's 
   ]);
 });
 
-test("ANIM-19, ANIM-21: spriteSheet writes its bytes as base64, text a byte a character, and restart only when asked", () => {
+test("ANIM-19, ANIM-21: spriteSheet writes a sub-page's bytes as base64, text a byte a character, and restart only when asked", () => {
+  // A character above 127 is its one byte of Latin-1, never two of UTF-8: "é" is E9.
+  const text = "D(B41)T'\u00E9'";
   const harness = sending((context) => {
-    context.spriteSheet(EVERYONE, PAGE, "regis", "D(B41)", true);
-    context.spriteSheet(EVERYONE, PAGE, "naplps", new Uint8Array([0x0e, 0x24]));
+    context.spriteSheet(EVERYONE, PAGE, SUB, "regis", text, true);
+    context.spriteSheet(EVERYONE, PAGE, SUB, "naplps", new Uint8Array([0x0e, 0x24]));
   });
   harness.typeText(1, "x");
+  const bytes = Buffer.from(Array.from({ length: text.length }, (_, place) => text.codePointAt(place) ?? 0));
+  assert.equal(bytes.length, text.length);
+  assert.equal(bytes.at(-2), 0xe9);
   assert.deepEqual(lines(harness), [
-    `{"type":"sprite_sheet","connections":"all","page":"150","kind":"regis","data":"${Buffer.from("D(B41)").toString("base64")}","restart":true}`,
-    '{"type":"sprite_sheet","connections":"all","page":"150","kind":"naplps","data":"DiQ=","restart":false}',
+    `{"type":"sprite_sheet","connections":"all","page":"150","sub":"0001","kind":"regis","data":"${bytes.toString("base64")}","restart":true}`,
+    '{"type":"sprite_sheet","connections":"all","page":"150","sub":"0001","kind":"naplps","data":"DiQ=","restart":false}',
   ]);
+});
+
+test("ANIM-17: objectPage writes the object page as a published sub-page is written, for the page whose sprites use it", () => {
+  const harness = sending((context) => {
+    context.objectPage(EVERYONE, SPRITES_PAGE, SUB, 0x1a0, 0x0001, { screen: new Screen() });
+  });
+  harness.typeText(1, "x");
+  const line = harness.sent.find((message) => message["type"] === "object_page");
+  assert.ok(line !== undefined);
+  const { object, ...rest } = line;
+  assert.deepEqual(rest, { type: "object_page", connections: "all", page: "160", sub: "0001" });
+  // The blank page the channel published answered the selection: the object page is its content under its own number.
+  const selected: unknown = harness.sent.find((message) => message["type"] === "reply")?.["selected"];
+  assert.ok(isRecord(selected));
+  const { page: _page, sub: _sub, ...content } = selected;
+  assert.deepEqual(object, { page: "1A0", sub: "0001", ...content });
+  assert.deepEqual(harness.errors, []);
 });
 
 test("ANIM-2, ANIM-19: frame writes the begin, what its body sends, and the end, and ends the frame when the body throws", () => {
@@ -166,11 +192,11 @@ test("ANIM-19, ANIM-21: playTimeline writes the document's timeline and answers 
       context.playTimeline(EVERYONE, PAGE, SUB, walk, 9),
       context.playTimeline(EVERYONE, PAGE, SUB, walk),
     );
-    context.stopTimeline(EVERYONE, PAGE, 1);
+    context.stopTimeline(EVERYONE, PAGE, SUB, 1);
   });
   harness.typeText(1, "x");
   assert.deepEqual(ids, [1, 9, 2], "an id given is used and not counted");
-  assert.deepEqual(lines(harness), [walkLine(1), walkLine(9), walkLine(2), '{"type":"timeline_stop","connections":"all","page":"150","id":1}']);
+  assert.deepEqual(lines(harness), [walkLine(1), walkLine(9), walkLine(2), '{"type":"timeline_stop","connections":"all","page":"150","sub":"0001","id":1}']);
 });
 
 test("ANIM-19, DEC-6462: the kit holds animation to the schema and to nothing else", () => {
@@ -186,7 +212,7 @@ test("ANIM-19, DEC-6462: the kit holds animation to the schema and to nothing el
         context.playTimeline(EVERYONE, PAGE, SUB, new Timeline());
       },
       (): void => {
-        context.stopTimeline(EVERYONE, PAGE, 0);
+        context.stopTimeline(EVERYONE, PAGE, SUB, 0);
       },
     ]) {
       try {

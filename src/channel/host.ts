@@ -4,6 +4,7 @@
 
 // oxlint-disable import/max-dependencies -- the host is where a context meets every part of the channel: its copies, connections, sending, sounds and the TTI and numbering of what it publishes
 import { animationCalls } from "./animation-calls.ts";
+import { commandCalls } from "./command-calls.ts";
 import { fitText } from "./channel-index.ts";
 import type { Connections } from "./connections.ts";
 import type { Host } from "./context.ts";
@@ -214,7 +215,8 @@ export function makeHost(parts: HostParts): Host {
     ...messaging(parts),
     ...viewing(parts),
     ...animationCalls(parts.sender),
-    queryState: (connection, page) => parts.queries.ask(parts.app, connection, page),
+    ...commandCalls(parts.sender),
+    queryState: (connection, page, sub) => parts.queries.ask(parts.app, connection, page, sub),
     connection: parts.current,
   };
 }

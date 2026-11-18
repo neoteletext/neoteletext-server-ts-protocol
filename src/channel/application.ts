@@ -70,8 +70,8 @@ export interface Application {
    * one the viewer was looking at, that navigation did not take. Answer
    * true for a click the page took; any other click follows the Fastext
    * prompt or the page number it is on. An input comes only when a rule of
-   * the page's table sent it, and names that rule, its tick and its target
-   * (page-rules.md RULE-37).
+   * the page's table reported it, and names that rule, the place of the row
+   * that fired (`ruleRow`), its tick and its target (page-rules.md RULE-37).
    */
   input?(connection: number, page: number, input: Input, context: Context, sub: number): boolean | void;
   /**
@@ -83,9 +83,9 @@ export interface Application {
   ruleEvent?(event: ServerMessageRuleEvent, context: Context): void;
   /**
    * A viewer's receiver reported a fault of the table of one of this
-   * application's pages (RULE-48): a table it could not decode, ticks that
-   * overran, sends or events dropped, actions skipped, and how many times
-   * since its last report.
+   * application's pages (RULE-48): a table it could not decode, reports or
+   * events dropped, commands skipped, evaluation running late, a queue
+   * full, and how many times since its last report.
    */
   rulesFault?(fault: ServerMessageRulesFault, context: Context): void;
   /** The time asked for with {@link Context.wakeAt} has come. */

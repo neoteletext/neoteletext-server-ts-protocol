@@ -25,11 +25,11 @@ test("digits and colour keys navigate on a page that does not use them, and reac
     "navigation took them",
   );
   harness.typeText(1, "x");
-  assert.equal(index.heard.at(-1), `input 1 100 {"kind":"text","text":"x","rule":"text","tick":0,"target":null}`);
+  assert.equal(index.heard.at(-1), `input 1 100 {"kind":"text","text":"x","rule":"text","ruleRow":null,"tick":0,"target":null}`);
 
   harness.open(1, 0x200);
   harness.typeText(1, "101");
-  assert.equal(games.heard.at(-1), `input 1 200 {"kind":"text","text":"101","rule":"text","tick":0,"target":null}`, "the page's own digits");
+  assert.equal(games.heard.at(-1), `input 1 200 {"kind":"text","text":"101","rule":"text","ruleRow":null,"tick":0,"target":null}`, "the page's own digits");
   assert.deepEqual(harness.redirects(1), [0x200, 0x101]);
 });
 

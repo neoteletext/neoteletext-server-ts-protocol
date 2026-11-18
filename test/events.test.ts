@@ -1,5 +1,5 @@
 // The server's lines, read and handed to a program's events with all they
-// carry (protocol 14; viewer-state.md VS-351; server.md SRV-47, SRV-48;
+// carry (protocol 15; viewer-state.md VS-351; server.md SRV-47, SRV-48;
 // page-rules.md RULE-37, RULE-38, RULE-48).
 
 import assert from "node:assert/strict";
@@ -149,13 +149,14 @@ test("TS-18, TS-22, TS-23: a refusal of a sound and a report of a sound reach th
   assert.equal(typeof readMessage('{"type":"closed","session":1}'), "string", "protocol 12's closed is no message of 13");
 });
 
-test("RULE-37, RULE-38, RULE-48: an input with its rule, a rule's event, a page's state and a table's fault reach their events with all they carry", () => {
+test("RULE-37, RULE-38, RULE-48: an input with its rule and row, a rule's event, a page's state and a table's fault reach their events with all they carry", () => {
   const input =
-    '{"type":"input","connection":7,"page":"101","sub":"0001","lost":false,"rule":"keys","tick":412,"target":null,"event":{"kind":"key","action":"press","key":"a","base":null,"mods":0,"text":"a"}}';
+    '{"type":"input","connection":7,"page":"101","sub":"0001","lost":false,"rule":"typed","row":null,"tick":412,"target":null,"event":{"kind":"key","action":"press","key":"a","base":null,"mods":0,"text":"a"}}';
   const pointed =
-    '{"type":"input","connection":7,"page":"101","sub":"0001","lost":false,"rule":"vote","tick":413,"target":{"control":3},"event":{"kind":"hover","action":"enter","column":2,"row":3}}';
-  const fired = { type: "rule_event", connection: 7, page: "101", sub: "0001", rule: "hot", tick: 9031, event: { kind: "fired" } };
-  const value = { ...fired, rule: "report", event: { kind: "value", read: { of: "variable", name: "octave" }, value: 5 } };
+    '{"type":"input","connection":7,"page":"101","sub":"0001","lost":false,"rule":"down","row":4,"tick":413,"target":{"control":3},"event":{"kind":"hover","action":"enter","column":2,"row":3}}';
+  const fired = { type: "rule_event", connection: 7, page: "101", sub: "0001", rule: "hot", row: null, tick: 9031, event: { kind: "fired" } };
+  // A report of a run no rule made names no rule (RULE-37).
+  const value = { ...fired, rule: null, event: { kind: "value", read: { of: "variable", variable: "v0" }, value: 5 } };
   const state = {
     type: "page_state",
     connection: 7,
@@ -164,22 +165,23 @@ test("RULE-37, RULE-38, RULE-48: an input with its rule, a rule's event, a page'
     request: 42,
     tick: 9120,
     table: true,
-    variables: { octave: 5 },
-    timers: { beat: { running: true, elapsed: 18 } },
-    enabled: ["c_down", "c_up", "hot"],
+    variables: [4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    timers: { t0: { running: true, elapsed: 18 } },
+    sequences: { pulse: { running: true, waiting: false, passes: 3, position: 12 } },
     targets: [{ target: { object: 301 }, exists: true, shown: true, look: "normal", frame: 0, x: 700, y: 380, layer: 2, order: 0, cycling: false }],
     values: [{ read: { of: "sound", channel: 0, property: "level" }, value: 41 }],
   };
-  const fault = { type: "rules_fault", connection: 7, page: "101", generation: 3, fault: "tick_overrun", count: 12 };
+  const fault = { type: "rules_fault", connection: 7, page: "101", sub: "0001", generation: 3, fault: "evaluation_late", count: 12 };
   assert.deepEqual(heardOf([input, pointed, ...[fired, value, state, fault].map((message) => JSON.stringify(message))]), [
-    ["input", 7, 0x101, 1, { kind: "key", action: "press", key: "a", text: "a", rule: "keys", tick: 412, target: null }],
-    ["input", 7, 0x101, 1, { kind: "hover", action: "enter", column: 2, row: 3, rule: "vote", tick: 413, target: { control: 3 } }],
+    ["input", 7, 0x101, 1, { kind: "key", action: "press", key: "a", text: "a", rule: "typed", ruleRow: null, tick: 412, target: null }],
+    ["input", 7, 0x101, 1, { kind: "hover", action: "enter", column: 2, row: 3, rule: "down", ruleRow: 4, tick: 413, target: { control: 3 } }],
     ["rule_event", fired],
     ["rule_event", value],
     ["page_state", state],
     ["rules_fault", fault],
   ]);
-  assert.equal(typeof readMessage(input.replace('"rule":"keys",', "")), "string", "an input names its rule (RULE-37)");
-  assert.equal(typeof readMessage(JSON.stringify({ ...fault, fault: "unheard_of" })), "string", "a fault outside RULE-48's eight");
-  assert.equal(typeof readMessage(JSON.stringify({ ...state, variables: { Octave: 5 } })), "string", "a variable's name is a rule table's name (RULE-36)");
+  assert.equal(typeof readMessage(input.replace('"rule":"typed",', "")), "string", "an input names its rule (RULE-37)");
+  assert.equal(typeof readMessage(JSON.stringify({ ...fault, fault: "tick_overrun" })), "string", "a fault outside RULE-48's list");
+  assert.equal(typeof readMessage(JSON.stringify({ ...state, armed: 0 })), "string", "a page's state has no armed runs (DEC-6635 item 6)");
+  assert.equal(typeof readMessage(JSON.stringify({ ...state, variables: [0] })), "string", "a page's state has its sixteen variables (RULE-38)");
 });

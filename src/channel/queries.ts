@@ -3,6 +3,7 @@
 // program's, and the server's `page_state`, or its `refused` naming that
 // number, settles the promise the program holds.
 
+import { subText } from "./wire-page.ts";
 import { pageText } from "../page/page-numbers.ts";
 import type { App } from "../wire/app.ts";
 import type { ServerMessagePageState, ServerMessageRefused } from "../wire/generated/protocol.js";
@@ -23,8 +24,8 @@ export class Queries {
   readonly #waiting = new Map<number, Waiting>();
   #next = FIRST_REQUEST;
 
-  /** Sends `query_state` for `page` on `connection`, resolving to the server's `page_state`, or rejecting with its refusal. */
-  ask(app: App, connection: number, page: number): Promise<ServerMessagePageState> {
+  /** Sends `query_state` for sub-page `sub` of `page` on `connection`, resolving to the server's `page_state`, or rejecting with its refusal. */
+  ask(app: App, connection: number, page: number, sub: number): Promise<ServerMessagePageState> {
     const request = this.#next;
     this.#next = request === LAST_REQUEST ? FIRST_REQUEST : request + 1;
     return new Promise((resolve, reject) => {
@@ -32,7 +33,7 @@ export class Queries {
       this.#waiting.get(request)?.reject(new Error(`state query ${request}: unanswered after ${LAST_REQUEST} more queries`));
       this.#waiting.set(request, { resolve, reject });
       try {
-        app.send({ type: "query_state", connection, page: pageText(page), request });
+        app.send({ type: "query_state", connection, page: pageText(page), sub: subText(sub), request });
       } catch (error) {
         this.#waiting.delete(request);
         reject(error instanceof Error ? error : new Error(String(error)));

@@ -1,6 +1,6 @@
-// The harness under protocol 14 (page-rules.md RULE-55; python.md PY-81):
+// The harness under protocol 15 (page-rules.md RULE-55; python.md PY-81):
 // every input a test sends names the rule the server's default table
-// (RULE-53) would send it by, unless the test names one.
+// (RULE-53) would send it by, and no row, unless the test names them.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -73,16 +73,17 @@ test("RULE-53, RULE-55: an input sent without a rule names the default table's r
     ],
   );
   assert.deepEqual([...new Set(inputs.map((input) => input.target))], [null]);
+  assert.deepEqual([...new Set(inputs.map((input) => input.ruleRow))], [null], "the default table's rules have no rows");
 });
 
-test("RULE-55: an input keeps the rule, tick and target a test gives it, and takes the clock in ticks otherwise", () => {
+test("RULE-55: an input keeps the rule, row, tick and target a test gives it, and takes the clock in ticks otherwise", () => {
   const { harness, inputs } = hearing();
   harness.advance(1000);
   harness.typeText(1, "x");
-  harness.send(1, { kind: "text", text: "y", rule: "search_box", tick: 5, target: { rect: "pad" } });
+  harness.send(1, { kind: "text", text: "y", rule: "search_box", ruleRow: 3, tick: 5, target: { rect: "pad" } });
   assert.deepEqual(inputs, [
-    { kind: "text", text: "x", rule: "text", tick: TICKS_PER_SECOND, target: null },
-    { kind: "text", text: "y", rule: "search_box", tick: 5, target: { rect: "pad" } },
+    { kind: "text", text: "x", rule: "text", ruleRow: null, tick: TICKS_PER_SECOND, target: null },
+    { kind: "text", text: "y", rule: "search_box", ruleRow: 3, tick: 5, target: { rect: "pad" } },
   ]);
 });
 
@@ -92,7 +93,7 @@ test("RULE-55: the harness gives the channel only what the server could send, an
     harness.fire(1, "Not A Name");
   }, /the server never sends that: rule/u);
   assert.throws(() => {
-    harness.answerState({ type: "rules", connections: [1], page: "100", table: null });
+    harness.answerState({ type: "rules", connections: [1], page: "100", sub: "0000", table: null });
   }, /not a query_state/u);
   assert.throws(() => {
     harness.fire(2, "keys");

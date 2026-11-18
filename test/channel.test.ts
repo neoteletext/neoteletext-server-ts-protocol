@@ -148,7 +148,11 @@ test("a session ends once, when the server says it closed", () => {
   const harness = new Harness([recorder]);
   harness.join(9, 0x100);
   harness.typeText(9, "x");
-  assert.deepEqual(recorder.heard.slice(0, 3), ["joined 9", "opened 9 100", `input 9 100 {"kind":"text","text":"x","rule":"text","tick":0,"target":null}`]);
+  assert.deepEqual(recorder.heard.slice(0, 3), [
+    "joined 9",
+    "opened 9 100",
+    `input 9 100 {"kind":"text","text":"x","rule":"text","ruleRow":null,"tick":0,"target":null}`,
+  ]);
   harness.close(9);
   harness.channel.gone(9);
   harness.channel.gone(10);

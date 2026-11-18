@@ -4,8 +4,8 @@
 // Opus encoder and the profile's constants it uses, and nothing of a
 // synthesizer. For a page's rules and animation it gives the timeline
 // builder, the clock's rate, the error a refused state query rejects with and
-// the small builders of a table's pieces, each of which only constructs
-// (page-rules.md RULE-55; animation.md ANIM-19).
+// the small builders of a table's pieces and the mode set, each of which
+// only constructs (page-rules.md RULE-55, RULE-110; animation.md ANIM-19).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -42,6 +42,7 @@ const KIT = [
   "MOST_RUNS",
   "MOST_SAMPLES",
   "MeasureRefusedError",
+  "Modes",
   "Mods",
   "NO_CONTROL",
   "NO_LINKS",
@@ -65,10 +66,10 @@ const KIT = [
   "SIXELS_ACROSS",
   "SIXELS_DOWN",
   "SPACE",
-  "TICKS_PER_SECOND",
-  "Timeline",
   "Screen",
   "Sixels",
+  "TICKS_PER_SECOND",
+  "Timeline",
   "Viewer",
   "X27_LINKS",
   "blankContent",
@@ -86,6 +87,7 @@ const KIT = [
   "dispatch",
   "encodeRow",
   "ffmpegOpus",
+  "fired",
   "fitText",
   "hasRightToLeft",
   "isCharacterKey",
@@ -94,16 +96,21 @@ const KIT = [
   "isReserved",
   "keyText",
   "level",
+  "modes",
   "mosaicColour",
   "mostNumbered",
   "namedKey",
+  "noteOff",
+  "noteOn",
   "numberAt",
   "numbered",
   "oggCrc",
   "packedLinksLine",
   "pageText",
   "pcmBytes",
+  "phase",
   "physicalKey",
+  "plus",
   "pressed",
   "processStreams",
   "promptAt",
@@ -117,6 +124,7 @@ const KIT = [
   "readTti",
   "readTtiPages",
   "released",
+  "row",
   "rowsOf",
   "runChannel",
   "runText",
@@ -125,6 +133,7 @@ const KIT = [
   "textColour",
   "tti",
   "typed",
+  "variable",
 ];
 
 test("TS-27: the main entry exports exactly the kit's interface, and nothing of a synthesizer", () => {

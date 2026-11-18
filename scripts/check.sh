@@ -13,7 +13,7 @@
 #                             formatting, lint and Knip checks, and the
 #                             tests: what the gates run, here or on the host
 #   scripts/check.sh build    the release build into dist/
-#   scripts/check.sh schema   schema/protocol-14.json against the server's
+#   scripts/check.sh schema   schema/protocol-15.json against the server's
 #   scripts/check.sh shared   kit-calls.tsv and the shared fixtures of
 #                             test/fixtures against neoteletext-common's
 set -euo pipefail
@@ -28,18 +28,18 @@ readonly NODE_LEAST="22.18.0"
 readonly INSTALLED_FROM="node_modules/.installed-from.sha256"
 # Every file is the program or its checks.
 readonly CHECKED_PATHS=(.)
-# The server's repository, and the commit whose protocol/schema-14.json
-# schema/protocol-14.json is a copy of: a new schema is taken by copying it
+# The server's repository, and the commit whose protocol/schema-15.json
+# schema/protocol-15.json is a copy of: a new schema is taken by copying it
 # and naming its commit here (typescript.md TS-5 to TS-7).
 server="${NEOTELETEXT_SERVER:-$HOME/devel/neoteletext-app-server}"
-readonly SCHEMA_FROM="33f400b9dc33a0431eb8a1dca02d199df3b938ae"
+readonly SCHEMA_FROM="e4e8c0ecb4b1ab678de4a6ae58eda9b52e580975"
 # neoteletext-common's repository, and the commit whose files the shared
 # copies below are copies of: the calls and the worked examples' lines both
-# kits must have (typescript.md TS-2, TS-6), and protocol 14's rule tables and
+# kits must have (typescript.md TS-2, TS-6), and protocol 15's rule tables and
 # timelines as both kits must write them (python.md PY-80; page-rules.md
 # section 7.5 and RULE-93; animation.md ANIM-19).
 common="${NEOTELETEXT_COMMON:-$HOME/devel/neoteletext-common}"
-readonly COMMON_FROM="595f58cfb4aec34e7422d9707d7b6119bfffec14"
+readonly COMMON_FROM="c777fe1274ec075578a52e24d5cddebd147dfa1c"
 # Each copy and the file of neoteletext-common it is a copy of.
 readonly SHARED_COPIES=(
     "kit-calls.tsv:docs/audio/kit-calls.tsv"
@@ -139,11 +139,11 @@ build() {
 # validators check what the server checks. The server's repository is on
 # this machine, not on the Linux host, whose steps (stage) do not ask it.
 schema() {
-    step "schema/protocol-14.json is the server's protocol/schema-14.json at ${SCHEMA_FROM:0:7}"
+    step "schema/protocol-15.json is the server's protocol/schema-15.json at ${SCHEMA_FROM:0:7}"
     server_git rev-parse --git-dir >/dev/null 2>&1 || fail "the server's repository is needed at $server (or NEOTELETEXT_SERVER) to check the schema's copy"
-    server_git cat-file -e "$SCHEMA_FROM:protocol/schema-14.json" 2>/dev/null || fail "$server has no protocol/schema-14.json at $SCHEMA_FROM"
-    cmp -s schema/protocol-14.json <(server_git show "$SCHEMA_FROM:protocol/schema-14.json") ||
-        fail "schema/protocol-14.json differs from $server's protocol/schema-14.json at $SCHEMA_FROM; copy that file, or name in scripts/check.sh the commit the copy is from"
+    server_git cat-file -e "$SCHEMA_FROM:protocol/schema-15.json" 2>/dev/null || fail "$server has no protocol/schema-15.json at $SCHEMA_FROM"
+    cmp -s schema/protocol-15.json <(server_git show "$SCHEMA_FROM:protocol/schema-15.json") ||
+        fail "schema/protocol-15.json differs from $server's protocol/schema-15.json at $SCHEMA_FROM; copy that file, or name in scripts/check.sh the commit the copy is from"
 }
 
 # The copies are neoteletext-common's files at the commit named, byte for byte,

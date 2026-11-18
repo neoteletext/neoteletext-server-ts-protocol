@@ -1,5 +1,5 @@
 // Writes the protocol's TypeScript types from the server's published schema
-// (schema/protocol-14.json, the server's protocol/schema-14.json, generated
+// (schema/protocol-15.json, the server's protocol/schema-15.json, generated
 // from its Rust types): typescript.md TS-8 to TS-15. No library writes them
 // (DEC-6477 answer 2): the schema uses few keywords, each mapped below, and
 // any other keyword fails generation, naming it and its path, so a schema
@@ -57,8 +57,8 @@ const KNOWN = new Set([
 /**
  * The properties that tag a union's branches (TS-10 rule 2); `packet`, which
  * tags a packed line (the schema's PackedLine, which TS-10 does not name);
- * and `action` and `of`, which tag protocol 14's rule actions, animation
- * operations and rule values (page-rules.md RULE-35, animation.md ANIM-21).
+ * and `action` and `of`, which tag animation operations and rule values
+ * (page-rules.md RULE-35, animation.md ANIM-21).
  */
 const TAGS = ["type", "kind", "event", "form", "packet", "action", "of"] as const;
 
@@ -159,6 +159,43 @@ function distinguishing(branch: Node, branches: readonly Node[]): string | undef
   );
 }
 
+/**
+ * Whether `node` is an object whose `oneOf` only says which one of its
+ * properties it requires, as the server writes an amount (page-rules.md
+ * RULE-106): `plus` and exactly one source, `variable`, `row` or `fired`.
+ */
+function isExclusive(node: Node): boolean {
+  const union = node["oneOf"];
+  return (
+    node["type"] === "object" &&
+    isNode(node["properties"]) &&
+    node["required"] === undefined &&
+    Array.isArray(union) &&
+    union.length > 0 &&
+    union.every((branch: unknown) => isNode(branch) && Object.keys(branch).length === 1 && Array.isArray(branch["required"]))
+  );
+}
+
+/** A branch of a union that is itself only a union, as the server nests an amount's union in a wider one: its branches, which join the outer union's. */
+function flattened(branches: readonly Node[]): readonly Node[] {
+  return branches.flatMap((branch) => {
+    const inner = branch["anyOf"] ?? branch["oneOf"];
+    const own = Object.keys(branch).filter((keyword) => keyword !== "description");
+    return Array.isArray(inner) && own.length === 1 && inner.every(isNode) ? flattened(inner) : [branch];
+  });
+}
+
+/**
+ * The amounts' names (page-rules.md RULE-55, RULE-106) by their properties:
+ * the schema writes each inline, with no definition to name it by. A
+ * target's number (RULE-12) takes the row's or the firing's, never a
+ * variable. The Python kit's names (its generator's CHOICES).
+ */
+const AMOUNTS = new Map([
+  ["fired plus row variable", "Amount"],
+  ["fired plus row", "TargetAmount"],
+]);
+
 /** One type of the generated file, by name, with the schema path it came from. */
 interface Declaration {
   readonly path: string;
@@ -211,6 +248,9 @@ class Generator {
     }
     const union = node["oneOf"] ?? node["anyOf"];
     if (union !== undefined) {
+      if (isExclusive(node)) {
+        return this.#exclusive(node, path);
+      }
       if (node["type"] === "object") {
         return this.#composite(node, name, path);
       }
@@ -380,6 +420,58 @@ class Generator {
   }
 
   /**
+   * An object of which exactly one of some properties is given (an amount,
+   * RULE-106): the properties no branch requires, each optional, beside a
+   * union of one object for each branch with the property it requires.
+   */
+  #exclusive(node: Node, path: string): string {
+    const name = AMOUNTS.get([...Object.keys(node["properties"] as Node)].sort().join(" "));
+    if (name === undefined) {
+      throw new GenerationError(`${path}: an object of exactly one of its properties whose properties name no amount the generator knows`);
+    }
+    // One type wherever the schema writes the shape inline; the bounds of `plus` differ with the field and are the validators' to hold.
+    if (this.#declared.has(name)) {
+      return name;
+    }
+    if (node["additionalProperties"] !== false) {
+      throw new GenerationError(`${path}: an object without additionalProperties: false, which every message of the protocol refuses (REQ-1475)`);
+    }
+    const properties = node["properties"] as Node;
+    const choices = (node["oneOf"] as readonly Node[]).map((branch) => branch["required"] as readonly unknown[]);
+    const chosen = new Set(choices.flat());
+    // Without their bounds, which differ from field to field of one shape.
+    const common = Object.fromEntries(
+      Object.entries(properties)
+        .filter(([property]) => !chosen.has(property))
+        .map(([property, schema]) => [
+          property,
+          isNode(schema) ? Object.fromEntries(Object.entries(schema).filter(([keyword]) => STRUCTURE.has(keyword))) : schema,
+        ]),
+    );
+    const alternatives = choices.map((required, index) => {
+      const members = required.map((property) => {
+        const schema = typeof property === "string" ? properties[property] : undefined;
+        if (typeof property !== "string" || !isNode(schema)) {
+          throw new GenerationError(`${path}/oneOf/${index}: requires ${JSON.stringify(property)}, which is none of the object's properties`);
+        }
+        return `readonly ${propertyName(property)}: ${this.expression(schema, `${name}${upperCamel(property)}`, `${path}/properties/${property}`)}`;
+      });
+      return `  | { ${members.join("; ")} }`;
+    });
+    const shared = `{
+${this.#members({}, common, name, path)}}`;
+    this.declare(
+      name,
+      path,
+      `${comment(node, "")}export type ${name} = ${shared} & (
+${alternatives.join("\n")}
+);
+`,
+    );
+    return name;
+  }
+
+  /**
    * An object that is both a tagged branch and a union, as `schemars` writes
    * a newtype variant of an internally tagged enum (the server's
    * `ProgramMessage::Sound(Sound)`): its own tag beside the inner union, which
@@ -413,8 +505,30 @@ class Generator {
       const required = Array.isArray(branch["required"]) ? branch["required"].filter((key: unknown) => key !== tagName) : branch["required"];
       return { ...branch, properties, required };
     });
+    if (!path.startsWith("#/$defs/ProgramMessage/")) {
+      return this.#placedComposite(node, union as readonly Node[], branches, name, path);
+    }
     this.#union({}, branches, inner, `${path}/oneOf`);
     this.declare(name, path, `${comment(node, "")}export type ${name} = { readonly ${propertyName(tag[0])}: ${literal(tag[1]["const"], path)} } & ${inner};\n`);
+    return name;
+  }
+
+  /**
+   * A composite that is no program's message, as a group's `sound` command
+   * (RULE-35: `play` without `page`), which the server's name `Sound` is not
+   * for: a union named for its place, each whole branch named by its inner
+   * tag (`RuleCommandSoundPlay`), as the Python kit names it (PY-10).
+   */
+  #placedComposite(node: Node, whole: readonly Node[], stripped: readonly Node[], name: string, path: string): string {
+    const tag = tagOf(stripped);
+    if (tag === undefined) {
+      throw new GenerationError(`${path}/oneOf: the branches beside the tag have no tag of their own`);
+    }
+    const types = whole.map((branch, index) => {
+      const value = String(((stripped[index]?.["properties"] as Node)[tag] as Node)["const"]);
+      return this.expression(branch, `${name}${upperCamel(value)}`, `${path}/oneOf/${index}`);
+    });
+    this.declare(name, path, `${comment(node, "")}export type ${name} =\n${types.map((type) => `  | ${type}`).join("\n")};\n`);
     return name;
   }
 
@@ -423,7 +537,7 @@ class Generator {
     if (!Array.isArray(union) || union.length === 0 || !union.every(isNode)) {
       throw new GenerationError(`${path}: not a list of schemas`);
     }
-    const branches: readonly Node[] = union;
+    const branches = flattened(union);
     const tag = tagOf(branches);
     const types = branches.map((branch, index) => {
       const at = `${path}/${index}`;
@@ -432,6 +546,10 @@ class Generator {
         const value = String((properties[tag] as Node)["const"]);
         const branchName = `${name}${upperCamel(value)}`;
         return this.expression(branch, branchName, at);
+      }
+      if (isExclusive(branch)) {
+        // An amount beside a plain integer (RULE-106): named by its shape, in AMOUNTS.
+        return this.expression(branch, name, at);
       }
       if (branch["type"] === "object" && branch["$ref"] === undefined) {
         const property = distinguishing(branch, branches);
@@ -563,7 +681,7 @@ function firstDifference(one: string, two: string): number {
 
 function main(): void {
   const root = join(import.meta.dirname, "..");
-  const source = "schema/protocol-14.json";
+  const source = "schema/protocol-15.json";
   const out = join(root, "src", "wire", "generated");
   const { types, bytes } = generate(readFileSync(join(root, source), "utf8"), source);
   const files: readonly (readonly [string, string])[] = [

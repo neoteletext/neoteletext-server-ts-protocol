@@ -15,19 +15,19 @@ import { EXAMPLES, type Example } from "./tables.ts";
 const VIEWER = 7;
 
 /** A channel of the example's page that gives it its table when a connection opens it. */
-function channelOf({ to, page, table }: Example): Application {
+function channelOf({ to, page, sub, table }: Example): Application {
   return {
     pages: (): PageEntry[] => [{ page, title: "Example" }],
     start: (context): void => {
       context.publish("channel", page, new Screen());
     },
     opened: (_connection, _page, context): void => {
-      context.rules(to, page, table);
+      context.rules(to, page, sub, table);
     },
   };
 }
 
-test("RULE-55: the fixture holds the six examples of section 7.5 and the music player's table, and the kit builds every one", () => {
+test("RULE-55: the fixture holds the eight examples of section 7.5 and the music player's table, and the kit builds every one", () => {
   assert.deepEqual(
     fixtureLines("rules-examples.jsonl").map((line) => line["example"]),
     EXAMPLES.map(({ example }) => example),
@@ -46,11 +46,15 @@ for (const example of EXAMPLES) {
   });
 }
 
-test("RULE-93: the music player's table has 47 rules, and none sends its channel anything", () => {
+test("RULE-93: the music player's table has 16 rules, 22 groups, one sequence and 25 rows, and nothing in it reports to its channel", () => {
   const table = EXAMPLES.find(({ example }) => example === "music-player")?.table;
-  assert.equal(table?.rules.length, 47);
+  assert.equal(table?.rules.length, 16);
+  assert.equal(table.groups?.length, 22);
+  assert.equal(table.sequences?.length, 1);
+  assert.equal(Object.values(table.rows ?? {}).flat().length, 25);
+  const commands = [...(table.groups ?? []).flatMap((group) => group.commands), ...table.rules.flatMap((rule) => rule.do ?? [])];
   assert.deepEqual(
-    table?.rules.filter((rule) => rule.echo === true || rule.do.some((action) => action.action === "send")),
+    [...table.rules.filter((rule) => rule.echo === true).map((rule) => rule.name), ...commands.filter((command) => command.type === "report")],
     [],
   );
 });

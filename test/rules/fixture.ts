@@ -1,4 +1,4 @@
-// The lines of a shared fixture of protocol 14 (python.md PY-80): copies of
+// The lines of a shared fixture of protocol 15 (python.md PY-80): copies of
 // neoteletext-common's files, which the commit gate holds to them.
 
 import assert from "node:assert/strict";

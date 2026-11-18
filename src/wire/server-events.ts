@@ -34,7 +34,7 @@ export interface ServerEvents {
   ): void;
   /** The connection selected a page (sub-code 3F7F) or one sub-page: answer with one sub-page (REQ-1472). */
   selected(connection: number, request: number, selection: Selection, path: string, query: string | null): void;
-  /** Input on the sub-page the viewer was looking at (REQ-1557), which a rule of the page's table sent: it names the rule, its tick and its target (page-rules.md RULE-37). */
+  /** Input on the sub-page the viewer was looking at (REQ-1557), which a rule of the page's table sent: it names the rule, the row that fired, its tick and its target (page-rules.md RULE-37). */
   input(connection: number, page: number, sub: number, input: Input): void;
   /** A rule of a page's table fired with no input of its own, or sent a value (RULE-37). */
   ruleEvent(event: ServerMessageRuleEvent): void;
@@ -82,7 +82,7 @@ function dispatchConnection(message: ConnectionMessage, events: ServerEvents): v
       return;
     }
     case "input": {
-      const source = { rule: message.rule, tick: message.tick, target: message.target ?? null };
+      const source = { rule: message.rule, ruleRow: message.row ?? null, tick: message.tick, target: message.target ?? null };
       events.input(message.connection, numberOf(message.page), numberOf(message.sub), readInput(message.event, message.lost, source));
       return;
     }

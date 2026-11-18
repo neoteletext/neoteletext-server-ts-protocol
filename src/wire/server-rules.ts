@@ -196,9 +196,11 @@ function bytesMessageFault(message: Extract<ProgramMessage, { type: "packets" | 
 /**
  * The messages held to the schema alone. A sound: every other rule of it is
  * the server's, which its refusal reports (typescript.md TS-17). The viewer's
- * requests, which have none beyond the schema. A rule table, a state query
- * and every animation message: the server checks them and its refusal
- * reports the fault (page-rules.md RULE-55; animation.md ANIM-19; DEC-6462).
+ * requests, which have none beyond the schema. A rule table, a state query,
+ * the commands sent directly and every animation message: the server
+ * checks them and its refusal reports the fault (page-rules.md RULE-55,
+ * RULE-114; animation.md ANIM-19; DEC-6462). An object page is a page, and
+ * is held to a page's rules below.
  */
 const SCHEMA_ALONE = [
   "sound",
@@ -214,11 +216,25 @@ const SCHEMA_ALONE = [
   "sprite_sheet",
   "timeline",
   "timeline_stop",
+  "local_midi",
+  "variable",
+  "timer",
+  "report",
+  "run",
+  "sequence",
 ] as const;
 type SchemaAlone = Extract<ProgramMessage, { readonly type: (typeof SCHEMA_ALONE)[number] }>;
 
 function isSchemaAlone(message: ProgramMessage): message is SchemaAlone {
   return SCHEMA_ALONE.some((type) => type === message.type);
+}
+
+/** A page's fault, of a message that carries one to be shown: a published sub-page, a page measured, or an object page (animation.md ANIM-17), which the server checks as it checks a published one (its check_page). */
+function shownPageFault(message: Extract<ProgramMessage, { readonly type: "page" | "measure" | "object_page" }>, limits: Limits): Fault | null {
+  if (message.type === "object_page") {
+    return pageFault("object", message.object, limits);
+  }
+  return (message.type === "page" ? answerFault(message.connections, message.request) : null) ?? pageFault("page", message.page, limits);
 }
 
 /** The first fault of a message the schema has passed, by the server's rules and `start`'s limits; null when it has none. What is said of a ReGIS sub-page's picture has its rules in picture-rules.ts. */
@@ -233,8 +249,9 @@ export function checkRules(message: Exclude<ProgramMessage, PictureMessage>, lim
       break;
     }
     case "page":
-    case "measure": {
-      fault = (message.type === "page" ? answerFault(message.connections, message.request) : null) ?? pageFault("page", message.page, limits);
+    case "measure":
+    case "object_page": {
+      fault = shownPageFault(message, limits);
       break;
     }
     case "subpages": {

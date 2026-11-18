@@ -57,8 +57,11 @@ import { checkServer } from "../wire/validate.ts";
 /** What a test gives of a report of a sound (`sound_built`, server.md SRV-47): everything but what names the sound, which the harness takes from the member reported. */
 export type SoundReport = Omit<ServerMessageSoundBuilt, "type" | "kind" | "handle" | "generation">;
 
+/** A page's sixteen variables as a page with no table has them (page-rules.md RULE-38): all zero. */
+const NO_VARIABLES = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] as const;
+
 /** What a test gives of a page's state (`page_state`, page-rules.md RULE-38): everything but what names the query, which the harness takes from the `query_state` it answers; what is left out is as a page with no table has it. */
-export type PageStateAnswer = Partial<Omit<ServerMessagePageState, "type" | "connection" | "page" | "request">>;
+export type PageStateAnswer = Partial<Omit<ServerMessagePageState, "type" | "connection" | "page" | "sub" | "request">>;
 
 /** One `animate` message the server would send as it plays a timeline (animation.md ANIM-21): the timeline's `id`, the step's tick counted from the timeline's arrival, and the step's operations as the message. */
 export interface TimelineSend {
@@ -219,15 +222,21 @@ export class Harness {
 
   /**
    * Input from `connection` on the page it has open, as a rule of the
-   * page's table sent it (page-rules.md RULE-37): the `rule`, `tick` and
-   * `target` the input carries, or, for each it lacks, the rule the
-   * server's default table would send it by (RULE-53), the clock in ticks,
-   * and no target: what a program of a channel with `default_rules:
-   * send_all` hears.
+   * page's table sent it (page-rules.md RULE-37): the `rule`, `ruleRow`,
+   * `tick` and `target` the input carries, or, for each it lacks, the rule
+   * the server's default table would send it by (RULE-53), no row, the
+   * clock in ticks, and no target: what a program of a channel with
+   * `default_rules: send_all` hears.
    */
   send(connection: number, input: Input): void {
     const page = this.#pageOf(connection);
-    const sent: Input = { ...input, rule: input.rule ?? defaultRule(input), tick: input.tick ?? this.#tick(), target: input.target ?? null };
+    const sent: Input = {
+      ...input,
+      rule: input.rule ?? defaultRule(input),
+      ruleRow: input.ruleRow ?? null,
+      tick: input.tick ?? this.#tick(),
+      target: input.target ?? null,
+    };
     this.channel.input(connection, page, ANY_SUB, sent);
   }
 
@@ -238,9 +247,12 @@ export class Harness {
    * value read, that `rule_event`; with an input event as the server
    * writes one, the `input` naming the rule, and `target` when the rule
    * named one. `tick` is the page tick: the clock in ticks when none is
-   * given.
+   * given. `row` is the place of the row that fired within the rule's row
+   * set, for a rule with rows (RULE-105); none without. `rule` is null for
+   * a `rule_event` of a run no rule made, a command the server sent or a
+   * sequence it started; an input always names its rule.
    */
-  fire(connection: number, rule: string, event?: InputEvent | RuleEventBody, tick?: number, target?: RuleTarget): void {
+  fire(connection: number, rule: string | null, event?: InputEvent | RuleEventBody, tick?: number, target?: RuleTarget, row?: number): void {
     const page = pageText(this.#pageOf(connection));
     const at = tick ?? this.#tick();
     const body = event ?? ({ kind: "fired" } as const);
@@ -251,12 +263,16 @@ export class Harness {
         page,
         sub: subText(this.#openSub.get(connection) ?? 0),
         rule,
+        row: row ?? null,
         tick: at,
         event: body,
       };
       this.#fromServer(fired);
       this.channel.ruleEvent(fired);
       return;
+    }
+    if (rule === null) {
+      throw new Error("fire: an input names the rule that reported it (RULE-37)");
     }
     const input: ServerMessageInput = {
       type: "input",
@@ -265,6 +281,7 @@ export class Harness {
       sub: subText(ANY_SUB),
       lost: false,
       rule,
+      row: row ?? null,
       tick: at,
       target: target ?? null,
       event: body,
@@ -276,26 +293,31 @@ export class Harness {
   /**
    * Answers `query`, a `query_state` the channel wrote, with the
    * `page_state` a receiver would send (RULE-38, RULE-55): what `state`
-   * gives, and for what it leaves out a page with no table, on the
-   * sub-page the connection selected. The channel hears it as from the
-   * server.
+   * gives, and for what it leaves out a page with no table, for the page
+   * and sub-page the query named. The channel hears it as from the server.
    */
   answerState(query: Sent, state?: PageStateAnswer): void {
-    const { connection, page, request } = query;
-    if (query["type"] !== "query_state" || typeof connection !== "number" || typeof page !== "string" || typeof request !== "number") {
+    const { connection, page, sub, request } = query;
+    if (
+      query["type"] !== "query_state" ||
+      typeof connection !== "number" ||
+      typeof page !== "string" ||
+      typeof sub !== "string" ||
+      typeof request !== "number"
+    ) {
       throw new Error("answerState: not a query_state the channel wrote");
     }
     const answer: ServerMessagePageState = {
       type: "page_state",
       connection,
       page,
-      sub: subText(this.#openSub.get(connection) ?? 0),
+      sub,
       request,
       tick: this.#tick(),
       table: false,
-      variables: {},
+      variables: NO_VARIABLES,
       timers: {},
-      enabled: [],
+      sequences: {},
       targets: [],
       values: [],
       ...state,

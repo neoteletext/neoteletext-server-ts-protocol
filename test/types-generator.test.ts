@@ -203,3 +203,30 @@ test("TS-12: one schema gives one text", () => {
   const schema = JSON.stringify({ $defs: { Thing: { ...CLOSED, properties: { a: { type: "string" } } } } });
   assert.equal(generate(schema, "s").types, generate(schema, "s").types);
 });
+
+test("RULE-106, PY-10: an amount is one type by its properties wherever it is written, nested unions join, and an unknown shape fails", () => {
+  const amount = (bound: number, sources: readonly string[]): object => ({
+    ...CLOSED,
+    properties: Object.fromEntries<object>([
+      ["plus", { type: "integer", maximum: bound }],
+      ...sources.map((source): [string, object] => [source, { const: "p" }]),
+    ]),
+    oneOf: sources.map((source) => ({ required: [source] })),
+  });
+  const written = typesOf({
+    Move: { ...CLOSED, properties: { x: { anyOf: [{ type: "integer" }, amount(32_767, ["variable", "row", "fired"])] } }, required: ["x"] },
+    Operand: {
+      anyOf: [
+        { anyOf: [{ type: "integer" }, amount(1, ["variable", "row", "fired"])] },
+        { ...CLOSED, properties: { read: { type: "string" } }, required: ["read"] },
+      ],
+    },
+    Target: { ...CLOSED, properties: { object: { anyOf: [{ type: "integer" }, amount(7, ["row", "fired"])] } }, required: ["object"] },
+  });
+  assert.equal(written.match(/^export type Amount = /gmu)?.length, 1, written);
+  assert.equal(written.match(/^export type TargetAmount = /gmu)?.length, 1, written);
+  assert.ok(written.includes("export type Operand =\n  | number\n  | Amount\n  | OperandRead;"), written);
+  assert.ok(written.includes('  | { readonly row: "p" }'), written);
+  assert.ok(!written.includes("maximum 32767"), "a shape's bounds are its fields', not the type's");
+  refuses({ Odd: { ...CLOSED, properties: { a: { anyOf: [{ type: "integer" }, amount(1, ["key"])] } } } }, /name no amount the generator knows/u);
+});

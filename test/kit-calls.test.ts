@@ -3,7 +3,8 @@
 // kit-calls.tsv here is a copy the commit gate checks (typescript.md TS-2;
 // python.md PY-19), the calls of the page rule table and of animation and
 // the timeline builder among them (page-rules.md RULE-55; animation.md
-// ANIM-19).
+// ANIM-19), and the builders of a rule table's pieces and the mode set's
+// methods (RULE-55, RULE-110).
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -12,7 +13,8 @@ import { test } from "node:test";
 
 import type { Application } from "../src/channel/application.ts";
 import { HANDLER_ARGUMENTS, type OptionalHandler } from "../src/channel/handlers.ts";
-import { Context, Timeline } from "../src/index.ts";
+import * as packageExports from "../src/index.ts";
+import { Context, Modes, Timeline } from "../src/index.ts";
 import { Harness } from "../src/testing/index.ts";
 
 /** One row of the file. */
@@ -149,4 +151,42 @@ type Miscounted = { [Name in OptionalHandler]: Parameters<NonNullable<Applicatio
 test("TS-2: each handler's parameters are its listed arguments and its context, by the type check", () => {
   const counted: [Miscounted] extends [never] ? true : Miscounted = true;
   assert.equal(counted, true);
+});
+
+test("RULE-55: the builders are kit-calls.tsv's, each a function of the package with its arguments", () => {
+  const listed = rows().filter((row) => row.what === "builder");
+  const exported: Readonly<Record<string, unknown>> = packageExports;
+  holds("builder", new Map(listed.map((row) => [row.typescript, parameterCount(exported[row.typescript])])));
+});
+
+test("RULE-110: the mode set's methods are kit-calls.tsv's modes, each with its arguments", () => {
+  holds("modes", new Map([...methodsOf(Modes.prototype)].map(([name, method]) => [name, parameterCount(method)])));
+});
+
+test("RULE-55, RULE-110: each builder answers the JSON kit-calls.tsv states", () => {
+  const set = packageExports.modes("v1", ["play", "arpeggio"]);
+  const playing = { read: { of: "variable", variable: "v1" }, op: "==", value: 0 } as const;
+  const answered = [
+    [packageExports.physicalKey("a"), { physical: "a" }],
+    [packageExports.characterKey(" "), { char: " " }],
+    [packageExports.namedKey("Enter"), { name: "Enter" }],
+    [packageExports.level(0), { of: "sound", channel: 0, property: "level" }],
+    [packageExports.variable("v0"), { of: "variable", variable: "v0" }],
+    [packageExports.plus(12, "v0"), { plus: 12, variable: "v0" }],
+    [packageExports.row(), { plus: 0, row: "p" }],
+    [packageExports.row(41), { plus: 41, row: "p" }],
+    [packageExports.fired("p"), { plus: 0, fired: "p" }],
+    [packageExports.fired("row", 301), { plus: 301, fired: "row" }],
+    [packageExports.phase("t0", 30), { of: "timer", timer: "t0", property: "phase", period: 30 }],
+    [packageExports.noteOn(0, 1, 60, 100), { type: "local_midi", channel: 0, message: { event: "note_on", channel: 1, key: 60, velocity: 100 } }],
+    [packageExports.noteOff(0, 1, 60, 64), { type: "local_midi", channel: 0, message: { event: "note_off", channel: 1, key: 60, velocity: 64 } }],
+    [set.in("play"), playing],
+    [set.in("arpeggio", playing), { and: [{ ...playing, value: 1 }, playing] }],
+    [set.enter("arpeggio"), { type: "variable", op: "set", variable: "v1", value: 1 }],
+  ] as const;
+  for (const [built, expected] of answered) {
+    assert.equal(JSON.stringify(built), JSON.stringify(expected), "the same text, every field in its order");
+  }
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a name outside the set, as JavaScript could give one
+  assert.throws(() => set.enter("menu" as "play"), RangeError);
 });

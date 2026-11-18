@@ -14,16 +14,24 @@ import { Screen } from "../page/screen.ts";
 import type { Subpage } from "../page/subpage.ts";
 import type { App } from "../wire/app.ts";
 import type { Timeline } from "../animation/timeline.ts";
+import type { SubpageBody } from "../page/subpage.ts";
 import type {
   AnimationOp,
   AuthorLevel,
   FrameMarkName,
+  LocalMidiEvent,
   NaplpsObject,
+  ProgramMessageVariable,
+  RuleName,
   RuleTable,
+  RuleValue,
+  SequenceAt,
   ServerMessageMeasured,
   SheetKindName,
   SoundMember,
   Sprite,
+  StartStop,
+  TimerName,
 } from "../wire/generated/protocol.js";
 import type { PageState } from "../rules/page-state.ts";
 import type { Language } from "../wire/languages.ts";
@@ -36,6 +44,9 @@ export interface DrawingLink {
   /** A page (`"200"`), a sub-page (`"200:0001"`), a page of another channel (`"news:300"`), an address, or `"web:"` and a web address. */
   readonly target: string;
 }
+
+/** A `variable` command as a program gives it (page-rules.md RULE-114): the message's `op`, `variable` and operand, without what the call fills. */
+export type VariableCommand = Omit<ProgramMessageVariable, "type" | "connections" | "page" | "sub">;
 
 /** What a context reaches of its channel. */
 export interface Host {
@@ -60,15 +71,22 @@ export interface Host {
   regisLinks(to: Audience, page: number, sub: number, links: readonly DrawingLink[]): void;
   regisCursor(to: Audience, page: number, sub: number, drawing: number): void;
   naplps(to: Audience, page: number, sub: number, data: Uint8Array, restart: boolean): void;
-  rules(to: Audience, page: number, table: RuleTable | null): void;
-  queryState(connection: number, page: number): Promise<PageState>;
+  rules(to: Audience, page: number, sub: number, table: RuleTable | null): void;
+  queryState(connection: number, page: number, sub: number): Promise<PageState>;
+  localMidi(to: Audience, page: number, sub: number, channel: number, message: LocalMidiEvent): void;
+  variable(to: Audience, page: number, sub: number, command: VariableCommand): void;
+  timer(to: Audience, page: number, sub: number, op: StartStop, timer: TimerName): void;
+  report(to: Audience, page: number, sub: number, value: RuleValue | null): void;
+  run(to: Audience, page: number, sub: number, group: RuleName): void;
+  sequence(to: Audience, page: number, sub: number, op: StartStop, sequence: RuleName | null, at: SequenceAt | null | undefined): void;
   frame(to: Audience, page: number, sub: number, mark: FrameMarkName): void;
   animate(to: Audience, page: number, sub: number, ops: readonly AnimationOp[]): void;
   sprites(to: Audience, page: number, sub: number, sprites: readonly Sprite[]): void;
   naplpsObjects(to: Audience, page: number, sub: number, objects: readonly NaplpsObject[]): void;
-  spriteSheet(to: Audience, page: number, kind: SheetKindName, data: string | Uint8Array, restart: boolean): void;
+  spriteSheet(to: Audience, page: number, sub: number, kind: SheetKindName, data: string | Uint8Array, restart: boolean): void;
+  objectPage(to: Audience, page: number, sub: number, objectPage: number, objectSub: number, object: SubpageBody): void;
   playTimeline(to: Audience, page: number, sub: number, timeline: Timeline, id: number | null): number;
-  stopTimeline(to: Audience, page: number, id: number): void;
+  stopTimeline(to: Audience, page: number, sub: number, id: number): void;
   connection(): number | null;
   viewer(connection: number): Viewer | null;
   remembered(connection: number): boolean;
@@ -268,31 +286,69 @@ export class Context {
   }
 
   /**
-   * Gives a page its rule table for the connections named, or with `null`
-   * removes it (page-rules.md RULE-35): the one bounded list of rules, each
-   * binding an event to local actions, that the viewer's receiver evaluates
-   * sixty times a second, and the only way a page asks for the viewer's
-   * input: a program hears an `input` only when a rule of the page's table
-   * sent it (RULE-37). The server keeps the table for each connection and
-   * sends it before the page whenever the connection selects the page
-   * (RULE-40). The kit holds the table to the schema and checks nothing
-   * more: every other fault is the server's, which a `refused` handler
-   * hears (RULE-39, RULE-55).
+   * Gives sub-page `sub` of `page` its rule table for the connections named
+   * that have it selected, or with `null` removes it (page-rules.md RULE-35):
+   * the rules, each binding events to one group of protocol commands that
+   * the viewer's receiver runs at once, and the only way a page asks for
+   * the viewer's input: a program hears an `input` only when a rule of the
+   * page's table reported it (RULE-37). The server keeps no table for
+   * later (RULE-40): send it at every selection of the page, with the
+   * page. A `do` list and `echo` are written as they are, and the server
+   * makes them into groups. The kit holds the table to the schema and
+   * checks nothing more: every other fault is the server's, which a
+   * `refused` handler hears (RULE-39, RULE-55).
    */
-  rules(to: Audience, page: number, table: RuleTable | null): void {
-    this.#host.rules(to, page, table);
+  rules(to: Audience, page: number, sub: number, table: RuleTable | null): void {
+    this.#host.rules(to, page, sub, table);
   }
 
   /**
-   * Asks one connection's receiver for the local state of `page` (RULE-38):
-   * its variables, timers, enabled rules, targets and the values its rules
-   * read, once, for resynchronising or debugging, never a stream. It
+   * Asks one connection's receiver for the local state of sub-page `sub`
+   * of `page` (RULE-38): its sixteen variables, running timers, sequences,
+   * targets and the values its rules read, as they stood when the query
+   * was handled, once, for reading or debugging, never a stream. It
    * rejects with a {@link QueryRefusedError} when the server refuses the
    * query (the connection has another page selected, a second query within
    * a second) or no answer comes within the server's ten seconds.
    */
-  queryState(connection: number, page: number): Promise<PageState> {
-    return this.#host.queryState(connection, page);
+  queryState(connection: number, page: number, sub: number): Promise<PageState> {
+    return this.#host.queryState(connection, page, sub);
+  }
+
+  /** One MIDI message to the page's local sound on audio channel `channel` (RULE-114, RULE-21), as a group's `local_midi` command would play it. */
+  localMidi(to: Audience, page: number, sub: number, channel: number, message: LocalMidiEvent): void {
+    this.#host.localMidi(to, page, sub, channel, message);
+  }
+
+  /** Changes a variable of the page, `v0` to `v15` (RULE-114, RULE-99): `command` is the message's `op`, `variable` and operand (`value`, or `low` and `high` for `wrap`). */
+  variable(to: Audience, page: number, sub: number, command: VariableCommand): void {
+    this.#host.variable(to, page, sub, command);
+  }
+
+  /** Starts or stops a timer of the page, `t0` to `t7` (RULE-114, RULE-100). */
+  timer(to: Audience, page: number, sub: number, op: StartStop, timer: TimerName): void {
+    this.#host.timer(to, page, sub, op, timer);
+  }
+
+  /** Has the page report `value` to the channel, which hears it as a `rule_event` (RULE-114, RULE-22); `null`, the firing, is a group's alone and the server refuses it here. */
+  report(to: Audience, page: number, sub: number, value: RuleValue | null): void {
+    this.#host.report(to, page, sub, value);
+  }
+
+  /** Runs the group `group` of the table the server last sent the connection for the page, at once (RULE-114, RULE-102). */
+  run(to: Audience, page: number, sub: number, group: RuleName): void {
+    this.#host.run(to, page, sub, group);
+  }
+
+  /**
+   * Starts or stops a sequence of the page's table (RULE-114, RULE-103):
+   * `sequence` by its name, or `null` with `stop` for every one. A start
+   * begins at the next tick, or with `at` at a page tick (`{ tick }`) or at
+   * a timer's next expiry of a period (`{ beat }`); `at` left out is not
+   * written, which is the next tick, and a stop takes none.
+   */
+  sequence(to: Audience, page: number, sub: number, op: StartStop, sequence: RuleName | null, at?: SequenceAt | null): void {
+    this.#host.sequence(to, page, sub, op, sequence, at);
   }
 
   /**
@@ -328,13 +384,26 @@ export class Context {
   }
 
   /**
-   * More of a page's sprite sheet, the drawings its sub-pages' objects
-   * share (ANIM-17, ANIM-21): ReGIS commands as text or bytes, or NAPLPS
-   * bytes. `restart` begins a new generation of the sheet; without it the
-   * bytes add to it.
+   * More of a sub-page's sprite sheet, the drawings its objects use
+   * (ANIM-17, ANIM-21): ReGIS commands as text, written a byte a character
+   * (Latin-1), or bytes, or NAPLPS bytes. A sheet belongs to one page and
+   * sub-code (DEC-6599). `restart` begins a new generation of the sheet;
+   * without it the bytes add to it.
    */
-  spriteSheet(to: Audience, page: number, kind: SheetKindName, data: string | Uint8Array, restart = false): void {
-    this.#host.spriteSheet(to, page, kind, data, restart);
+  spriteSheet(to: Audience, page: number, sub: number, kind: SheetKindName, data: string | Uint8Array, restart = false): void {
+    this.#host.spriteSheet(to, page, sub, kind, data, restart);
+  }
+
+  /**
+   * A teletext object page whose objects the sprites of sub-page `sub` of
+   * `page` show (ANIM-17): a Public or Global Public Object Page (EN 300 706
+   * clause 10.5), numbered `objectPage` and `objectSub`, drawn on a screen
+   * or given as content, as a published sub-page is. It is no selection's
+   * answer and the server keeps none of it: send it at each selection,
+   * before the page.
+   */
+  objectPage(to: Audience, page: number, sub: number, objectPage: number, objectSub: number, object: SubpageBody): void {
+    this.#host.objectPage(to, page, sub, objectPage, objectSub, object);
   }
 
   /**
@@ -350,9 +419,9 @@ export class Context {
     return this.#host.playTimeline(to, page, sub, timeline, id ?? null);
   }
 
-  /** Stops the timeline `id` of `page` (ANIM-21): its objects stay as its last step sent left them. */
-  stopTimeline(to: Audience, page: number, id: number): void {
-    this.#host.stopTimeline(to, page, id);
+  /** Stops the timeline `id` of sub-page `sub` of `page` (ANIM-21): its objects stay as its last step sent left them. */
+  stopTimeline(to: Audience, page: number, sub: number, id: number): void {
+    this.#host.stopTimeline(to, page, sub, id);
   }
 
   /** The connection the call came from, if it came from one. */
