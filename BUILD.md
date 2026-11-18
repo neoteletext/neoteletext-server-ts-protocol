@@ -16,8 +16,12 @@ consumer takes the JavaScript and declarations in `dist/`.
   `protocol/schema-14.json`) into `src/wire/generated/protocol.d.ts`, with
   the schema's structure beside it in `bytes.js`, by which the kit writes
   and reads bytes fields as base64. The generator maps each keyword of
-  TS-9's table and fails, naming the keyword and its path, on anything
-  else. The commit gate's step "the types, from the server's schema" runs
+  TS-9's table, and for protocol 14 a map whose names match one pattern
+  (`patternProperties`, python.md PY-74), and fails, naming the keyword and
+  its path, on anything else. A union's branches are named by their tag,
+  one of `type`, `kind`, `event`, `form`, `packet`, `action` and `of`, and
+  an untagged branch of several properties by the first it requires that
+  no other branch has (PY-75). The commit gate's step "the types, from the server's schema" runs
   it, then `node scripts/types.ts --check`, which generates again in memory
   and fails on the first line that differs.
 - **Ajv 8**, pinned, at build only: `scripts/validators.ts` compiles the
@@ -35,13 +39,17 @@ consumer takes the JavaScript and declarations in `dist/`.
   `scripts/check.sh schema`, fail when the copy differs from the server's
   `protocol/schema-14.json` at that commit, read from the server's
   repository at `~/devel/neoteletext-app-server` (or `NEOTELETEXT_SERVER`).
-- **The shared files:** `kit-calls.tsv` and `test/fixtures/examples.jsonl`
-  are copies of neoteletext-common's `docs/audio/kit-calls.tsv` and
-  `docs/audio/examples.jsonl` at the commit `COMMON_FROM` names in
+- **The shared files:** `kit-calls.tsv`, `test/fixtures/examples.jsonl`,
+  `test/fixtures/rules-examples.jsonl` and `test/fixtures/timelines.jsonl`
+  are copies of neoteletext-common's `docs/audio/kit-calls.tsv`,
+  `docs/audio/examples.jsonl`, `docs/rules-examples.jsonl` and
+  `docs/timelines.jsonl` at the commit `COMMON_FROM` names in
   `scripts/check.sh`; `scripts/check.sh shared` and the commit gate fail
-  when either differs, read from `~/devel/neoteletext-common` (or
+  when any differs, read from `~/devel/neoteletext-common` (or
   `NEOTELETEXT_COMMON`). They hold this kit to the Python kit's calls and
-  lines (typescript.md TS-2).
+  lines (typescript.md TS-2), and to the rule tables of page-rules.md
+  section 7.5 and RULE-93 and the timelines of animation.md ANIM-19 as
+  both kits must write them (python.md PY-80).
 
 ## Check
 

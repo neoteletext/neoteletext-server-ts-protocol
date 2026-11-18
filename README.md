@@ -3,16 +3,17 @@
 The NeoTeletext server's channel protocol for programs in TypeScript: the
 reference kit of DOC-1974. A
 channel is a program the server starts; they talk in lines of JSON on its
-standard input and output. This package speaks protocol version 13
-(DEC-1482, DEC-6471): every message in both directions is typed by types
-generated from the server's published JSON Schema (`schema/protocol-13.json`,
-the server's `protocol/schema-13.json`) and checked against it by
+standard input and output. This package speaks protocol version 14
+(DEC-1482, DEC-6471, DEC-6522, DEC-6524): every message in both directions is typed by types
+generated from the server's published JSON Schema (`schema/protocol-14.json`,
+the server's `protocol/schema-14.json`) and checked against it by
 validators Ajv 8 compiles from it at build, in standalone mode, so nothing
 compiles a schema at run time. A page, an index and a log line are then
 held to the server's rules of text the schema cannot state: no control or
 bidirectional formatting character, Unicode normalisation form C, and an
-author's log line bounded in bytes; a sound is held to the schema alone,
-every other rule of it being the server's (typescript.md TS-17). A message the
+author's log line bounded in bytes; a sound, a page's rule table and every
+animation message are held to the schema alone, every other rule of them
+being the server's (typescript.md TS-17; page-rules.md RULE-55). A message the
 program would write that the server would refuse is never written: the
 call throws a `ProtocolError` naming the path and the rule. The titles,
 names and log lines the kit fits itself are fitted in NFC. A line from
@@ -68,16 +69,114 @@ is written to standard error. In a systemd unit, `Environment=` sets the
 variable.
 
 Each application is called with what happened (`start`,
-`joined`, `request`, `opened`, `leftPage`, `input`, `wake`, `gone`, `stats`,
+`joined`, `request`, `opened`, `leftPage`, `input`, `ruleEvent`,
+`rulesFault`, `wake`, `gone`, `stats`,
 `describe`, `refused`, `soundBuilt`, `viewerBegan`, `viewerLeft`,
 `stateRefused`, `viewersReset`) and answers through its `Context`: publish a
 page for everyone or for one connection, send a connection to a page, end a
 selection without a page (`deny`, with 403, 404, 429 or 503), retitle a
-page, send a sound, write to the viewer's console (`authorLog`) or the
+page, give a page its rule table, animate its objects, send a sound, write
+to the viewer's console (`authorLog`) or the
 server's log, ask for a viewer's state, ask to be woken. The calls,
 handlers and harness calls are the Python kit's, name for name, as
 neoteletext-common's `docs/audio/kit-calls.tsv` lists them (its copy is
 `kit-calls.tsv`).
+
+**A page asks for its input, and answers the viewer itself** (protocol 14;
+neoteletext-common's `docs/page-rules.md`, RULE-1 to RULE-95). A page may
+carry one rule table: a bounded list of rules, each binding one event (a
+key, a pointer action on a target, a timer, the page opening, a condition
+becoming true) to a short list of local actions (a MIDI message to a
+synthesizer the page keeps open, showing, hiding or moving an object,
+changing a variable, telling the channel). The viewer's browser evaluates
+it sixty times a second, so sound and picture answer within a tick with no
+round trip, and **a program hears an `input` only when a rule of the page's
+table sent it**: a page with no table sends nothing. Give a page its table
+when a connection opens the page:
+
+```ts
+import type { RuleTable } from "neoteletext-server-ts-protocol/protocol";
+
+const TABLE: RuleTable = {
+  rules: [
+    // Typed keys and committed text reach the program; a click, a move and the wheel do not.
+    { name: "typed", on: { event: "key", keys: "any", repeat: true }, do: [{ action: "send" }] },
+    { name: "composed", on: { event: "text" }, do: [{ action: "send" }] },
+    // Control 3 lights at once, in the browser; its release is told to the program.
+    { name: "vote_down", on: { event: "press", target: { control: 3 }, button: 0 }, do: [{ action: "look", target: { control: 3 }, look: "pressed" }] },
+    { name: "vote", on: { event: "release", target: { control: 3 }, button: 0 }, do: [{ action: "look", target: { control: 3 }, look: "normal" }], echo: true },
+  ],
+};
+
+opened(connection, page, context) {
+  context.rules({ connection }, page, TABLE);
+}
+```
+
+`context.rules(to, page, table)` sends the table as built, and `null`
+removes it. The table is the typed object of RULE-35 (`RuleTable`,
+`PageRule`, `RuleTrigger`, `RuleCondition`, `RuleValue`, `RuleAction`,
+`RuleTarget`, generated from the schema); `physicalKey`, `characterKey`,
+`namedKey` and `level` build a key and a sound's level for it and check
+nothing. The kit holds a table to the schema and to nothing else: a name
+that is not declared, a condition too deep, a rule with no action is the
+server's to refuse, and the refusal reaches the `refused` handler
+(`invalid_rules`, `unknown_name`, `rules_over_limit` and the others of
+RULE-39). What a rule sends comes back three ways. An input comes to
+`input` as before, and now names its sender: `input.rule` (the rule's
+name), `input.tick` (the page tick it fired at, sixty a second from the
+page's opening, `TICKS_PER_SECOND`) and `input.target` (the control, object
+or rectangle the pointer was inside, or null). A rule that fired with no
+input of its own (`open`, `close`, `becomes`, `every`, `after`), or sent one
+value, comes to `ruleEvent(event, context)`; a fault of the table in a
+viewer's browser comes to `rulesFault(fault, context)`.
+`await context.queryState(connection, page)` asks one connection for the
+page's local state (`PageState`: its variables, timers, enabled rules,
+targets and the values its rules read), for resynchronising after a
+reconnect and for debugging; it rejects with `QueryRefusedError` when the
+server refuses it or no answer comes. A channel written for protocol 13
+keeps hearing its input when the server's channel configuration says
+`"default_rules": "send_all"` (RULE-53), each input naming the default
+table's rule (`keys`, `keys_up`, `text`, `press`, `release`, `move`,
+`hover_in`, `hover_out`, `drawing_in`, `drawing_out`, `focus`, `blur`,
+`wheel`); a new channel has no default and sends each page its own table.
+
+**Animation** (neoteletext-common's `docs/animation.md`, ANIM-1 to ANIM-22).
+A page's numbered objects (a teletext sprite, a ReGIS numbered drawing, a
+NAPLPS object) are shown, hidden, moved, ordered and cycled through their
+frames by a rule's actions, at once and in the browser, or by the program:
+
+- `context.frame(to, page, sub, body)` sends what `body` sends as one
+  frame, which the browser applies on one tick: no half-drawn picture is
+  shown, and a whole new page sent in a frame is swapped in at once.
+- `context.animate(to, page, sub, ops)` sends animation operations
+  (`AnimationOp`); `context.sprites` a teletext sub-page's sprites
+  (`Sprite`), `context.naplpsObjects` a NAPLPS sub-page's objects
+  (`NaplpsObject`), and `context.spriteSheet(to, page, kind, data, restart?)`
+  the drawings a page's sub-pages share.
+- `context.playTimeline(to, page, sub, timeline, id?)` has **the server**
+  play a `Timeline` on its own clock, and answers the timeline's `id` for
+  `context.stopTimeline(to, page, id)`. The kit holds no scheduler:
+
+  ```ts
+  const walk = new Timeline({ loopTicks: 120 });
+  walk.at(0).show(10).cycle(10, 0, 3, 6);
+  walk.then(30).move(10, 8, 0, true);
+  walk.then(30).hide(10);
+  const id = context.playTimeline({ page: 0x150 }, 0x150, 1, walk);
+  ```
+
+  `at(tick)` begins a step at a tick and `then(ticks)` one that many ticks
+  after the step made last; each call on a step adds one operation. The
+  message's steps are sorted by tick, steps of one tick joined, and a step
+  given no operation left out. A timeline is no promise: do not `await` one
+  or return one from an async function. For motion that must be exact to
+  the tick and answer the viewer at once, write rules with `after` and
+  `every` triggers instead; a timeline is for motion the channel directs.
+
+As with a rule table, the kit checks nothing of these beyond the schema, and
+the server's refusal (`frame_order`, `invalid_animation`, `invalid_sprites`,
+`too_many_timelines` and the others of ANIM-21) reaches `refused`.
 
 **Connections and viewers** (viewer-state.md VS-401 to VS-409). Every
 browser tab is a connection of its own, and an application keeps each
@@ -193,12 +292,18 @@ most 40 characters).
   cells and triplets; or rejects with `MeasureRefusedError`,
   the server's refusal naming the run. A channel's tests can measure every
   page against a running server.
-- **The protocol's version:** the kit speaks protocol 13 (`PROTOCOL`); a
+- **The protocol's version:** the kit speaks protocol 14 (`PROTOCOL`); a
   `start` of any other stops it before it sends anything, naming both
   (`ProtocolVersionError`, REQ-2215 item 3).
-- **Input:** `Input`, what a viewer did, with `Mods`, the modifier keys
+- **Input:** `Input`, what a viewer did and the rule of the page's table
+  that sent it (`rule`, `tick`, `target`), with `Mods`, the modifier keys
   a key or the pointer has, and `pressed`, `clicked`, `typed`, `character`
   and `decimalDigit` to read it.
+- **Rules and animation:** `Context.rules`, `queryState`, `frame`,
+  `animate`, `sprites`, `naplpsObjects`, `spriteSheet`, `playTimeline` and
+  `stopTimeline`; the `Timeline` builder; `PageState`, `QueryRefusedError`
+  and `TICKS_PER_SECOND`; and the builders `physicalKey`, `characterKey`,
+  `namedKey` and `level`.
 - **Navigation:** pages that do not take digits or the coloured keys
   themselves get page selection by them, and a click a page does not take
   follows the prompt or page number it is on.
@@ -215,6 +320,16 @@ most 40 characters).
   schema marks bytes is a `Uint8Array`, written as exact base64. Send a
   connection a page's `play` once, when it opens the page: a new play
   starts the sound again (integration.md INT-28).
+
+  **A local sound** (page-rules.md RULE-60, RULE-61) is an instrument the
+  page keeps open in the viewer's browser and its rules play, with no
+  blocks from the server and so no buffer to wait for: the kinds
+  `synth7_local`, `synth106_local`, `synth60_local`, `synthd_local`,
+  `synth53_local`, `synth52_local`, `synth51_local`, `synth8_local` and
+  `synth80_local`, each with its family's `banks` and a `setup` of at most
+  64 of the family's events at `time_us` 0. Its `play` names the `page`,
+  with `loop` and `after` false; a rule's `midi` action then gives it each
+  note, as the music player's table does (RULE-93).
 
   The kit holds no instrument logic: no patch packer, default patch,
   block builder, MIDI file reader or note helper (TS-1). A patch is given
@@ -285,6 +400,18 @@ server's answers to `requestState`, and `restart()` a server restart
 `report(member, report)` give the channel the server's refusal or report of
 a sound it wrote, held to the schema. The harness refuses and reports
 nothing of its own accord: only the server can say that a sound is right.
+
+Every input the harness sends names a rule, as the server's does: the rule
+the input itself carries (`harness.send(1, { kind: "text", text: "x", rule:
+"search_box" })`), or the rule of the server's default table for it, so a
+channel's tests hear what a `send_all` channel hears. The harness evaluates
+no table. `fire(connection, rule, event?, tick?, target?)` gives the channel
+what a rule's firing sends: a `rule_event` that it fired, a `rule_event` of
+a value read, or, given an input event as the server writes one, the
+`input` naming the rule and target. `answerState(query, state?)` answers a
+`query_state` the channel wrote (found in `sent`) with a `page_state`, and
+`timelineSends(connection)` gives the `animate` messages the server would
+send as it plays each timeline the channel wrote, once through.
 
 ```ts
 import assert from "node:assert/strict";
