@@ -12,11 +12,12 @@
 import type { Fault } from "./fault.ts";
 import { type ValidationFault, type Validator, program, server, sound } from "./generated/validators.js";
 import type { Limits } from "./limits.ts";
-import { pictureFault } from "./picture-rules.ts";
+import { exclusiveBytesFault, isPictureMessage, pictureFault } from "./picture-rules.ts";
 import { decodeBytes } from "./bytes.ts";
 import type { Encoded } from "./encoded.ts";
 import type { ProgramMessage, ServerMessage } from "./generated/protocol.js";
 import { checkRules } from "./server-rules.ts";
+import { descriptionFault } from "./description-rules.ts";
 
 /** A message the program was about to write broke the protocol: nothing of it was written. */
 export class ProtocolError extends Error {
@@ -129,12 +130,17 @@ function isProgramMessage(message: unknown): message is Encoded<ProgramMessage> 
 
 /** Whether a message the program would send, as its line carries it, is valid, by the schema and then by the server's rules within the limits `start` gave: null, or its first fault. */
 export function checkProgram(message: unknown, limits: Limits): Fault | null {
+  const exclusive = exclusiveBytesFault(message);
+  if (exclusive !== null) {
+    return exclusive;
+  }
   if (!isProgramMessage(message)) {
     return check(program, message);
   }
-  return message.type === "regis_links" || message.type === "regis_cursor" || message.type === "naplps"
-    ? pictureFault(message, limits)
-    : checkRules(message, limits);
+  if (isPictureMessage(message)) {
+    return pictureFault(message, limits);
+  }
+  return message.type === "description" ? descriptionFault(message, limits) : checkRules(message, limits);
 }
 
 /** Whether a message the server sent is valid: null, or its first fault. */

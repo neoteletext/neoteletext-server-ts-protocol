@@ -645,8 +645,8 @@ function members(schema: Node, generator: Generator): string {
   return `${text}/** Every sound kind's member type (TS-11): what \`context.sound\` takes. */\nexport type SoundMember =\n${sounds.map((sound) => `  | ${sound}`).join("\n")};\n`;
 }
 
-/** The keywords of the schema a bytes field's place is found by, at run time (TS-21): its structure, without words or bounds. */
-const STRUCTURE = new Set(["$ref", "type", "const", "properties", "items", "oneOf", "anyOf", "allOf", "additionalProperties", "contentEncoding"]);
+/** The keywords of the schema a bytes field's place is found by, at run time (TS-21): its structure, without words or bounds; `required` tells apart untagged branches of one type (PAR-26: a kept picture's name or its bytes). */
+const STRUCTURE = new Set(["$ref", "type", "const", "properties", "required", "items", "oneOf", "anyOf", "allOf", "additionalProperties", "contentEncoding"]);
 
 function structure(node: unknown): unknown {
   if (Array.isArray(node)) {

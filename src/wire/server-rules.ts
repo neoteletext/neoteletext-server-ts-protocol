@@ -8,7 +8,8 @@
 // link targets are the server's; and every bound `start` gives is taken
 // from the limits it gave, so the kit holds none of its own (REQ-1033).
 // Each field is checked in the order the server checks it, and a fault is
-// named at the path the server names it, with its rule.
+// named at the path the server names it, with its rule. A description's
+// rules are in description-rules.ts, a picture's in picture-rules.ts.
 
 import { authorLogFault, redirectFault } from "./connection-rules.ts";
 import type { Encoded } from "./encoded.ts";
@@ -17,7 +18,7 @@ import type { Limits } from "./limits.ts";
 import { LAST_SUBPAGE_CODE, pageFault } from "./page-rules.ts";
 import type { Connections, Magazine, ProgramMessage as WireMessage, SubPageEntry } from "./generated/protocol.js";
 import type { PictureMessage } from "./picture-rules.ts";
-import { CODE_POINT_DIGITS, HEX, PAGE_DIGITS, base64Bytes, boundedTextFault, firstOf, given, hex, isFault, textFault, wholeFault } from "./rule-pieces.ts";
+import { CODE_POINT_DIGITS, HEX, PAGE_DIGITS, boundedTextFault, firstOf, given, hex, isFault, textFault, wholeFault } from "./rule-pieces.ts";
 import { PACKET_BYTES, isValidStreamPacket } from "./stream-packets.ts";
 import { isReserved } from "../page/page-numbers.ts";
 
@@ -131,32 +132,6 @@ function replyFault(message: Extract<ProgramMessage, { type: "reply" }>, limits:
   );
 }
 
-/** A public page gives its title, text and sub-page, the sub-page of the page named; a page that is not public gives nothing (REQ-1728 items 3 and 6; the server's check_description). */
-function descriptionFault(message: Extract<ProgramMessage, { type: "description" }>, limits: Limits): Fault | null {
-  const { title, text, content } = message;
-  const present = [
-    ["title", given(title)],
-    ["text", given(text)],
-    ["content", given(content)],
-  ] as const;
-  if (!message.public) {
-    const extra = present.find(([, isGiven]) => isGiven);
-    return extra === undefined ? null : { path: extra[0], rule: "unknown_field", detail: "a page that is not public gives nothing" };
-  }
-  const missing = present.find(([, isGiven]) => !isGiven);
-  if (missing !== undefined) {
-    return { path: missing[0], rule: "missing_field", detail: "a public page gives its title, text and content" };
-  }
-  return (
-    (given(title) ? boundedTextFault("title", title, limits.budgets.titleCharacters) : null) ??
-    (given(text) ? boundedTextFault("text", text, limits.budgets.descriptionTextCharacters) : null) ??
-    (given(content) && content.page !== message.page
-      ? { path: "content.page", rule: "wrong_page", detail: `${content.page}, for the description of ${message.page}` }
-      : null) ??
-    (given(content) ? pageFault("content", content, limits) : null)
-  );
-}
-
 /** Raw packets: exact base64 of whole 42-byte packets, each one a stream may carry (the server's check_packets; REQ-1462). */
 function packetsFault(text: string): Fault | null {
   const bytes = wholeFault("packets", text, MOST_RAW_BYTES, PACKET_BYTES, "packets");
@@ -171,25 +146,8 @@ function packetsFault(text: string): Fault | null {
   return null;
 }
 
-/** The most ReGIS one message carries once decoded (the server's MOST_REGIS_BYTES). */
-const MOST_REGIS_BYTES = 1024 * 1024;
-/** The sub-code that names no sub-page (EN 300 706 clause 9.6.1). */
-const ANY_SUBPAGE = "3F7F";
-
-/** A sub-page's ReGIS: a sub-code that names a sub-page, and exact base64 within the bound (the server's check_regis). The commits in it are the server's to check. */
-function regisFault(message: Extract<ProgramMessage, { type: "regis" }>): Fault | null {
-  if (message.sub === ANY_SUBPAGE) {
-    return { path: "sub", rule: "out_of_range", detail: "3F7F names no sub-page" };
-  }
-  const bytes = base64Bytes("data", message.data, MOST_REGIS_BYTES);
-  return isFault(bytes) ? bytes : null;
-}
-
-/** Raw packets' or ReGIS's bytes; a denial has none. */
-function bytesMessageFault(message: Extract<ProgramMessage, { type: "packets" | "regis" | "denied" }>): Fault | null {
-  if (message.type === "regis") {
-    return regisFault(message);
-  }
+/** Raw packets' bytes; a denial has none. */
+function bytesMessageFault(message: Extract<ProgramMessage, { type: "packets" | "denied" }>): Fault | null {
   return message.type === "packets" ? packetsFault(message.packets) : null;
 }
 
@@ -236,8 +194,8 @@ function shownPageFault(message: Extract<ProgramMessage, { readonly type: "page"
   return (message.type === "page" ? answerFault(message.connections, message.request) : null) ?? pageFault("page", message.page, limits);
 }
 
-/** The first fault of a message the schema has passed, by the server's rules and `start`'s limits; null when it has none. What is said of a ReGIS sub-page's picture has its rules in picture-rules.ts. */
-export function checkRules(message: Exclude<ProgramMessage, PictureMessage>, limits: Limits): Fault | null {
+/** The first fault of a message the schema has passed, by the server's rules and `start`'s limits; null when it has none. What is said of a sub-page's picture has its rules in picture-rules.ts, a description's in description-rules.ts. */
+export function checkRules(message: Exclude<ProgramMessage, PictureMessage | { readonly type: "description" }>, limits: Limits): Fault | null {
   if (isSchemaAlone(message)) {
     return null;
   }
@@ -272,12 +230,7 @@ export function checkRules(message: Exclude<ProgramMessage, PictureMessage>, lim
       fault = redirectFault(message);
       break;
     }
-    case "description": {
-      fault = descriptionFault(message, limits);
-      break;
-    }
     case "packets":
-    case "regis":
     case "denied": {
       fault = bytesMessageFault(message);
       break;

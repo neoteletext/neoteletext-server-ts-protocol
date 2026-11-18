@@ -33,6 +33,10 @@ const NOT_LIMITS: ReadonlyMap<string, string> = new Map([
     "wire/socket.ts FIRST_PAUSE_MS",
     "the first pause before connecting to the server's socket again, one second as the server's own FIRST_PAUSE, not a log line's characters",
   ],
+  [
+    "wire/picture-rules.ts MOST_PART_CHARACTERS",
+    "the characters of one picture text part (the server's MOST_PART_CHARACTERS, renderer parity PAR-21), not a figure start gives",
+  ],
   ["wire/protocol.ts WireSampleRate", "the sample rates the server takes, 16,000 among them"],
 ]);
 

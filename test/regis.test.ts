@@ -9,7 +9,6 @@ import { test } from "node:test";
 import { type Application, type PageEntry, Screen, TextNotWritableError } from "../src/index.ts";
 import { Harness, SERVER_LIMITS } from "../src/testing/index.ts";
 import { pictureFault } from "../src/wire/picture-rules.ts";
-import { checkRules } from "../src/wire/server-rules.ts";
 
 /** A square outlined as numbered drawing 1, then shown. */
 const SQUARE = "D(B1)V[0,0][19,0][19,19][0,19][0,0]D(E)D(S1(X100,Y50),C)";
@@ -71,10 +70,10 @@ test("ANIM-19, DEC-6650: regis writes a character to 255 as its one byte and ref
 
 test("regis for no sub-page, or not exact base64, is refused before it is sent", () => {
   const good = { type: "regis", connections: "all", page: "100", sub: "0000", restart: true, data: Buffer.from(SQUARE).toString("base64") } as const;
-  assert.equal(checkRules(good, SERVER_LIMITS), null);
-  assert.equal(checkRules({ ...good, data: "" }, SERVER_LIMITS), null, "a restart with nothing drawn yet");
-  assert.equal(checkRules({ ...good, sub: "3F7F" }, SERVER_LIMITS)?.rule, "out_of_range");
-  assert.equal(checkRules({ ...good, data: "not base64!" }, SERVER_LIMITS)?.rule, "not_base64");
+  assert.equal(pictureFault(good, SERVER_LIMITS), null);
+  assert.equal(pictureFault({ ...good, data: "" }, SERVER_LIMITS), null, "a restart with nothing drawn yet");
+  assert.equal(pictureFault({ ...good, sub: "3F7F" }, SERVER_LIMITS)?.rule, "out_of_range");
+  assert.equal(pictureFault({ ...good, data: "not base64!" }, SERVER_LIMITS)?.rule, "not_base64");
 });
 
 test("regisLinks and regisCursor send the server's messages to the audience named", () => {

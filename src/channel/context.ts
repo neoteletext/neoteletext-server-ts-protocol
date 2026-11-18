@@ -5,7 +5,8 @@
 // it names.
 
 // oxlint-disable import/max-dependencies, max-lines -- a context is a program's every call (kit-calls.tsv), each reaching its part of the channel
-import type { Audience } from "./audience.ts";
+import type { Audience, PictureAudience } from "./audience.ts";
+import type { MeasuredPictureText, PictureTextOptions } from "./picture-text-measures.ts";
 import type { DeniedStatus } from "./connections.ts";
 import type { Owner } from "./copies.ts";
 import { Random } from "./random.ts";
@@ -14,6 +15,7 @@ import { Screen } from "../page/screen.ts";
 import type { Subpage } from "../page/subpage.ts";
 import type { App } from "../wire/app.ts";
 import type { Timeline } from "../animation/timeline.ts";
+import type { PictureData } from "../picture/parts.ts";
 import type {
   AnimationOp,
   AuthorLevel,
@@ -43,6 +45,14 @@ export interface DrawingLink {
   /** The numbered drawing, 1 to 65,535. */
   readonly drawing: number;
   /** A page (`"200"`), a sub-page (`"200:0001"`), a page of another channel (`"news:300"`), an address, or `"web:"` and a web address. */
+  readonly target: string;
+}
+
+/** One NAPLPS object of a picture that is a link, and where it leads (renderer parity PAR-20). */
+export interface ObjectLink {
+  /** The object (animation.md ANIM-11), 1 to 65,535. */
+  readonly object: number;
+  /** Where it leads, in any form a {@link DrawingLink}'s target takes. */
   readonly target: string;
 }
 
@@ -78,10 +88,14 @@ export interface Host {
   log(text: string): void;
   measure(page: number, screen: Screen): Promise<ServerMessageMeasured>;
   packets(to: Audience, packets: Uint8Array): void;
-  regis(to: Audience, page: number, sub: number, data: string | Uint8Array, restart: boolean): void;
-  regisLinks(to: Audience, page: number, sub: number, links: readonly DrawingLink[]): void;
-  regisCursor(to: Audience, page: number, sub: number, drawing: number): void;
-  naplps(to: Audience, page: number, sub: number, data: Uint8Array, restart: boolean): void;
+  regis(to: PictureAudience, page: number, sub: number, data: PictureData, restart: boolean): void;
+  regisLinks(to: PictureAudience, page: number, sub: number, links: readonly DrawingLink[]): void;
+  regisCursor(to: PictureAudience, page: number, sub: number, drawing: number): void;
+  naplps(to: PictureAudience, page: number, sub: number, data: PictureData, restart: boolean): void;
+  naplpsLinks(to: PictureAudience, page: number, sub: number, links: readonly ObjectLink[]): void;
+  naplpsCursor(to: PictureAudience, page: number, sub: number, object: number): void;
+  forgetPicture(page: number, sub: number): void;
+  measurePictureText(text: string, options: PictureTextOptions): Promise<MeasuredPictureText>;
   rules(to: Audience, page: number, sub: number, table: RuleTable | null): void;
   queryState(connection: number, page: number, sub: number): Promise<PageState>;
   localMidi(to: Audience, page: number, sub: number, channel: number, message: LocalMidiEvent): void;
@@ -93,7 +107,7 @@ export interface Host {
   frame(to: Audience, page: number, sub: number, mark: FrameMarkName): void;
   animate(to: Audience, page: number, sub: number, ops: readonly AnimationOp[]): void;
   sprites(to: Audience, page: number, sub: number, sprites: readonly Sprite[]): void;
-  naplpsObjects(to: Audience, page: number, sub: number, objects: readonly NaplpsObject[] | NaplpsObjectSet): void;
+  naplpsObjects(to: PictureAudience, page: number, sub: number, objects: readonly NaplpsObject[] | NaplpsObjectSet): void;
   spriteSheet(to: Audience, page: number, sub: number, kind: SheetKindName, data: string | Uint8Array, restart: boolean): void;
   objectPage(to: Audience, page: number, sub: number, object: ObjectPage): void;
   playTimeline(to: Audience, page: number, sub: number, timeline: Timeline, id: number | null): number;
@@ -245,29 +259,44 @@ export class Context {
   /**
    * More of a sub-page's ReGIS, the vector graphics a viewer's ReGIS
    * renderer draws in place of the sub-page's teletext page (the server's
-   * REQ-6338): commands as text, or their bytes. Each connection that
-   * shows the sub-page has one stream of it. `restart` begins the stream
-   * again, with nothing drawn and no numbered drawings; without it the
-   * bytes add to the stream, and go to no connection that has not been
-   * sent a restart since it selected the sub-page. The server reads the
-   * bytes as the viewer's renderer will and refuses them, with the
-   * failure's code, if a commit in them would fail there.
+   * REQ-6338): commands as text, written a byte a character, or their
+   * bytes, or a list of parts (renderer parity PAR-21), each bytes, text
+   * written a byte a character, or `{ text, language?, outside? }`, Unicode
+   * text the server writes in the language's provided character sets
+   * (alphabets 100 to 154, leaving alphabet 0 selected after it). The
+   * {@link Regis} builder makes such a list. Each connection that shows the
+   * sub-page has one stream of it. `restart` begins the stream again, with
+   * nothing drawn and no numbered drawings; without it the bytes add to the
+   * stream, and go to no connection that has not been sent a restart since
+   * it selected the sub-page. The server reads the bytes as the viewer's
+   * renderer will and refuses them, with the failure's code, if a commit in
+   * them would fail there.
+   *
+   * To `{ kept: true }` the server keeps the stream for the page and
+   * sub-code together (PAR-16, PAR-17): a viewer who selects them later is
+   * sent it from its last restart, with its links and cursor, until
+   * {@link Context.forgetPicture}. A kept picture of one language takes the
+   * other's bytes only with a restart (`wrong_picture_language`).
    *
    * A drawing answers the pointer with no message at all through two of
    * its attributes: `D(S10(I1,H11,A12),S11(V0),S12(V0))` has the viewer's
    * browser show drawing 11 in drawing 10's place while the pointer is
    * over it, and drawing 12 while it is pressed.
    */
-  regis(to: Audience, page: number, sub: number, data: string | Uint8Array, options: { readonly restart?: boolean } = {}): void {
+  regis(to: PictureAudience, page: number, sub: number, data: PictureData, options: { readonly restart?: boolean } = {}): void {
     this.#host.regis(to, page, sub, data, options.restart === true);
   }
 
   /**
    * Sends bytes of a sub-page's NAPLPS (ANSI X3.110-1983), drawn by a viewer's NAPLPS renderer in place of the
-   * sub-page's teletext page (the NAPLPS renderer's REQ-6408). `restart` begins the sub-page's stream again; without
-   * it the bytes add to the stream, and go to no connection not yet sent a restart. The server sends them on unread.
+   * sub-page's teletext page (the NAPLPS renderer's REQ-6408): bytes, text written a byte a character, or a list of
+   * parts as {@link Context.regis} takes, a text part written in the language's provided sets by their designations
+   * (PAR-21), leaving G0 invoked with the primary set; the {@link Naplps} builder makes such a list. `restart` begins
+   * the sub-page's stream again; without it the bytes add to the stream, and go to no connection not yet sent a
+   * restart. The server reads them as the viewer's renderer will and refuses what it would refuse (`invalid_naplps`,
+   * PAR-23). `{ kept: true }` keeps them as `regis` keeps ReGIS.
    */
-  naplps(to: Audience, page: number, sub: number, data: Uint8Array, options: { readonly restart?: boolean } = {}): void {
+  naplps(to: PictureAudience, page: number, sub: number, data: PictureData, options: { readonly restart?: boolean } = {}): void {
     this.#host.naplps(to, page, sub, data, options.restart === true);
   }
 
@@ -283,7 +312,7 @@ export class Context {
    * connections that show the sub-page now, so send it with the ReGIS to
    * each viewer who selects the sub-page.
    */
-  regisLinks(to: Audience, page: number, sub: number, links: readonly DrawingLink[]): void {
+  regisLinks(to: PictureAudience, page: number, sub: number, links: readonly DrawingLink[]): void {
     this.#host.regisLinks(to, page, sub, links);
   }
 
@@ -292,8 +321,41 @@ export class Context {
    * (the server's REQ-6372), or 0 for none: the viewer's browser blinks it
    * while keys go to the channel. Draw it and move it with `regis`.
    */
-  regisCursor(to: Audience, page: number, sub: number, drawing: number): void {
+  regisCursor(to: PictureAudience, page: number, sub: number, drawing: number): void {
     this.#host.regisCursor(to, page, sub, drawing);
+  }
+
+  /**
+   * The NAPLPS objects of a sub-page's picture that are links, and where each leads (renderer parity PAR-20), as
+   * {@link Context.regisLinks} gives a ReGIS picture's drawings: at most 64, each object once; an empty list removes
+   * them. A link may name an object not yet defined: the viewer's receiver uses it once the object exists.
+   */
+  naplpsLinks(to: PictureAudience, page: number, sub: number, links: readonly ObjectLink[]): void {
+    this.#host.naplpsLinks(to, page, sub, links);
+  }
+
+  /** The NAPLPS object of a sub-page's picture that is its cursor (renderer parity PAR-20), or 0 for none, as {@link Context.regisCursor} names a ReGIS drawing. */
+  naplpsCursor(to: PictureAudience, page: number, sub: number, object: number): void {
+    this.#host.naplpsCursor(to, page, sub, object);
+  }
+
+  /**
+   * Drops the picture kept for sub-page `sub` of `page` (renderer parity PAR-19): every connection that was taking it
+   * is sent an empty picture, its objects, links and cursor gone with it. The server refuses it (`not_kept`) when
+   * nothing is kept there, which a `refused` handler hears.
+   */
+  forgetPicture(page: number, sub: number): void {
+    this.#host.forgetPicture(page, sub);
+  }
+
+  /**
+   * What `text` costs as a picture's text part (renderer parity PAR-22): the cells it advances, its bytes in ReGIS and
+   * in NAPLPS, the provided sets it uses and its stand-ins, with `language` and `outside` as a text part's. Nothing
+   * reaches a viewer. It rejects with a {@link PictureTextRefusedError} when the server would refuse the text, as
+   * `text_unshown` for a character the language cannot show without `outside`.
+   */
+  measurePictureText(text: string, options: PictureTextOptions = {}): Promise<MeasuredPictureText> {
+    return this.#host.measurePictureText(text, options);
   }
 
   /**
@@ -392,8 +454,10 @@ export class Context {
   /**
    * A NAPLPS sub-page's objects, which replace those it had (ANIM-11, ANIM-21); an empty list removes them. Given as a
    * list, the picture has no title; given as a set, with its `title`, or with `one` to redefine its one object alone.
+   * To `{ kept: true }` they are kept with the sub-page's kept NAPLPS picture (renderer parity PAR-16), `one`
+   * redefining the kept set's object.
    */
-  naplpsObjects(to: Audience, page: number, sub: number, objects: readonly NaplpsObject[] | NaplpsObjectSet): void {
+  naplpsObjects(to: PictureAudience, page: number, sub: number, objects: readonly NaplpsObject[] | NaplpsObjectSet): void {
     this.#host.naplpsObjects(to, page, sub, objects);
   }
 

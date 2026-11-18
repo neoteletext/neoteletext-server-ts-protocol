@@ -101,6 +101,9 @@ function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
     measured: then((...given: Parameters<ServerEvents["measured"]>) => {
       channel.measured(...given);
     }),
+    measuredPictureText: then((...given: Parameters<ServerEvents["measuredPictureText"]>) => {
+      channel.measuredPictureText(...given);
+    }),
     describe: then((...given: Parameters<ServerEvents["describe"]>) => {
       channel.describe(...given);
     }),

@@ -16,6 +16,7 @@ const WIRE = [
   "app.ts",
   "bytes.ts",
   "connection-rules.ts",
+  "description-rules.ts",
   "encoded.ts",
   "fault.ts",
   "fields.ts",

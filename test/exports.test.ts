@@ -96,6 +96,7 @@ const KIT = [
   "PACKED_LINKS",
   "PACKED_LINKS_ROW",
   "PROTOCOL",
+  "PictureTextRefusedError",
   "ProtocolError",
   "ProtocolVersionError",
   "QueryRefusedError",

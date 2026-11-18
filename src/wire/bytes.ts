@@ -56,13 +56,17 @@ function typeFits(value: unknown, type: unknown): boolean {
   return Array.isArray(type) ? type.some((one: unknown) => fitsOne(one)) : type === undefined || fitsOne(type);
 }
 
-/** Whether `value` can be of `node`, as far as its type and the consts of its tags say: enough to tell a union's branches apart. */
+/** Whether `value` can be of `node`, as far as its type, the properties it requires and the consts of its tags say: enough to tell a union's branches apart. */
 function fits(value: unknown, given: SchemaNode): boolean {
   const node = resolved(given);
   if (node["const"] !== undefined) {
     return node["const"] === value;
   }
   if (!typeFits(value, node["type"])) {
+    return false;
+  }
+  const required = node["required"];
+  if (Array.isArray(required) && isNode(value) && !required.every((name: unknown) => typeof name === "string" && value[name] !== undefined)) {
     return false;
   }
   const properties = node["properties"];

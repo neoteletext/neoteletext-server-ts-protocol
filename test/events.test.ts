@@ -64,6 +64,9 @@ function recording(heard: unknown[]): ServerEvents {
     measured: (request) => {
       heard.push(["measured", request]);
     },
+    measuredPictureText: (measured) => {
+      heard.push(["measured_picture_text", measured]);
+    },
     describe: (page) => {
       heard.push(["describe", page]);
     },
@@ -105,6 +108,11 @@ test("the server's lines reach the events with their path, query and viewer", ()
       ["selected", 3, { page: 0x304, sub: ANY_SUB }, "304", null],
     ],
   );
+});
+
+test("PAR-22: measured_picture_text reaches its event unchanged", () => {
+  const measured = { type: "measured_picture_text", request: 17, cells: 12, regis_bytes: 96, naplps_bytes: 40, sets: ["G0-Arabic-Plain"], stand_ins: 0 };
+  assert.deepEqual(heardOf([JSON.stringify(measured)]), [["measured_picture_text", measured]]);
 });
 
 test("VS-351: gone and the viewer's messages reach their events", () => {

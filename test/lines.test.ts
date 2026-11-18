@@ -70,6 +70,7 @@ const QUIET = {
   pageState: ignored,
   rulesFault: ignored,
   measured: ignored,
+  measuredPictureText: ignored,
   describe: ignored,
 };
 
@@ -147,6 +148,7 @@ function unheard(): ServerEvents {
     stats: never,
     refused: never,
     measured: never,
+    measuredPictureText: never,
     describe: never,
   };
 }

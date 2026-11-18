@@ -122,7 +122,7 @@ test("TS-2: the audiences are kit-calls.tsv's", () => {
     rows()
       .filter((row) => row.what === "audience")
       .map((row) => row.typescript),
-    ["{ connection }", "{ page }", "{ connections: [...] }", '{ connections: "all" }'],
+    ["{ connection }", "{ page }", "{ connections: [...] }", '{ connections: "all" }', "{ kept: true }"],
   );
 });
 

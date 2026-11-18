@@ -34,14 +34,14 @@ readonly CHECKED_PATHS=(.)
 # schema/protocol-15.json is a copy of: a new schema is taken by copying it
 # and naming its commit here (typescript.md TS-5 to TS-7).
 server="${NEOTELETEXT_SERVER:-$HOME/devel/neoteletext-app-server}"
-readonly SCHEMA_FROM="9d5eb99f0bb281dad8bb51e3fa26d35132a783be"
+readonly SCHEMA_FROM="25bc0e752deacd36d005e3e91f0ce763a72c5d6b"
 # neoteletext-common's repository, and the commit whose files the shared
 # copies below are copies of: the calls and the worked examples' lines both
 # kits must have (typescript.md TS-2, TS-6), and protocol 15's rule tables and
 # timelines as both kits must write them (python.md PY-80; page-rules.md
 # section 7.5 and RULE-93; animation.md ANIM-19).
 common="${NEOTELETEXT_COMMON:-$HOME/devel/neoteletext-common}"
-readonly COMMON_FROM="98ca82a6d371d0a2c322ceeaa5473fe374ae633c"
+readonly COMMON_FROM="bad17b2ed23d7029cadd3f093dd8de46c79f2603"
 # Each copy and the file of neoteletext-common it is a copy of.
 readonly SHARED_COPIES=(
     "kit-calls.tsv:docs/audio/kit-calls.tsv"

@@ -5,12 +5,12 @@
 // oxlint-disable import/max-dependencies -- the host is where a context meets every part of the channel: its copies, connections, sending, sounds and the TTI and numbering of what it publishes
 import { animationCalls } from "./animation-calls.ts";
 import { commandCalls } from "./command-calls.ts";
-import { textBytes } from "./text-bytes.ts";
 import { fitText } from "./channel-index.ts";
 import type { Connections } from "./connections.ts";
 import type { Host } from "./context.ts";
 import type { Copies, GivenSubPage, Owner } from "./copies.ts";
 import type { Measures } from "./measures.ts";
+import type { PictureTextMeasures } from "./picture-text-measures.ts";
 import type { Queries } from "./queries.ts";
 import { Random } from "./random.ts";
 import type { Sender } from "./sender.ts";
@@ -19,6 +19,7 @@ import { numbered } from "../page/numbering.ts";
 import { pageText } from "../page/page-numbers.ts";
 import { type Subpage, contentOf } from "../page/subpage.ts";
 import { readTtiPages } from "../tti/read-tti.ts";
+import { pictureFields } from "../picture/parts.ts";
 import type { Viewer } from "./viewer.ts";
 import type { App } from "../wire/app.ts";
 
@@ -41,6 +42,7 @@ export interface HostParts {
   readonly current: () => number | null;
   readonly errors: (text: string) => void;
   readonly measures: Measures;
+  readonly pictureTextMeasures: PictureTextMeasures;
   readonly queries: Queries;
 }
 
@@ -111,7 +113,7 @@ function publishing(parts: HostParts): PublishingHost {
 
 type SelectionHost = Pick<Host, "redirect" | "deny">;
 
-type MessagingHost = Pick<Host, "sound" | "authorLog" | "log" | "measure" | "packets" | "regis" | "regisLinks" | "regisCursor" | "naplps">;
+type MessagingHost = Pick<Host, "sound" | "authorLog" | "log" | "measure" | "packets">;
 
 /** What an application does with a viewer's selection. */
 function selecting(parts: HostParts): SelectionHost {
@@ -146,26 +148,38 @@ function viewing(parts: HostParts): ViewerHost {
   };
 }
 
-/** The messages that carry bytes as they are, raw packets and a sub-page's ReGIS, and what is said of that sub-page's picture. */
-function bytesMessages(sender: Sender): Pick<Host, "packets" | "regis" | "regisLinks" | "regisCursor" | "naplps"> {
+type PictureHost = Pick<Host, "regis" | "regisLinks" | "regisCursor" | "naplps" | "naplpsLinks" | "naplpsCursor" | "forgetPicture" | "measurePictureText">;
+
+/** A sub-page's picture (renderer parity PAR-16 to PAR-22): its ReGIS and NAPLPS, given as bytes or parts, its links and its cursor, to the audience named or kept; a kept picture forgotten; and picture text measured. */
+function pictures(parts: HostParts): PictureHost {
+  const { app, sender } = parts;
   return {
-    packets: (to, packets): void => {
-      sender.toAudience(to, (named) => ({ type: "packets", connections: named, packets }));
-    },
     regis: (to, page, sub, data, restart): void => {
-      const bytes = textBytes("regis", data);
-      sender.toAudience(to, (named) => ({ type: "regis", connections: named, page: pageText(page), sub: subText(sub), restart, data: bytes }));
+      const fields = pictureFields("regis", data);
+      sender.toPictureAudience(to, (named) => ({ type: "regis", connections: named, page: pageText(page), sub: subText(sub), restart, ...fields }));
     },
     naplps: (to, page, sub, data, restart): void => {
-      sender.toAudience(to, (named) => ({ type: "naplps", connections: named, page: pageText(page), sub: subText(sub), restart, data }));
+      const fields = pictureFields("naplps", data);
+      sender.toPictureAudience(to, (named) => ({ type: "naplps", connections: named, page: pageText(page), sub: subText(sub), restart, ...fields }));
     },
     regisLinks: (to, page, sub, links): void => {
       const listed = links.map(({ drawing, target }) => ({ drawing, target }));
-      sender.toAudience(to, (named) => ({ type: "regis_links", connections: named, page: pageText(page), sub: subText(sub), links: listed }));
+      sender.toPictureAudience(to, (named) => ({ type: "regis_links", connections: named, page: pageText(page), sub: subText(sub), links: listed }));
     },
     regisCursor: (to, page, sub, drawing): void => {
-      sender.toAudience(to, (named) => ({ type: "regis_cursor", connections: named, page: pageText(page), sub: subText(sub), drawing }));
+      sender.toPictureAudience(to, (named) => ({ type: "regis_cursor", connections: named, page: pageText(page), sub: subText(sub), drawing }));
     },
+    naplpsLinks: (to, page, sub, links): void => {
+      const listed = links.map(({ object, target }) => ({ object, target }));
+      sender.toPictureAudience(to, (named) => ({ type: "naplps_links", connections: named, page: pageText(page), sub: subText(sub), links: listed }));
+    },
+    naplpsCursor: (to, page, sub, object): void => {
+      sender.toPictureAudience(to, (named) => ({ type: "naplps_cursor", connections: named, page: pageText(page), sub: subText(sub), object }));
+    },
+    forgetPicture: (page, sub): void => {
+      sender.send({ type: "forget_picture", page: pageText(page), sub: subText(sub) });
+    },
+    measurePictureText: (text, options) => parts.pictureTextMeasures.measure(app, text, options),
   };
 }
 
@@ -194,8 +208,10 @@ function messaging(parts: HostParts): MessagingHost {
         sender.send({ type: "log", level: "info", event: APPLICATION_EVENT, text: fitted });
       }
     },
-    measure: (page, screen) => parts.measures.ask(app, page, screen.content()),
-    ...bytesMessages(sender),
+    measure: (page, screen) => parts.measures.measure(app, page, screen.content()),
+    packets: (to, packets): void => {
+      sender.toAudience(to, (named) => ({ type: "packets", connections: named, packets }));
+    },
   };
 }
 
@@ -210,9 +226,10 @@ export function makeHost(parts: HostParts): Host {
     ...selecting(parts),
     ...messaging(parts),
     ...viewing(parts),
+    ...pictures(parts),
     ...animationCalls(parts.sender),
     ...commandCalls(parts.sender),
-    queryState: (connection, page, sub) => parts.queries.ask(parts.app, connection, page, sub),
+    queryState: (connection, page, sub) => parts.queries.query(parts.app, connection, page, sub),
     connection: parts.current,
   };
 }

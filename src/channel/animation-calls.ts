@@ -53,7 +53,13 @@ export function animationCalls(sender: Sender): AnimationHost {
       sender.toAudience(to, (named) => ({ type: "sprites", connections: named, page: pageText(page), sub: subText(sub), sprites }));
     },
     naplpsObjects: (to, page, sub, given): void => {
-      sender.toAudience(to, (named) => ({ type: "naplps_objects", connections: named, page: pageText(page), sub: subText(sub), ...naplpsFields(given) }));
+      sender.toPictureAudience(to, (named) => ({
+        type: "naplps_objects",
+        connections: named,
+        page: pageText(page),
+        sub: subText(sub),
+        ...naplpsFields(given),
+      }));
     },
     spriteSheet: (to, page, sub, kind, data, restart): void => {
       const bytes = textBytes("spriteSheet", data);

@@ -10,10 +10,10 @@ import type { Change, Copies, Owner } from "./copies.ts";
 import type { Copy } from "./copy.ts";
 import { ANY_SUB, subText, wirePage } from "./wire-page.ts";
 import { pageText } from "../page/page-numbers.ts";
-import type { Audience } from "./audience.ts";
+import type { Audience, PictureAudience } from "./audience.ts";
 import type { DeniedStatus } from "./connections.ts";
 import type { App } from "../wire/app.ts";
-import type { Connections as WireConnections, Magazine, ProgramMessage } from "../wire/generated/protocol.js";
+import type { Connections as WireConnections, Magazine, PictureAudience as WirePictureAudience, ProgramMessage } from "../wire/generated/protocol.js";
 
 /** The number a redirect carries for a connection this program does not hold, which the server drops: the protocol wants one. */
 const NO_CONNECTION_REQUEST = 1;
@@ -137,6 +137,18 @@ export class Sender {
     }
     const chunks = connections === "all" ? ["all" as const] : this.#chunks(connections);
     this.#app.writeLines(chunks.map((chunk) => this.#app.line(build(chunk))));
+  }
+
+  /**
+   * Sends `build`'s message of a sub-page's picture to `to` (renderer parity PAR-16): kept, as one line whatever
+   * connections are open, since the server keeps it for later viewers too; otherwise as {@link Sender.toAudience}.
+   */
+  toPictureAudience(to: PictureAudience, build: (connections: WirePictureAudience) => ProgramMessage): void {
+    if ("kept" in to) {
+      this.#app.send(build("kept"));
+      return;
+    }
+    this.toAudience(to, build);
   }
 
   /** Whether the connection sees the owner's copy of `page`: its own, or the channel's when it has none. */

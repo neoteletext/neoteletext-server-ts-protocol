@@ -6,65 +6,25 @@
 import { subText } from "./wire-page.ts";
 import { pageText } from "../page/page-numbers.ts";
 import type { App } from "../wire/app.ts";
-import type { ServerMessagePageState, ServerMessageRefused } from "../wire/generated/protocol.js";
+import type { ServerMessagePageState } from "../wire/generated/protocol.js";
 import { QueryRefusedError } from "./query-refused.ts";
+import { Requests } from "./requests.ts";
 
 /** A query's first number: the schema's `query_state.request` is 1 to 4,294,967,295 (RULE-38). */
 const FIRST_REQUEST = 1;
 /** A query's last number. */
 const LAST_REQUEST = 2 ** 32 - 1;
 
-interface Waiting {
-  readonly resolve: (state: ServerMessagePageState) => void;
-  readonly reject: (error: Error) => void;
-}
-
 /** The queries sent and not yet answered, by their numbers. */
-export class Queries {
-  readonly #waiting = new Map<number, Waiting>();
-  #next = FIRST_REQUEST;
+export class Queries extends Requests<ServerMessagePageState> {
+  constructor() {
+    super({ message: "query_state", called: "state query", first: FIRST_REQUEST, last: LAST_REQUEST, refusedAs: (refusal) => new QueryRefusedError(refusal) });
+  }
 
   /** Sends `query_state` for sub-page `sub` of `page` on `connection`, resolving to the server's `page_state`, or rejecting with its refusal. */
-  ask(app: App, connection: number, page: number, sub: number): Promise<ServerMessagePageState> {
-    const request = this.#next;
-    this.#next = request === LAST_REQUEST ? FIRST_REQUEST : request + 1;
-    return new Promise((resolve, reject) => {
-      // A number still waiting after going round is answered by neither: its asker is told now.
-      this.#waiting.get(request)?.reject(new Error(`state query ${request}: unanswered after ${LAST_REQUEST} more queries`));
-      this.#waiting.set(request, { resolve, reject });
-      try {
-        app.send({ type: "query_state", connection, page: pageText(page), sub: subText(sub), request });
-      } catch (error) {
-        this.#waiting.delete(request);
-        reject(error instanceof Error ? error : new Error(String(error)));
-      }
+  query(app: App, connection: number, page: number, sub: number): Promise<ServerMessagePageState> {
+    return this.ask((request) => {
+      app.send({ type: "query_state", connection, page: pageText(page), sub: subText(sub), request });
     });
-  }
-
-  /** The server's answer to a query; false when no query of its number waits. */
-  answered(state: ServerMessagePageState): boolean {
-    const waiting = this.#waiting.get(state.request);
-    this.#waiting.delete(state.request);
-    waiting?.resolve(state);
-    return waiting !== undefined;
-  }
-
-  /** A refusal: the query it names is rejected with it, and true; false for a refusal of anything else. */
-  refused(refusal: ServerMessageRefused): boolean {
-    if (refusal.message !== "query_state" || refusal.request === null || refusal.request === undefined) {
-      return false;
-    }
-    const waiting = this.#waiting.get(refusal.request);
-    this.#waiting.delete(refusal.request);
-    waiting?.reject(new QueryRefusedError(refusal));
-    return waiting !== undefined;
-  }
-
-  /** The server started again: no query sent before will be answered. */
-  forgetAll(): void {
-    for (const [request, waiting] of this.#waiting) {
-      waiting.reject(new Error(`state query ${request}: the server started again before answering`));
-    }
-    this.#waiting.clear();
   }
 }

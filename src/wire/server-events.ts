@@ -8,6 +8,7 @@ import type {
   Handle,
   ServerMessage,
   ServerMessageMeasured,
+  ServerMessageMeasuredPictureText,
   ServerMessagePageState,
   ServerMessageRefused,
   ServerMessageRuleEvent,
@@ -59,6 +60,8 @@ export interface ServerEvents {
   refused(refusal: ServerMessageRefused): void;
   /** The answer to the program's `measure` of number `request` (REQ-2216). */
   measured(request: number, measured: ServerMessageMeasured): void;
+  /** The answer to the program's `measure_picture_text` of number `measured.request` (renderer parity PAR-22). */
+  measuredPictureText(measured: ServerMessageMeasuredPictureText): void;
   /** A web visitor is at the page's address: answer with `description`. Nothing here says who, because nothing in the answer may depend on it (REQ-1728). */
   describe(page: number): void;
   /** A stored synthesizer sound was built and sent (server.md SRV-47). */
@@ -141,6 +144,10 @@ export function dispatch(message: ServerMessage, events: ServerEvents): void {
     }
     case "measured": {
       events.measured(message.request, message);
+      return;
+    }
+    case "measured_picture_text": {
+      events.measuredPictureText(message);
       return;
     }
     case "describe": {

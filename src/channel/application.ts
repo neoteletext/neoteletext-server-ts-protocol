@@ -15,6 +15,7 @@ import type { Viewer } from "./viewer.ts";
 import type { Input } from "../input/input.ts";
 import type { PageKeys } from "../navigation/page-keys.ts";
 import type {
+  NaplpsObject,
   ServerMessageRefused,
   ServerMessageRuleEvent,
   ServerMessageRulesFault,
@@ -52,7 +53,17 @@ export interface PageDescription {
   readonly title: string;
   /** Its text, plain text. */
   readonly text: string;
+  /**
+   * A ReGIS or NAPLPS picture the server draws as the page's picture in place of its teletext page's (renderer parity
+   * PAR-26): the picture kept for the page with this sub-code (`{ kept }`, sent to `{ kept: true }`), or bytes, ReGIS
+   * text written a byte a character, with a NAPLPS picture's objects. The page's own sub-page is still given beneath.
+   */
+  readonly picture?: DescribedPicture;
 }
+
+/** A described page's picture (PAR-26): a kept picture by its sub-code, or a picture's bytes. */
+export type DescribedPicture =
+  { readonly kept: number } | { readonly language: "regis" | "naplps"; readonly data: string | Uint8Array; readonly objects?: readonly NaplpsObject[] };
 
 /** A program behind some of a channel's pages. */
 export interface Application {

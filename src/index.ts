@@ -63,19 +63,23 @@ export {
   MOST_OPUS_PACKETS,
 } from "./sound/profile.ts";
 export type { SampleRate } from "./sound/profile.ts";
-export type { Audience } from "./channel/audience.ts";
+export type { Audience, PictureAudience } from "./channel/audience.ts";
 export type { EncodedOpus, OpusEncoder, OpusStream } from "./sound/opus-encoder.ts";
 export { ffmpegOpus } from "./sound/ffmpeg-opus.ts";
 export type { FfmpegOptions } from "./sound/ffmpeg-opus.ts";
 export { OggOpusReader, oggCrc } from "./sound/ogg-opus.ts";
 export { pcmBytes } from "./sound/pcm.ts";
 export { channelIndex, fitText } from "./channel/channel-index.ts";
-export type { PageDescription, PageEntry, Application } from "./channel/application.ts";
+export type { DescribedPicture, PageDescription, PageEntry, Application } from "./channel/application.ts";
 export type { PageRequest } from "./channel/request.ts";
 export { Random } from "./channel/random.ts";
 export { Context } from "./channel/context.ts";
 export { MeasureRefusedError } from "./channel/measure-refused.ts";
 export { QueryRefusedError } from "./channel/query-refused.ts";
+export { PictureTextRefusedError } from "./channel/picture-text-refused.ts";
+export type { MeasuredPictureText, PictureTextOptions } from "./channel/picture-text-measures.ts";
+// A sub-page's picture as parts (renderer parity PAR-21).
+export type { PictureData, PicturePart, PictureText } from "./picture/parts.ts";
 export { TextNotWritableError } from "./channel/text-bytes.ts";
 export { Timeline } from "./animation/timeline.ts";
 export type { TimelineStep } from "./animation/step.ts";
@@ -84,7 +88,7 @@ export * from "./rules/limits.ts";
 export { characterKey, fired, level, namedKey, noteOff, noteOn, phase, physicalKey, plus, row, variable } from "./rules/builders.ts";
 export { Modes, modes } from "./rules/modes.ts";
 export type { PageState } from "./rules/page-state.ts";
-export type { DrawingLink, NaplpsObjectSet, ObjectPage, VariableCommand } from "./channel/context.ts";
+export type { DrawingLink, NaplpsObjectSet, ObjectLink, ObjectPage, VariableCommand } from "./channel/context.ts";
 export type { DeniedStatus } from "./channel/connections.ts";
 export { Viewer } from "./channel/viewer.ts";
 export { ANY_SUB, Channel } from "./channel/channel.ts";

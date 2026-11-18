@@ -19,6 +19,7 @@ import { descriptionMessage } from "./description.ts";
 import { makeHost } from "./host.ts";
 import { CurrentCall } from "./current-call.ts";
 import { Measures } from "./measures.ts";
+import { PictureTextMeasures } from "./picture-text-measures.ts";
 import { Queries } from "./queries.ts";
 import { type PageCalls, tellLeft, tellOpened, tellRequest, tellRequestEnded } from "./page-calls.ts";
 import { pageRequest } from "./request.ts";
@@ -37,6 +38,7 @@ import type {
   Handle,
   Magazine,
   ServerMessageMeasured,
+  ServerMessageMeasuredPictureText,
   ServerMessagePageState,
   ServerMessageRefused,
   ServerMessageRuleEvent,
@@ -69,6 +71,7 @@ export class Channel implements ServerEvents {
   readonly #answers: AnswerParts;
   readonly #calls: PageCalls;
   readonly #measures = new Measures();
+  readonly #pictureTextMeasures = new PictureTextMeasures();
   readonly #queries = new Queries();
   readonly #current = new CurrentCall();
   #epochAtStart = 0;
@@ -101,6 +104,7 @@ export class Channel implements ServerEvents {
       current: () => this.#current.connection,
       errors: this.#errors,
       measures: this.#measures,
+      pictureTextMeasures: this.#pictureTextMeasures,
       queries: this.#queries,
     });
     this.#answers = {
@@ -142,6 +146,7 @@ export class Channel implements ServerEvents {
     this.#epochAtStart = epochMs - this.#clock.now();
     this.#app.started(limits, languages);
     this.#measures.forgetAll();
+    this.#pictureTextMeasures.forgetAll();
     this.#queries.forgetAll();
     this.#connections.clear();
     this.#navigation.clear();
@@ -259,7 +264,7 @@ export class Channel implements ServerEvents {
 
   /** The answer to a state query (RULE-38). */
   pageState(state: ServerMessagePageState): void {
-    if (!this.#queries.answered(state)) {
+    if (!this.#queries.answered(state.request, state)) {
       this.#errors(`the server answered state query ${state.request}, which nothing waits for`);
     }
   }
@@ -333,9 +338,16 @@ export class Channel implements ServerEvents {
     }
   }
 
+  /** The answer to a measure of picture text (renderer parity PAR-22). */
+  measuredPictureText(measured: ServerMessageMeasuredPictureText): void {
+    if (!this.#pictureTextMeasures.answered(measured.request, measured)) {
+      this.#errors(`the server answered picture text measure ${measured.request}, which nothing waits for`);
+    }
+  }
+
   /** A refusal (typescript.md TS-22): a measure's or a state query's rejects its promise; any other reaches every application's `refused`, or is reported when none has one. */
   refused(refusal: ServerMessageRefused): void {
-    if (this.#measures.refused(refusal) || this.#queries.refused(refusal)) {
+    if (this.#measures.refused(refusal) || this.#pictureTextMeasures.refused(refusal) || this.#queries.refused(refusal)) {
       return;
     }
     if (this.#applications.hearsRefusals()) {
