@@ -46,6 +46,13 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
+## Release 18.2.1: a picture's bytes written before restart
+
+Release 18.2.1 is 18.2.0 with `regis` and `naplps` written with `data` or
+`parts` before `restart`, the order the Python kit writes, so that both
+kits write one line (DEC-6462). The server reads either; nothing changes
+for a consumer.
+
 ## Release 18.2.0: kept pictures, picture text, and the ReGIS and NAPLPS builders
 
 Release 18.2.0 still speaks program protocol 15, at the server's schema of
