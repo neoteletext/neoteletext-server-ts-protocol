@@ -3,7 +3,8 @@
 // forgetPicture (PAR-19), a picture's bytes as parts (PAR-21),
 // measurePictureText (PAR-22) and a described page's picture (PAR-26). Each
 // message is written through the kit's own sending, so the schema of
-// 25bc0e7 and the server's rules hold it as it is written.
+// 25bc0e7 (9059c09 adds only the rule table's picture commands) and the
+// server's rules hold it as it is written.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";

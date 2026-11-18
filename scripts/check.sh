@@ -37,7 +37,7 @@ readonly CHECKED_PATHS=(.)
 # schema/protocol-15.json is a copy of: a new schema is taken by copying it
 # and naming its commit here (typescript.md TS-5 to TS-7).
 server="${NEOTELETEXT_SERVER:-$HOME/devel/neoteletext-app-server}"
-readonly SCHEMA_FROM="25bc0e752deacd36d005e3e91f0ce763a72c5d6b"
+readonly SCHEMA_FROM="9059c0943020824d8795d680877fcad438ec4af4"
 # neoteletext-common's repository, and the commit whose files the shared
 # copies below are copies of: the calls and the worked examples' lines both
 # kits must have (typescript.md TS-2, TS-6), and protocol 15's rule tables and
@@ -70,7 +70,7 @@ regis="${NEOTELETEXT_REGIS:-$HOME/devel/neoteletext-renderer-regis}"
 readonly REGIS_FROM="9c1a162cc1a8d17d727e19fa9a2253dee7f8bcc2"
 readonly REGIS_SOURCES=(crates/regis/src/limits.rs crates/regis/src/palette.rs crates/regis/src/surface.rs)
 naplps="${NEOTELETEXT_NAPLPS:-$HOME/devel/neoteletext-renderer-naplps}"
-readonly NAPLPS_FROM="27000408468141b3e7e708f5da130f4e6e52c926"
+readonly NAPLPS_FROM="19f5bbac3d08a19471f0e3434227c33c5957ee82"
 readonly NAPLPS_SOURCES=(crates/naplps/src/limits.rs crates/naplps/src/surface.rs crates/naplps-render/src/main.rs)
 # The server commit whose PROGRAM_REPLY_LIMIT_MS the testing entry's
 # SERVER_LIMITS must equal (DEC-2438).

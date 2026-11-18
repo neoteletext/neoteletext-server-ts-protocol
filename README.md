@@ -13,7 +13,9 @@ held to the server's rules of text the schema cannot state: no control or
 bidirectional formatting character, Unicode normalisation form C, and an
 author's log line bounded in bytes; a sound, a page's rule table and every
 animation message are held to the schema alone, every other rule of them
-being the server's (typescript.md TS-17; page-rules.md RULE-55). A message the
+being the server's (typescript.md TS-17; page-rules.md RULE-55), but for a
+picture's links in a rule table's group, held as the messages' links are
+(renderer parity PAR-20). A message the
 program would write that the server would refuse is never written: the
 call throws a `ProtocolError` naming the path and the rule. The titles,
 names and log lines the kit fits itself are fitted in NFC. A line from
@@ -127,7 +129,15 @@ as they are, and the server makes them into groups. The builders
 `physicalKey`, `characterKey`, `namedKey`, `level`, `variable`, `plus`,
 `row`, `fired`, `phase`, `noteOn`, `noteOff` and the mode set `modes`
 (`in(mode, condition?)`, `enter(mode)`, RULE-110) build its pieces and
-check nothing. The kit holds a table to the schema and to nothing else: a
+check nothing. A group may also hold a picture's links and cursor
+(renderer parity PAR-20, RULE-119): `{ type: "regis_links", links }`,
+`{ type: "regis_cursor", drawing }`, `{ type: "naplps_links", links }` and
+`{ type: "naplps_cursor", object }`, the messages without `connections`,
+`page` and `sub`; their links are held as `regisLinks`'s and
+`naplpsLinks`'s are, each number named once and each target a link
+target's text, and refused as a group's command (`invalid_group`); whether
+they fit one command of `MAX_COMMAND_BYTES` is the server's to say. Beyond
+that the kit holds a table to the schema and to nothing else: a
 name that is not declared, a condition too deep, groups that run each
 other are the server's to refuse, and the refusal reaches the `refused`
 handler (`invalid_rules`, `invalid_group`, `unknown_name`,

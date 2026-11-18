@@ -17,7 +17,7 @@ import type { Fault } from "./fault.ts";
 import type { Limits } from "./limits.ts";
 import { LAST_SUBPAGE_CODE, pageFault } from "./page-rules.ts";
 import type { Connections, Magazine, ProgramMessage as WireMessage, SubPageEntry } from "./generated/protocol.js";
-import type { PictureMessage } from "./picture-rules.ts";
+import { type PictureMessage, tableLinksFault } from "./picture-rules.ts";
 import { CODE_POINT_DIGITS, HEX, PAGE_DIGITS, boundedTextFault, firstOf, given, hex, isFault, textFault, wholeFault } from "./rule-pieces.ts";
 import { PACKET_BYTES, isValidStreamPacket } from "./stream-packets.ts";
 import { isReserved } from "../page/page-numbers.ts";
@@ -154,10 +154,11 @@ function bytesMessageFault(message: Extract<ProgramMessage, { type: "packets" | 
 /**
  * The messages held to the schema alone. A sound: every other rule of it is
  * the server's, which its refusal reports (typescript.md TS-17). The viewer's
- * requests, which have none beyond the schema. A rule table, a state query,
- * the commands sent directly and every animation message: the server
- * checks them and its refusal reports the fault (page-rules.md RULE-55,
- * RULE-114; animation.md ANIM-17, ANIM-19; DEC-6462). An object page is
+ * requests, which have none beyond the schema. A state query, the commands
+ * sent directly and every animation message: the server checks them and its
+ * refusal reports the fault (page-rules.md RULE-55, RULE-114; animation.md
+ * ANIM-17, ANIM-19; DEC-6462). A rule table likewise, but for the picture
+ * links its groups hold, held as the messages' links are (PAR-20, RULE-119). An object page is
  * its objects' triplets, whose every rule beyond the schema's bounds is the
  * server's (`invalid_object_page`).
  */
@@ -166,7 +167,6 @@ const SCHEMA_ALONE = [
   "request_state",
   "end_state",
   "offer_remember",
-  "rules",
   "query_state",
   "frame",
   "animate",
@@ -224,6 +224,10 @@ export function checkRules(message: Exclude<ProgramMessage, PictureMessage | { r
     }
     case "log": {
       fault = boundedTextFault("text", message.text, limits.budgets.logCharacters);
+      break;
+    }
+    case "rules": {
+      fault = tableLinksFault(message.table, limits);
       break;
     }
     case "redirect": {

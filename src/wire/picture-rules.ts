@@ -6,13 +6,14 @@
 // check_regis_links, check_naplps_links, check_shown_subpage and the
 // measure_picture_text arm of the server's
 // crates/teletext-runtime/src/protocol/check.rs at neoteletext-app-server
-// 25bc0e7. What a text part's language shows, and whether the bytes draw,
+// 25bc0e7, and of the links a rule table's group holds (Scope::links_body
+// of its protocol/check/rules.rs at 9059c09; PAR-20, RULE-119). What a text part's language shows, and whether the bytes draw,
 // are the server's to say: it encodes and reads them as a receiver would.
 
 import type { Fault } from "./fault.ts";
 import type { Limits } from "./limits.ts";
 import type { Encoded } from "./encoded.ts";
-import type { PicturePart, ProgramMessage } from "./generated/protocol.js";
+import type { PicturePart, ProgramMessage, RuleCommand, RuleTable } from "./generated/protocol.js";
 import { base64Bytes, boundedTextFault, firstOf, given, isFault } from "./rule-pieces.ts";
 
 /** The program's messages of a sub-page's picture, as their lines carry them. */
@@ -113,27 +114,83 @@ function targetDetail(limits: Limits): string {
   return `not a link target: printable ASCII with no space and no comma, at most ${limits.standard.linkTargetBytes} bytes`;
 }
 
+/** The rules a sub-page's picture links are refused under: the message's own, or a group's command's (RULE-35). */
+type LinksRule = "invalid_drawing_links" | "invalid_naplps_links" | "invalid_group";
+
 /**
- * Links of a sub-page's picture (the server's check_regis_links and check_naplps_links, PAR-20): at most
- * MOST_DRAWING_LINKS, each drawing or object named once, each target the text a link target is made of within the
- * bound `start` gave. Whether a target names something is the server's to check.
+ * Links of a sub-page's picture at `at` (the server's check_picture_links, PAR-20): at most MOST_DRAWING_LINKS, each
+ * drawing or object named once, each target the text a link target is made of within the bound `start` gave, refused
+ * under `rule`. Whether a target names something is the server's to check.
  */
-function linksFault(numbers: readonly number[], targets: readonly string[], what: "drawing" | "object", limits: Limits): Fault | null {
-  const rule = what === "drawing" ? "invalid_drawing_links" : "invalid_naplps_links";
+function linksFault(
+  at: string,
+  numbers: readonly number[],
+  targets: readonly string[],
+  what: "drawing" | "object",
+  rule: LinksRule,
+  limits: Limits,
+): Fault | null {
   if (numbers.length > MOST_DRAWING_LINKS) {
-    return { path: "links", rule, detail: `${numbers.length} links, at most ${MOST_DRAWING_LINKS}` };
+    return { path: at, rule, detail: `${numbers.length} links, at most ${MOST_DRAWING_LINKS}` };
   }
   const seen = new Set<number>();
   return firstOf(numbers, (number, index) => {
     if (seen.has(number)) {
-      return { path: `links[${index}].${what}`, rule, detail: `${what} ${number} is named twice` };
+      return { path: `${at}[${index}].${what}`, rule, detail: `${what} ${number} is named twice` };
     }
     seen.add(number);
     const target = targets[index] ?? "";
     return target.length <= limits.standard.linkTargetBytes && TARGET_TEXT.test(target)
       ? null
-      : { path: `links[${index}].target`, rule, detail: targetDetail(limits) };
+      : { path: `${at}[${index}].target`, rule, detail: targetDetail(limits) };
   });
+}
+
+/** A group's command of a sub-page's picture links at `at`, held as the message's links are and refused as a group's command (`invalid_group`); any other command has no such rule here. */
+function commandLinksFault(command: Encoded<RuleCommand>, at: string, limits: Limits): Fault | null {
+  if (command.type === "regis_links") {
+    const { links } = command;
+    return linksFault(
+      `${at}.links`,
+      links.map((link) => link.drawing),
+      links.map((link) => link.target),
+      "drawing",
+      "invalid_group",
+      limits,
+    );
+  }
+  if (command.type === "naplps_links") {
+    const { links } = command;
+    return linksFault(
+      `${at}.links`,
+      links.map((link) => link.object),
+      links.map((link) => link.target),
+      "object",
+      "invalid_group",
+      limits,
+    );
+  }
+  return null;
+}
+
+/**
+ * The first fault of the picture links a rule table's groups and rules hold (the server's Scope::links_body,
+ * PAR-20, RULE-119, RULE-35): each `regis_links` and `naplps_links` command, in the table's named groups and in its
+ * rules' `do`, held as the message's links are and refused as `invalid_group`. Every other rule of a table is the
+ * server's (DEC-6462), and so is whether a group's links fit one command of MAX_COMMAND_BYTES, which the engine's
+ * table check measures on the record it writes.
+ */
+export function tableLinksFault(table: Encoded<RuleTable> | null, limits: Limits): Fault | null {
+  if (table === null) {
+    return null;
+  }
+  const inGroups = firstOf(table.groups ?? [], (group, index) =>
+    firstOf(group.commands, (command, place) => commandLinksFault(command, `table.groups[${index}].commands[${place}]`, limits)),
+  );
+  return (
+    inGroups ??
+    firstOf(table.rules, (rule, index) => firstOf(rule.do ?? [], (command, place) => commandLinksFault(command, `table.rules[${index}].do[${place}]`, limits)))
+  );
 }
 
 /** The first fault of a message of a sub-page's picture; null when there is none. */
@@ -151,18 +208,22 @@ export function pictureFault(message: PictureMessage, limits: Limits): Fault | n
   if (message.type === "regis_links") {
     const { links } = message;
     return linksFault(
+      "links",
       links.map((link) => link.drawing),
       links.map((link) => link.target),
       "drawing",
+      "invalid_drawing_links",
       limits,
     );
   }
   if (message.type === "naplps_links") {
     const { links } = message;
     return linksFault(
+      "links",
       links.map((link) => link.object),
       links.map((link) => link.target),
       "object",
+      "invalid_naplps_links",
       limits,
     );
   }

@@ -46,6 +46,20 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
+## Release 18.3.0: a picture's links and cursor in a rule table's group
+
+Release 18.3.0 still speaks program protocol 15, at the server's schema of
+neoteletext-app-server `9059c09` (branch `parity`, not yet merged), which
+adds four commands a rule table's group may hold (renderer parity PAR-20;
+page-rules.md RULE-35, RULE-119): `regis_links`, `regis_cursor`,
+`naplps_links` and `naplps_cursor`, each the message without
+`connections`, `page` and `sub`, so that a group changes a picture's links
+and cursor at local speed. `RuleCommand` gains the four, and the kit holds
+their links as the messages' links are held, refusing them as
+`invalid_group` at the path the server names. A table that holds none of
+them changes nothing; one that does needs a server built from that commit
+or later.
+
 ## Release 18.2.1: a picture's bytes written before restart
 
 Release 18.2.1 is 18.2.0 with `regis` and `naplps` written with `data` or
