@@ -169,7 +169,8 @@ frames by a rule's group, at once and in the browser, or by the program:
   (`AnimationOp`); `context.sprites` a teletext sub-page's sprites
   (`Sprite`), `context.naplpsObjects` a NAPLPS sub-page's objects
   (`NaplpsObject`), `context.spriteSheet(to, page, sub, kind, data, restart?)`
-  the drawings a sub-page's objects use, text a byte a character, and
+  the drawings a sub-page's objects use, text a byte a character (a
+  character above 255 throws `TextNotWritableError`, as `regis` does), and
   `context.objectPage(to, page, sub, objectPage, objectSub, object)` a
   teletext object page its sprites show.
 - `context.playTimeline(to, page, sub, timeline, id?)` has **the server**

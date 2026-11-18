@@ -76,6 +76,7 @@ export { Random } from "./channel/random.ts";
 export { Context } from "./channel/context.ts";
 export { MeasureRefusedError } from "./channel/measure-refused.ts";
 export { QueryRefusedError } from "./channel/query-refused.ts";
+export { TextNotWritableError } from "./channel/text-bytes.ts";
 export { Timeline } from "./animation/timeline.ts";
 export type { TimelineStep } from "./animation/step.ts";
 export { TICKS_PER_SECOND } from "./animation/ticks.ts";

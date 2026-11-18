@@ -8,6 +8,7 @@
 
 import type { Host } from "./context.ts";
 import type { Sender } from "./sender.ts";
+import { textBytes } from "./text-bytes.ts";
 import { subText } from "./wire-page.ts";
 import { pageText } from "../page/page-numbers.ts";
 import { contentOf } from "../page/subpage.ts";
@@ -22,11 +23,6 @@ export type AnimationHost = Pick<
 const FIRST_TIMELINE = 1;
 /** A timeline's last identifier. */
 const LAST_TIMELINE = 65_535;
-
-/** A sheet's commands as bytes: a character of text a byte, as a sub-page's ReGIS is written. */
-function sheetBytes(data: string | Uint8Array): Uint8Array {
-  return typeof data === "string" ? new Uint8Array(Buffer.from(data, "latin1")) : data;
-}
 
 /** The calls of rules and animation, writing through `sender`. */
 export function animationCalls(sender: Sender): AnimationHost {
@@ -49,7 +45,7 @@ export function animationCalls(sender: Sender): AnimationHost {
       sender.toAudience(to, (named) => ({ type: "naplps_objects", connections: named, page: pageText(page), sub: subText(sub), objects }));
     },
     spriteSheet: (to, page, sub, kind, data, restart): void => {
-      const bytes = sheetBytes(data);
+      const bytes = textBytes("spriteSheet", data);
       sender.toAudience(to, (named) => ({ type: "sprite_sheet", connections: named, page: pageText(page), sub: subText(sub), kind, data: bytes, restart }));
     },
     objectPage: (to, page, sub, objectPage, objectSub, object): void => {

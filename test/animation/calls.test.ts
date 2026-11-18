@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type Application, type Audience, type Context, type PageEntry, Screen, Timeline } from "../../src/index.ts";
+import { type Application, type Audience, type Context, type PageEntry, Screen, TextNotWritableError, Timeline } from "../../src/index.ts";
 import type { NaplpsObject, Sprite } from "../../src/protocol.ts";
 import { Harness } from "../../src/testing/index.ts";
 
@@ -132,6 +132,23 @@ test("ANIM-19, ANIM-21: spriteSheet writes a sub-page's bytes as base64, text a 
     `{"type":"sprite_sheet","connections":"all","page":"150","sub":"0001","kind":"regis","data":"${bytes.toString("base64")}","restart":true}`,
     '{"type":"sprite_sheet","connections":"all","page":"150","sub":"0001","kind":"naplps","data":"DiQ=","restart":false}',
   ]);
+});
+
+test("ANIM-19, DEC-6650: spriteSheet refuses a character above 255, naming its place, and sends nothing", () => {
+  const thrown: unknown[] = [];
+  const harness = sending((context) => {
+    try {
+      context.spriteSheet(EVERYONE, PAGE, SUB, "regis", "D(B41)T'\u0100'", true);
+    } catch (error) {
+      thrown.push(error);
+    }
+  });
+  harness.typeText(1, "x");
+  assert.deepEqual(lines(harness), []);
+  const [error] = thrown;
+  assert.ok(error instanceof TextNotWritableError);
+  assert.deepEqual([error.index, error.character], [8, "\u0100"]);
+  assert.match(error.message, /^spriteSheet: .*U\+0100/u);
 });
 
 test("ANIM-17: objectPage writes the object page as a published sub-page is written, for the page whose sprites use it", () => {

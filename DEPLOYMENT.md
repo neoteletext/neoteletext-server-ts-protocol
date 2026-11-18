@@ -75,6 +75,8 @@ What a consumer changes to take it:
   sixteen variables `v0` to `v15` and the timers `t0` to `t7` are not
   declared; a mode is a variable a condition tests (`modes`); a row is one
   parameter, read as `row(plus)`.
+- **Text above 255** given to `regis` or `spriteSheet` throws
+  `TextNotWritableError`, where 16.0.0 sent its low byte.
 - **A test that compares a whole input** finds `ruleRow` in it; a test
   that answers a state query gives sixteen `variables` and `sequences`.
 - **A program that reads `harness.sent` for every line's type** meets the

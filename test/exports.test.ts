@@ -59,6 +59,7 @@ const KIT = [
   "ProtocolError",
   "ProtocolVersionError",
   "QueryRefusedError",
+  "TextNotWritableError",
   "ROWS",
   "RUN_CHARACTERS",
   "Random",

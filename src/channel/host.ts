@@ -5,6 +5,7 @@
 // oxlint-disable import/max-dependencies -- the host is where a context meets every part of the channel: its copies, connections, sending, sounds and the TTI and numbering of what it publishes
 import { animationCalls } from "./animation-calls.ts";
 import { commandCalls } from "./command-calls.ts";
+import { textBytes } from "./text-bytes.ts";
 import { fitText } from "./channel-index.ts";
 import type { Connections } from "./connections.ts";
 import type { Host } from "./context.ts";
@@ -110,11 +111,6 @@ function publishing(parts: HostParts): PublishingHost {
 
 type SelectionHost = Pick<Host, "redirect" | "deny">;
 
-/** ReGIS commands as bytes: a character of text a byte (ReGIS is ASCII, with eight-bit characters in its strings). */
-function regisBytes(data: string | Uint8Array): Uint8Array {
-  return typeof data === "string" ? new Uint8Array(Buffer.from(data, "latin1")) : data;
-}
-
 type MessagingHost = Pick<Host, "sound" | "authorLog" | "log" | "measure" | "packets" | "regis" | "regisLinks" | "regisCursor" | "naplps">;
 
 /** What an application does with a viewer's selection. */
@@ -157,7 +153,7 @@ function bytesMessages(sender: Sender): Pick<Host, "packets" | "regis" | "regisL
       sender.toAudience(to, (named) => ({ type: "packets", connections: named, packets }));
     },
     regis: (to, page, sub, data, restart): void => {
-      const bytes = regisBytes(data);
+      const bytes = textBytes("regis", data);
       sender.toAudience(to, (named) => ({ type: "regis", connections: named, page: pageText(page), sub: subText(sub), restart, data: bytes }));
     },
     naplps: (to, page, sub, data, restart): void => {

@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type Application, type PageEntry, Screen } from "../src/index.ts";
+import { type Application, type PageEntry, Screen, TextNotWritableError } from "../src/index.ts";
 import { Harness, SERVER_LIMITS } from "../src/testing/index.ts";
 import { pictureFault } from "../src/wire/picture-rules.ts";
 import { checkRules } from "../src/wire/server-rules.ts";
@@ -34,6 +34,39 @@ test("regis sends the commands as base64, a restart when asked and none otherwis
     { type: "regis", connections: "all", page: "100", sub: "0000", restart: true, data: Buffer.from(SQUARE, "latin1").toString("base64") },
     { type: "regis", connections: "all", page: "100", sub: "0000", restart: false, data: Buffer.from("D(S1(X120),C)", "latin1").toString("base64") },
   ]);
+});
+
+test("ANIM-19, DEC-6650: regis writes a character to 255 as its one byte and refuses one above, naming it, sending nothing", () => {
+  const thrown: unknown[] = [];
+  const application: Application = {
+    pages: (): PageEntry[] => [{ page: 0x100, title: "Picture" }],
+    start: (context): void => {
+      context.publish("channel", 0x100, new Screen());
+    },
+    input: (_session, _page, _input, context): void => {
+      context.regis({ connections: "all" }, 0x100, 0, "T'\u00FF'", { restart: true });
+      try {
+        // U+0100 has no byte: keeping its low byte would draw "T'" and a NUL.
+        context.regis({ connections: "all" }, 0x100, 0, "T'\u{1F600}\u0100'");
+      } catch (error) {
+        thrown.push(error);
+      }
+    },
+  };
+  const harness = new Harness([application]);
+  harness.join(1, 0x100);
+  const before = harness.sent.length;
+  harness.typeText(1, "x");
+  const sent = harness.sent.slice(before).filter((message) => message["type"] === "regis");
+  assert.deepEqual(
+    sent.map((message) => message["data"]),
+    [Buffer.from([0x54, 0x27, 0xff, 0x27]).toString("base64")],
+  );
+  const [error] = thrown;
+  assert.ok(error instanceof TextNotWritableError);
+  // The index counts characters: the emoji before it is one.
+  assert.deepEqual([error.index, error.character], [2, "\u{1F600}"]);
+  assert.match(error.message, /^regis: .*U\+1F600.* at index 2 /u);
 });
 
 test("regis for no sub-page, or not exact base64, is refused before it is sent", () => {
