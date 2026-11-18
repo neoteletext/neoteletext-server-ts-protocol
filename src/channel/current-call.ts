@@ -1,5 +1,5 @@
-// The connection the call being run came from, if any: what a call about a
-// session sends goes to it (host.ts), and an answer being made holds back
+// The connection the call being run came from, if any: what a call about the
+// connection sends goes to it (host.ts), and an answer being made holds back
 // every other sending to it until it is sent (DEC-1759).
 
 import type { Connections } from "./connections.ts";

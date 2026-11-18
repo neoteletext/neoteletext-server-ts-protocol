@@ -9,7 +9,7 @@ import type { Copy } from "./copy.ts";
 import { wirePage } from "./wire-page.ts";
 import { pageText } from "../page/page-numbers.ts";
 import type { Limits } from "../wire/limits.ts";
-import type { ProgramMessage } from "../wire/protocol.ts";
+import type { ProgramMessage } from "../wire/generated/protocol.js";
 
 /** `text` as the server takes a description's: on one line, in normalisation form C, within `most` characters. */
 function oneLine(text: string, most: number): string {

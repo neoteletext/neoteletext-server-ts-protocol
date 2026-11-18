@@ -15,11 +15,11 @@ import { CursorFlag, FIRST_CURSOR_ROW, LAST_CURSOR_ROW, type Cursor } from "./cu
 import { type FastextLinks, NO_LINKS } from "./fastext.ts";
 import { CODE_MASK, COLUMNS, HEADER_TEXT_COLUMN, ROWS, SPACE } from "./geometry.ts";
 import { isPageNumber, pageText } from "./page-numbers.ts";
-import { type SubPageContent, blankContent, encodeRow } from "./content.ts";
+import { type SubPageContent, blankContent, encodeRow, linksOf } from "./content.ts";
 import { LinkExtension, within } from "./link-extension.ts";
 import { codesTti, headerCodes, packedContent, packedLine, underCode } from "./screen-codes.ts";
 import { TextRuns, cellsOf, knownOwnCodes, textCells } from "./text-runs.ts";
-import type { WireLanguageTag as LanguageTag, WireLinkKey, WireTextLevel } from "../wire/protocol.ts";
+import type { LanguageTag, LinkKey, TextLevel } from "../wire/generated/protocol.js";
 
 const ALL_FLAGS = CursorFlag.Block;
 
@@ -38,7 +38,7 @@ export class Screen {
   #language: LanguageTag | null = null;
   /** The printable ASCII the page's language shows at their own codes (ownCodes). */
   #ownCodes = knownOwnCodes(null);
-  #level: WireTextLevel | null = null;
+  #level: TextLevel | null = null;
   readonly #packed: string[] = [];
 
   constructor() {
@@ -150,7 +150,7 @@ export class Screen {
   }
 
   /** The presentation level the page's text is written for (REQ-2151); null for NeoTeletext's own. */
-  level(level: WireTextLevel | null): void {
+  level(level: TextLevel | null): void {
     this.#level = level;
   }
 
@@ -243,7 +243,7 @@ export class Screen {
    * `label` the prompt, at most 9 characters (8 for another service), none
    * for the Index key. A key's second link replaces its first.
    */
-  keyLink(key: WireLinkKey, target: string, label?: string): void {
+  keyLink(key: LinkKey, target: string, label?: string): void {
     this.#links.keyLink(key, target, label);
   }
 
@@ -259,7 +259,7 @@ export class Screen {
 
   /** This screen as a sub-page's typed content (REQ-1478), for the page and sub-code it is put in; its runs join over spaces and over colours that change nothing, which show as spaces (Table 26). */
   content(): SubPageContent {
-    const links = [...this.#fastext, null, this.#index].map((link) => (link === null ? null : { page: pageText(link), sub: ANY_SUBCODE_TEXT }));
+    const links = linksOf([...this.#fastext, null, this.#index].map((link) => (link === null ? null : { page: pageText(link), sub: ANY_SUBCODE_TEXT })));
     const cursor = this.#cursor;
     const text = this.#runs.runs((row, column) => this.at(row, column) === SPACE || isRedundantColour(this.#rows[row] ?? [], column), this.#ownCodes);
     const packed = packedContent(this.#packed);

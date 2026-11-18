@@ -5,7 +5,7 @@
 import { COLUMNS } from "./geometry.ts";
 import { type TargetKind, longestLabel, targetKind } from "./link-targets.ts";
 import { isPageNumber, pageText } from "./page-numbers.ts";
-import type { WireKeyLink, WireLinkExtension, WireLinkKey, WireNumberLink, WireTextLink } from "../wire/protocol.ts";
+import type { KeyLink, LinkExtension as LinkLists, LinkKey, NumberLink, TextLink } from "../wire/generated/protocol.js";
 
 /** The Link Extension's bounds (the server's schema, $defs/LinkExtension; the engine's Appendix E). */
 const MOST_NUMBER_LINKS = 8;
@@ -29,9 +29,9 @@ export function within(value: number, most: number): boolean {
 }
 
 export class LinkExtension {
-  readonly #keyLinks: WireKeyLink[] = [];
-  readonly #numberLinks: WireNumberLink[] = [];
-  readonly #textLinks: WireTextLink[] = [];
+  readonly #keyLinks: KeyLink[] = [];
+  readonly #numberLinks: NumberLink[] = [];
+  readonly #textLinks: TextLink[] = [];
 
   /** A copy, declared on apart from this one. */
   copy(): LinkExtension {
@@ -43,13 +43,13 @@ export class LinkExtension {
   }
 
   /** A key's link, `label` its prompt: a key's second link replaces its first. */
-  keyLink(key: WireLinkKey, target: string, label?: string): void {
+  keyLink(key: LinkKey, target: string, label?: string): void {
     const most = longestLabel(checkTarget("keyLink", target));
     if (label !== undefined && (key === "index" || label.length === 0 || Array.from(label).length > most)) {
       throw new RangeError(`keyLink: a label is 1 to ${most} characters for this target, and the Index key has none`);
     }
     const at = this.#keyLinks.findIndex((link) => link.key === key);
-    const link: WireKeyLink = { key, target, label: label ?? null };
+    const link: KeyLink = { key, target, label: label ?? null };
     if (at >= 0) {
       this.#keyLinks[at] = link;
     } else {
@@ -83,7 +83,7 @@ export class LinkExtension {
   }
 
   /** The links as the protocol carries them. */
-  wire(): WireLinkExtension {
+  wire(): LinkLists {
     return { keys: [...this.#keyLinks], numbers: [...this.#numberLinks], texts: [...this.#textLinks] };
   }
 }

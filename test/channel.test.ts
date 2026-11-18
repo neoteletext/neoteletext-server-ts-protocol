@@ -130,7 +130,7 @@ test("start ends every session: one that returns joins afresh, one that does not
   assert.notEqual(harness.channel.copy(10, 0x100), undefined);
   application.heard.length = 0;
   harness.channel.start(0, SERVER_LIMITS, SERVER_LANGUAGES);
-  assert.deepEqual(application.heard, ["ended 9", "ended 10"], "each application hears each session end");
+  assert.deepEqual(application.heard, ["gone 9", "gone 10"], "each application hears each session end");
   assert.equal(harness.channel.copy(9, 0x100), undefined, "nothing of session 9's own pages stays");
   assert.equal(harness.channel.copy(10, 0x100), undefined, "nor of the session that never returns");
   application.heard.length = 0;
@@ -138,7 +138,7 @@ test("start ends every session: one that returns joins afresh, one that does not
   harness.join(9, 0x100);
   assert.deepEqual(application.heard, ["joined 9", "opened 9 100"], "a session that returns joins afresh");
   assert.equal(JSON.stringify(harness.sent.slice(before)).includes("own"), false, "and is sent nothing of its own pages");
-  harness.channel.closed(10);
+  harness.channel.gone(10);
   assert.deepEqual(application.heard.slice(2), [], "a session already ended ends once");
   assert.deepEqual(harness.errors, []);
 });
@@ -150,9 +150,9 @@ test("a session ends once, when the server says it closed", () => {
   harness.typeText(9, "x");
   assert.deepEqual(recorder.heard.slice(0, 3), ["joined 9", "opened 9 100", `input 9 100 {"kind":"text","text":"x"}`]);
   harness.close(9);
-  harness.channel.closed(9);
-  harness.channel.closed(10);
-  assert.deepEqual(recorder.heard.slice(3), ["left 9 100", "ended 9"]);
+  harness.channel.gone(9);
+  harness.channel.gone(10);
+  assert.deepEqual(recorder.heard.slice(3), ["left 9 100", "gone 9"]);
 });
 
 test("an application that fails is reported, and the channel goes on", () => {
@@ -197,7 +197,7 @@ test("what an application sends in `joined` reaches the viewer who joined", () =
       context.publish("channel", 0x100, screen("index"));
     },
     joined: (session, context): void => {
-      context.sound({ session }, { play: { channel: 1, handle: 20, generation: 1, gain: 80, fadeMs: 5 } });
+      context.sound({ connection: session }, { kind: "play", channel: 1, handle: 20, generation: 1, gain: 80, fade_ms: 5, loop: false, after: false, duck: 0 });
     },
   };
   const harness = new Harness([greeter]);

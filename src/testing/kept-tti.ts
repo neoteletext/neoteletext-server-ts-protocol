@@ -57,8 +57,8 @@ function subPageTti(page: number, sub: number, content: SubPageContent): string 
   );
 }
 
-/** The TTI of the copy of `page` that `session` sees: its own while it has one, else the channel's; undefined if neither was published. */
-export function keptTti(harness: Harness, page: number, session = 1): string | undefined {
-  const copy = harness.channel.copy(session, page) ?? harness.channel.copy("channel", page);
+/** The TTI of the copy of `page` that `connection` sees: its own while it has one, else the channel's; undefined if neither was published. */
+export function keptTti(harness: Harness, page: number, connection = 1): string | undefined {
+  const copy = harness.channel.copy(connection, page) ?? harness.channel.copy("channel", page);
   return copy?.map(({ sub, content }) => subPageTti(page, sub, content)).join("");
 }

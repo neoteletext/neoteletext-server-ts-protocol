@@ -13,7 +13,7 @@ import { hasRightToLeft } from "../text/cells.ts";
 // What a screen measures its text by, with its runs.
 export { cellsOf, textCells } from "../text/cells.ts";
 import type { LanguageTag } from "../wire/languages.ts";
-import type { WireTextRun } from "../wire/protocol.ts";
+import type { TextRun } from "../wire/generated/protocol.js";
 
 /** The rows a run may be on (the schema's $defs/TextRun): row 0 is the header, the program's codes. */
 const FIRST_TEXT_ROW = 1;
@@ -60,7 +60,7 @@ export function knownOwnCodes(language: LanguageTag | null): string {
 }
 
 /** Whether `run` holds only spaces and characters of `ownCodes`, which the page's set shows at the codes under them: what it shows whatever language the run names. */
-function atOwnCodes(run: WireTextRun, ownCodes: string): boolean {
+function atOwnCodes(run: TextRun, ownCodes: string): boolean {
   return Array.from(run.text).every((character) => character === " " || ownCodes.includes(character));
 }
 
@@ -69,7 +69,7 @@ function characters(cells: readonly string[]): number {
 }
 
 /** `piece` in runs of at most RUN_CHARACTERS characters, cut between cells; a right-to-left piece's first characters take its rightmost cells. */
-function cut(piece: Piece): WireTextRun[] {
+function cut(piece: Piece): TextRun[] {
   const parts: string[][] = [];
   let part: string[] = [];
   for (const cell of piece.cells) {
@@ -95,7 +95,7 @@ function cut(piece: Piece): WireTextRun[] {
     if (piece.outside) {
       placed.outside = true;
     }
-    const run: WireTextRun = placed;
+    const run: TextRun = placed;
     if (!piece.rightToLeft) {
       column += cells.length;
     }
@@ -179,7 +179,7 @@ export class TextRuns {
    * it, read in the page's set as the characters the run names: the page
    * shows the same, within the protocol's bound.
    */
-  runs(isSpace: (row: number, column: number) => boolean, ownCodes = ""): WireTextRun[] {
+  runs(isSpace: (row: number, column: number) => boolean, ownCodes = ""): TextRun[] {
     const pieces: Piece[] = [];
     this.#cells.forEach((line, row) => {
       let last: Piece | null = null;

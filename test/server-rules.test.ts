@@ -8,24 +8,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import {
-  blankContent,
-  checkProgram,
-  type Limits,
-  type WireKeyLink,
-  type WireNumberLink,
-  type WirePage,
-  type WireTextLink,
-  type WireTriplet,
-} from "../src/index.ts";
+import { blankContent, checkProgram, type Limits } from "../src/index.ts";
+import type { KeyLink, NumberLink, Page, TextLink, Triplet } from "../src/protocol.ts";
 import { SERVER_LIMITS } from "../src/testing/index.ts";
 
-const PAGE: WirePage = { page: "100", sub: "0000", ...blankContent() };
+const PAGE: Page = { page: "100", sub: "0000", ...blankContent() };
 /** Hamming 8/4 of 0 to 15 (EN 300 706 clause 8.2, Table 3). */
 const HAMMING = [0x15, 0x02, 0x49, 0x5e, 0x64, 0x73, 0x38, 0x2f, 0xd0, 0xc7, 0x8c, 0x9b, 0xa1, 0xb6, 0xfd, 0xea];
 /** A TOC byte of the Opus profile: configuration 15, hybrid fullband 20 ms, one mono frame (RFC 6716 section 3.1). */
 const PROFILE_TOC = 15 << 3;
-const TRIPLETS: WireTriplet[] = Array.from({ length: 13 }, () => ({ address: 0, mode: 0, data: 0 }));
+const TRIPLETS: Triplet[] = Array.from({ length: 13 }, () => ({ address: 0, mode: 0, data: 0 }));
 
 /** `fault` is null, or the path and rule of the fault found. */
 function expectRefused(message: unknown, path: string, rule: string, limits: Limits = SERVER_LIMITS): void {
@@ -37,11 +29,12 @@ function expectAccepted(message: unknown, limits: Limits = SERVER_LIMITS): void 
   assert.equal(checkProgram(message, limits), null, JSON.stringify(message).slice(0, 300));
 }
 
-function pageMessage(page: Partial<WirePage>): unknown {
+/** A page message with `page`'s fields, as its line carries them: rows as base64. */
+function pageMessage(page: Readonly<Record<string, unknown>>): unknown {
   return { type: "page", connections: [1], page: { ...PAGE, ...page } };
 }
 
-function links(keys: WireKeyLink[], numbers: WireNumberLink[] = [], texts: WireTextLink[] = []): unknown {
+function links(keys: KeyLink[], numbers: NumberLink[] = [], texts: TextLink[] = []): unknown {
   return pageMessage({ link_extension: { keys, numbers, texts } });
 }
 
@@ -79,7 +72,7 @@ function pagesOf(magazine: number, count: number): unknown[] {
 const nibblesEndingIn = (last: number): number[] => [...Array.from({ length: 38 }, () => 0), last];
 
 /** An X/26 of designation code `designation`. */
-const enhancementOf = (designation: number): WirePage["enhancements"][number] => ({ designation, triplets: TRIPLETS });
+const enhancementOf = (designation: number): unknown => ({ designation, triplets: TRIPLETS });
 
 /** A sub-page list of page 100 with `subs`. */
 const subpageList = (subs: string[]): unknown => ({ type: "subpages", connections: [1], page: "100", version: 0, subpages: subs.map((sub) => ({ sub })) });
@@ -234,11 +227,12 @@ test("TODO-1550 item 8: base64 is exact, a row is 40 seven-bit codes, samples an
   expectRefused(rawRow(" ".repeat(4)), "page.rows[0]", "not_base64");
   expectRefused(rawRow("A".repeat(60)), "page.rows[0]", "too_long");
 
+  // TS-17: a sound's samples and packets are held to the schema alone; whole samples and whole packets of the profile are the server's to refuse.
   expectAccepted(pcmSound(4));
-  expectRefused(pcmSound(3), "pcm", "wrong_length");
+  expectAccepted(pcmSound(3));
   expectAccepted(opusSound(80));
-  expectRefused(opusSound(79), "packets", "wrong_length");
-  expectRefused(opusSound(0), "packets", "wrong_length");
+  expectAccepted(opusSound(79));
+  expectAccepted(opusSound(0));
 });
 
 test("TODO-1550 item 8: raw packets are whole 42-byte packets a stream may carry, as the engine's is_valid_stream_packet says", () => {

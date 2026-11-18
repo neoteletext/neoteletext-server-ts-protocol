@@ -15,7 +15,7 @@ import { clicked, type Input } from "../input/input.ts";
 import { clickedLink, type PageView } from "../navigation/clicked-link.ts";
 import { rowsOf } from "../page/content.ts";
 import { PAGE_RADIX, pageText } from "../page/page-numbers.ts";
-import type { WireMagazine } from "../wire/protocol.ts";
+import type { Magazine } from "../wire/generated/protocol.js";
 
 /** The four Fastext links of X/27/0's six (EN 300 706 clause 9.6). */
 const FASTEXT_KEYS = 4;
@@ -26,8 +26,8 @@ const NOT_FOUND = 404;
 export interface AnswerParts {
   readonly copies: Copies;
   readonly sender: Sender;
-  /** The index the session is sent, which counts the sub-pages of the copies it sees. */
-  readonly index: (session: number) => WireMagazine[];
+  /** The index the connection is sent, which counts the sub-pages of the copies it sees. */
+  readonly index: (connection: number) => Magazine[];
   readonly errors: (text: string) => void;
 }
 
@@ -61,10 +61,10 @@ export function answerConnected(
   sub: number,
   asked: number | undefined,
 ): void {
-  const copy = page === undefined ? undefined : parts.copies.seen(state.session, page);
+  const copy = page === undefined ? undefined : parts.copies.seen(state.connection, page);
   const shown = resolve(copy, sub);
   state.sub = shown ?? null;
-  const magazines = parts.index(state.session);
+  const magazines = parts.index(state.connection);
   const { request } = state;
   if (state.denied !== null) {
     state.sub = null;
@@ -98,7 +98,7 @@ export function answerConnected(
 
 /** The answer to `selected`: one sub-page, and the page's list for a page selection or a page newly selected. */
 export function answerSelected(parts: AnswerParts, connection: number, state: Connection, page: number, sub: number, newPage: boolean): void {
-  const copy = parts.copies.seen(state.session, page);
+  const copy = parts.copies.seen(state.connection, page);
   const shown = resolve(copy, sub);
   state.sub = shown ?? null;
   if (state.denied !== null) {
@@ -130,7 +130,7 @@ export function followClick(sender: Sender, connection: number, input: Input, vi
 
 /** What the connection sees of `page`: the rows and the Fastext links of `sub`, or for 3F7F of the sub-page it was sent. */
 export function viewOf(copies: Copies, state: Connection, page: number, sub: number): PageView {
-  const copy = copies.seen(state.session, page);
+  const copy = copies.seen(state.connection, page);
   const shown = sub === ANY_SUB ? (state.sub ?? copy?.first()) : sub;
   const content = shown === undefined ? undefined : copy?.subpages.get(shown)?.content;
   if (content === undefined) {

@@ -1,19 +1,18 @@
 // neoteletext-server-ts-protocol: the NeoTeletext server's channel protocol for
 // programs in TypeScript (DOC-1974).
 // This is the package's whole interface; the test harness is apart, in
-// neoteletext-server-ts-protocol/testing.
+// neoteletext-server-ts-protocol/testing, and the protocol's types,
+// generated from the server's schema, in neoteletext-server-ts-protocol/protocol
+// (typescript.md TS-27).
 
 export { PROTOCOL, LONGEST_LINE, readLimits } from "./wire/limits.ts";
-export type * from "./wire/protocol.ts";
-export type * from "./wire/server-wire.ts";
 export { LANGUAGE_TAGS } from "./wire/language-tags.ts";
 export type { Language, LanguageTag } from "./wire/languages.ts";
 export { ProtocolError, checkProgram, checkServer } from "./wire/validate.ts";
 export type { Fault } from "./wire/fault.ts";
 export type { Budgets, Limits, Standard } from "./wire/limits.ts";
-export type { ChannelCounts, ChannelTotals, PageOpens, ServerFigures, ServerStats, ServerTotals } from "./wire/stats.ts";
-export { isConnection, isSession, readPage, readMessage } from "./wire/server-message.ts";
-export type { CookiePair, Measured, Refusal, RunCost, Selection, ServerMessage } from "./wire/server-message.ts";
+export { isConnection, readPage, readMessage } from "./wire/server-message.ts";
+export type { Selection, ServerStats } from "./wire/server-message.ts";
 export { dispatch } from "./wire/server-events.ts";
 export type { ServerEvents } from "./wire/server-events.ts";
 export { App } from "./wire/app.ts";
@@ -55,12 +54,6 @@ export type { PageView } from "./navigation/clicked-link.ts";
 export { Navigation } from "./navigation/navigation.ts";
 export {
   SAMPLE_RATES,
-  AUDIO_CHANNELS,
-  LAST_HANDLE,
-  LAST_GENERATION,
-  FULL_GAIN,
-  LONGEST_FADE_MS,
-  DEEPEST_DUCK,
   MOST_SAMPLES,
   OPUS_RATE,
   OPUS_FRAME_MS,
@@ -70,32 +63,21 @@ export {
   MOST_OPUS_PACKETS,
 } from "./sound/profile.ts";
 export type { SampleRate } from "./sound/profile.ts";
-export type {
-  Audience,
-  SoundObject,
-  LiveSound,
-  LiveBlocks,
-  OpusSound,
-  OpusLive,
-  OpusPackets,
-  Play,
-  Stop,
-  Gain,
-  SampledMember,
-  SoundMember,
-} from "./sound/members.ts";
+export type { Audience } from "./channel/audience.ts";
 export type { EncodedOpus, OpusEncoder, OpusStream } from "./sound/opus-encoder.ts";
 export { ffmpegOpus } from "./sound/ffmpeg-opus.ts";
 export type { FfmpegOptions } from "./sound/ffmpeg-opus.ts";
 export { OggOpusReader, oggCrc } from "./sound/ogg-opus.ts";
-export { pcmBase64, soundFields } from "./sound/sound-fields.ts";
+export { pcmBytes } from "./sound/pcm.ts";
 export { channelIndex, fitText } from "./channel/channel-index.ts";
 export type { PageDescription, PageEntry, Application } from "./channel/application.ts";
 export type { PageRequest } from "./channel/request.ts";
 export { Random } from "./channel/random.ts";
 export { Context } from "./channel/context.ts";
 export { MeasureRefusedError } from "./channel/measure-refused.ts";
-export type { CookieOptions, DrawingLink } from "./channel/context.ts";
+export type { DrawingLink } from "./channel/context.ts";
+export type { DeniedStatus } from "./channel/connections.ts";
+export { Viewer } from "./channel/viewer.ts";
 export { ANY_SUB, Channel } from "./channel/channel.ts";
 export type { Clock, ChannelOptions } from "./channel/channel-options.ts";
 export { runChannel } from "./channel/run-channel.ts";

@@ -7,16 +7,17 @@ import type { Cursor } from "./cursor.ts";
 import { CursorFlag } from "./cursor.ts";
 import { COLUMNS, ROWS, SPACE } from "./geometry.ts";
 import { PAGE_RADIX } from "./page-numbers.ts";
-import type { WireControl, WirePage } from "../wire/protocol.ts";
+import { fixed } from "../wire/fixed.ts";
+import type { Control, Link, Page } from "../wire/generated/protocol.js";
 
 /** One sub-page's content: a typed page without its `page` and `sub`. */
-export type SubPageContent = Omit<WirePage, "page" | "sub">;
+export type SubPageContent = Omit<Page, "page" | "sub">;
 
 /** The six links of packet X/27/0 (EN 300 706 clause 9.6.1). */
 export const X27_LINKS = 6;
 
 /** No control bit set: the server sets C4 and C11 itself (DOC-1970). */
-export const NO_CONTROL: WireControl = {
+export const NO_CONTROL: Control = {
   erase: false,
   newsflash: false,
   subtitle: false,
@@ -27,18 +28,23 @@ export const NO_CONTROL: WireControl = {
   magazine_serial: false,
 };
 
-/** A row's 40 codes as base64 (RFC 4648 section 4), or null when every code is a space: the server's blank row. */
-export function encodeRow(codes: readonly number[]): string | null {
+/** A row's 40 codes as its bytes, or null when every code is a space: the server's blank row. */
+export function encodeRow(codes: readonly number[]): Uint8Array | null {
   const bytes = Uint8Array.from({ length: COLUMNS }, (_, column) => codes[column] ?? SPACE);
-  return bytes.every((code) => code === SPACE) ? null : Buffer.from(bytes).toString("base64");
+  return bytes.every((code) => code === SPACE) ? null : bytes;
 }
 
 /** A row as its 40 codes; a blank row's spaces. */
-export function decodeRow(row: string | null | undefined): number[] {
+export function decodeRow(row: Uint8Array | null | undefined): number[] {
   if (row === null || row === undefined) {
     return Array.from({ length: COLUMNS }, () => SPACE);
   }
-  return [...Buffer.from(row, "base64")].slice(0, COLUMNS);
+  return [...row].slice(0, COLUMNS);
+}
+
+/** A sub-page's six links of X/27/0 (EN 300 706 clause 9.6.1), as the schema's fixed list. */
+export function linksOf(links: readonly (Link | null)[]): Page["links"] {
+  return fixed<Page["links"]>(links, X27_LINKS);
 }
 
 /** A sub-page's 25 rows as codes. */
@@ -50,7 +56,7 @@ export function rowsOf(content: SubPageContent): number[][] {
 export function blankContent(): SubPageContent {
   return {
     rows: Array.from({ length: ROWS }, () => null),
-    links: Array.from({ length: X27_LINKS }, () => null),
+    links: linksOf(Array.from({ length: X27_LINKS }, () => null)),
     display_row_24: false,
     link_extension: { keys: [], numbers: [], texts: [] },
     control: NO_CONTROL,

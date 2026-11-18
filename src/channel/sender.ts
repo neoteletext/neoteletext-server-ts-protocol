@@ -10,9 +10,10 @@ import type { Change, Copies, Owner } from "./copies.ts";
 import type { Copy } from "./copy.ts";
 import { ANY_SUB, subText, wirePage } from "./wire-page.ts";
 import { pageText } from "../page/page-numbers.ts";
-import type { Audience } from "../sound/members.ts";
+import type { Audience } from "./audience.ts";
+import type { DeniedStatus } from "./connections.ts";
 import type { App } from "../wire/app.ts";
-import type { ProgramMessage, WireConnections, WireDeniedStatus, WireMagazine } from "../wire/protocol.ts";
+import type { Connections as WireConnections, Magazine, ProgramMessage } from "../wire/generated/protocol.js";
 
 /** The number a redirect carries for a connection this program does not hold, which the server drops: the protocol wants one. */
 const NO_CONNECTION_REQUEST = 1;
@@ -24,9 +25,9 @@ export class Sender {
   readonly #app: App;
   readonly #connections: Connections;
   readonly #copies: Copies;
-  readonly #index: (session: number) => WireMagazine[];
+  readonly #index: (connection: number) => Magazine[];
 
-  constructor(app: App, connections: Connections, copies: Copies, index: (session: number) => WireMagazine[]) {
+  constructor(app: App, connections: Connections, copies: Copies, index: (connection: number) => Magazine[]) {
     this.#app = app;
     this.#connections = connections;
     this.#copies = copies;
@@ -69,24 +70,21 @@ export class Sender {
   }
 
   /**
-   * The index to every connection answered, or to `session`'s alone: each
-   * the index of the copies its session sees, so a session with its own copy
-   * of a page is told that copy's count. Connections whose index is the same
-   * are sent it in one message.
+   * The index to every connection answered, or to `only` alone: each the
+   * index of the copies it sees, so a connection with its own copy of a page
+   * is told that copy's count. Connections whose index is the same are sent
+   * it in one message.
    */
-  index(session?: number): void {
+  index(only?: number): void {
     if (!this.#app.hasStarted()) {
       return;
     }
-    const groups = new Map<string, { magazines: WireMagazine[]; connections: number[] }>();
-    const bySession = new Map<number, WireMagazine[]>();
+    const groups = new Map<string, { magazines: Magazine[]; connections: number[] }>();
     for (const connection of this.#connections.answered()) {
-      const owner = this.#connections.get(connection)?.session;
-      if (owner === undefined || (session !== undefined && owner !== session)) {
+      if (only !== undefined && connection !== only) {
         continue;
       }
-      const magazines = bySession.get(owner) ?? this.#index(owner);
-      bySession.set(owner, magazines);
+      const magazines = this.#index(connection);
       const key = JSON.stringify(magazines);
       const group = groups.get(key) ?? { magazines, connections: [] };
       group.connections.push(connection);
@@ -119,7 +117,7 @@ export class Sender {
   }
 
   /** Ends the connection's selection with `status`: as its answer when one is being made, which then holds no page, otherwise at once. */
-  deny(connection: number, status: WireDeniedStatus): void {
+  deny(connection: number, status: DeniedStatus): void {
     const state = this.#connections.get(connection);
     if (state === undefined) {
       return;
@@ -131,20 +129,19 @@ export class Sender {
     }
   }
 
-  /** Sends `build`'s message to the connections `to` names. */
+  /** Sends `build`'s message to the connections `to` names, in lists of at most `named_connections`: every line is made and held to the schema before the first is written (typescript.md TS-19). */
   toAudience(to: Audience, build: (connections: WireConnections) => ProgramMessage): void {
     const connections = this.#connections.audience(to);
     if (connections === null) {
       return;
     }
-    for (const chunk of connections === "all" ? ["all" as const] : this.#chunks(connections)) {
-      this.send(build(chunk));
-    }
+    const chunks = connections === "all" ? ["all" as const] : this.#chunks(connections);
+    this.#app.writeLines(chunks.map((chunk) => this.#app.line(build(chunk))));
   }
 
-  /** Whether the connection sees the owner's copy of `page`: its session's own, or the channel's when it has none. */
+  /** Whether the connection sees the owner's copy of `page`: its own, or the channel's when it has none. */
   #sees(state: Connection, owner: Owner, page: number): boolean {
-    return owner === "channel" ? this.#copies.get(state.session, page) === undefined : state.session === owner;
+    return owner === "channel" ? this.#copies.get(state.connection, page) === undefined : state.connection === owner;
   }
 
   /** Sends what a change to the owner's copy of `page` did to every connection whose selection shows that copy; nothing rotates. */
@@ -155,7 +152,7 @@ export class Sender {
     const bySub = new Map<number, number[]>();
     const lists: number[] = [];
     for (const [connection, state] of this.#connections.entries()) {
-      const copy = this.#copies.seen(state.session, page);
+      const copy = this.#copies.seen(state.connection, page);
       if (state.pending || state.page !== page || !this.#sees(state, owner, page) || copy === undefined) {
         continue;
       }
@@ -184,17 +181,17 @@ export class Sender {
     }
   }
 
-  /** The session's own copy of `page` went: each of its connections there is sent the channel's copy, and its list, and the session its index, whose count may change with it. */
-  released(session: number, page: number, countBefore: number): void {
+  /** The connection's own copy of `page` went: if it is there it is sent the channel's copy, and its list, and its index, whose count may change with it. */
+  released(owner: number, page: number, countBefore: number): void {
     const copy = this.#copies.get("channel", page);
     if (copy?.subpages.size !== countBefore) {
-      this.index(session);
+      this.index(owner);
     }
     if (copy === undefined) {
       return;
     }
     for (const [connection, state] of this.#connections.entries()) {
-      if (state.session === session && state.page === page && !state.pending) {
+      if (connection === owner && state.page === page && !state.pending) {
         const sub = state.sub !== null && copy.subpages.has(state.sub) ? state.sub : copy.first();
         if (sub !== undefined) {
           state.sub = sub;

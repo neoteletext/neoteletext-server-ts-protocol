@@ -65,7 +65,7 @@ export function fakeOpus(): OpusEncoder {
   return {
     sound(samples: Int16Array, rate: SampleRate): EncodedOpus {
       const length = Math.max(1, atOpusRate(samples.length, rate));
-      return { packetBytes: OPUS_PACKET_BYTES, samples: length, packets: packetsFrom(0, Math.ceil(length / OPUS_FRAME_SAMPLES)) };
+      return { packet_bytes: OPUS_PACKET_BYTES, samples: length, packets: packetsFrom(0, Math.ceil(length / OPUS_FRAME_SAMPLES)) };
     },
     stream: (rate) => new FakeStream(rate),
   };

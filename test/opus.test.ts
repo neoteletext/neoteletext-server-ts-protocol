@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ffmpegOpus, MOST_SAMPLES, OggOpusReader, oggCrc, OPUS_FRAME_SAMPLES, OPUS_PACKET_BYTES, type OpusStream, soundFields } from "../src/index.ts";
+import { ffmpegOpus, OggOpusReader, oggCrc, OPUS_FRAME_SAMPLES, OPUS_PACKET_BYTES, type OpusStream } from "../src/index.ts";
+import { SERVER_LIMITS } from "../src/testing/index.ts";
+import { App } from "../src/wire/app.ts";
 import { fakeOpus } from "../src/testing/index.ts";
 
 const PACKET = new Uint8Array(OPUS_PACKET_BYTES).fill(7);
@@ -10,52 +12,6 @@ const PRE_SKIP = 312;
 /** How long a test waits for ffmpeg at most: a ceiling, not a wait. */
 const CEILING_MS = 10_000;
 const POLL_MS = 10;
-
-function packets(count: number): Uint8Array {
-  return new Uint8Array(count * OPUS_PACKET_BYTES).fill(1);
-}
-
-test("the Opus members are written as the server reads them", () => {
-  assert.deepEqual(soundFields({ opus: { handle: 4, generation: 1, packetBytes: OPUS_PACKET_BYTES, samples: OPUS_FRAME_SAMPLES + 1, packets: packets(2) } }), {
-    kind: "opus",
-    handle: 4,
-    generation: 1,
-    packet_bytes: OPUS_PACKET_BYTES,
-    samples: OPUS_FRAME_SAMPLES + 1,
-    packets: Buffer.from(packets(2)).toString("base64"),
-  });
-  assert.deepEqual(soundFields({ opusLive: { handle: 255, generation: 3, packetBytes: 40 } }), {
-    kind: "opus_live",
-    handle: 255,
-    generation: 3,
-    packet_bytes: 40,
-  });
-  assert.deepEqual(soundFields({ opusPackets: { handle: 255, generation: 3, packetBytes: 40, first: 9, packets: PACKET } }), {
-    kind: "opus_packets",
-    handle: 255,
-    generation: 3,
-    packet_bytes: 40,
-    first: 9,
-    packets: Buffer.from(PACKET).toString("base64"),
-  });
-});
-
-test("Opus the server would refuse is refused here", () => {
-  const good = { handle: 1, generation: 0, packetBytes: OPUS_PACKET_BYTES, samples: OPUS_FRAME_SAMPLES, packets: packets(1) };
-  for (const bad of [
-    { ...good, packetBytes: OPUS_PACKET_BYTES + 1, packets: new Uint8Array(OPUS_PACKET_BYTES + 1) },
-    { ...good, packetBytes: 0 },
-    { ...good, packets: new Uint8Array(OPUS_PACKET_BYTES + 1) },
-    { ...good, packets: new Uint8Array(0) },
-    { ...good, samples: OPUS_FRAME_SAMPLES + 1 },
-    { ...good, samples: 0 },
-    { ...good, samples: MOST_SAMPLES + 1, packets: packets(Math.ceil((MOST_SAMPLES + 1) / OPUS_FRAME_SAMPLES)) },
-  ]) {
-    assert.throws(() => soundFields({ opus: bad }), RangeError, JSON.stringify({ ...bad, packets: bad.packets.length }));
-  }
-  assert.throws(() => soundFields({ opusPackets: { handle: 1, generation: 0, packetBytes: 40, first: 0x1_0000, packets: PACKET } }), RangeError);
-  assert.throws(() => soundFields({ opusLive: { handle: 256, generation: 0, packetBytes: 40 } }), RangeError);
-});
 
 /** An Ogg page of `segments` (RFC 3533 section 6), its checksum made. */
 function page(
@@ -148,10 +104,16 @@ test("ffmpeg encodes a sound as the profile's constant-rate packets, its length 
   const tone = Int16Array.from({ length: 2_400 }, (_, index) => Math.round(8_000 * Math.sin(index / 2)));
   const encoded = ffmpegOpus().sound(tone, 8_000);
   const samples = 2_400 * 6 + PRE_SKIP;
-  assert.equal(encoded.packetBytes, OPUS_PACKET_BYTES);
+  assert.equal(encoded.packet_bytes, OPUS_PACKET_BYTES);
   assert.equal(encoded.samples, samples);
   assert.equal(encoded.packets.length, Math.ceil(samples / OPUS_FRAME_SAMPLES) * OPUS_PACKET_BYTES);
-  assert.doesNotThrow(() => soundFields({ opus: { handle: 0, generation: 0, ...encoded } }), "the server's checks pass");
+  const lines: string[] = [];
+  const app = new App((line) => {
+    lines.push(line);
+  });
+  app.started(SERVER_LIMITS, []);
+  app.send({ type: "sound", connections: [1], kind: "opus", handle: 0, generation: 0, ...encoded });
+  assert.equal(lines.length, 1, "an opus member, held to the schema, is written");
 });
 
 async function until(done: () => boolean): Promise<void> {

@@ -4,13 +4,10 @@
 // packets and encodes nothing (its decision 21).
 
 import type { SampleRate } from "./profile.ts";
+import type { SoundOpusMember } from "../wire/generated/protocol.js";
 
-/** A sound encoded: constant-rate packets back to back, and its length at OPUS_RATE, the encoder's pre-skip with it. */
-export interface EncodedOpus {
-  readonly packetBytes: number;
-  readonly samples: number;
-  readonly packets: Uint8Array;
-}
+/** A sound encoded: constant-rate packets back to back, and its length at OPUS_RATE, the encoder's pre-skip with it, as the fields of an `opus` member, so that `{ kind: "opus", handle, generation, ...encoded }` is one. */
+export type EncodedOpus = Pick<SoundOpusMember, "packet_bytes" | "samples" | "packets">;
 
 /** A stream being encoded as its samples come. */
 export interface OpusStream {

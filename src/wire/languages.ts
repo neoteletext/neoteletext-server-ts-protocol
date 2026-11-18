@@ -2,11 +2,9 @@
 // engine's table in its order (REQ-2215). A program lays text out by them:
 // which way a language is written.
 
-import type { WireLanguageTag } from "./protocol.ts";
-import type { WireLanguageEntry } from "./server-wire.ts";
+import type { LanguageEntry, LanguageTag } from "./generated/protocol.js";
 
-/** A language's BCP 47 tag, as `start.languages` names it. */
-export type LanguageTag = WireLanguageTag;
+export type { LanguageTag };
 
 /** One language the server writes, as `start` lists it. */
 export interface Language {
@@ -18,6 +16,6 @@ export interface Language {
 }
 
 /** `start.languages`, which the schema has checked. */
-export function readLanguages(languages: readonly WireLanguageEntry[]): readonly Language[] {
+export function readLanguages(languages: readonly LanguageEntry[]): readonly Language[] {
   return languages.map(({ tag, name, direction }) => ({ tag, name, direction }));
 }

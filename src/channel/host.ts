@@ -5,7 +5,7 @@
 // oxlint-disable import/max-dependencies -- the host is where a context meets every part of the channel: its copies, connections, sending, sounds and the TTI and numbering of what it publishes
 import { fitText } from "./channel-index.ts";
 import type { Connections } from "./connections.ts";
-import type { CookieOptions, Host } from "./context.ts";
+import type { Host } from "./context.ts";
 import type { Copies, GivenSubPage, Owner } from "./copies.ts";
 import type { Measures } from "./measures.ts";
 import { Random } from "./random.ts";
@@ -14,8 +14,8 @@ import { ANY_SUB, fitBytes, subText } from "./wire-page.ts";
 import { numbered } from "../page/numbering.ts";
 import { pageText } from "../page/page-numbers.ts";
 import { type Subpage, contentOf } from "../page/subpage.ts";
-import { soundFields } from "../sound/sound-fields.ts";
 import { readTtiPages } from "../tti/read-tti.ts";
+import type { Viewer } from "./viewer.ts";
 import type { App } from "../wire/app.ts";
 
 /** An operator's log line's event, for what an application logs (the schema's `log.event`). */
@@ -30,7 +30,8 @@ export interface HostParts {
   readonly connections: Connections;
   readonly titles: Map<number, string>;
   readonly serves: (page: number) => boolean;
-  readonly sessions: ReadonlySet<number>;
+  /** The connections applications have been told of, which may own copies. */
+  readonly known: ReadonlySet<number>;
   readonly epochAtStart: () => number;
   readonly wakeAt: (index: number, at: number) => void;
   readonly current: () => number | null;
@@ -60,7 +61,7 @@ function publishing(parts: HostParts): PublishingHost {
     if (!parts.serves(page)) {
       throw new RangeError(`publish: no application serves ${pageText(page)}`);
     }
-    if (owner === "channel" || parts.sessions.has(owner)) {
+    if (owner === "channel" || parts.known.has(owner)) {
       sender.distribute(owner, page, copies.put(owner, page, subpages, whole));
     }
   };
@@ -84,10 +85,10 @@ function publishing(parts: HostParts): PublishingHost {
     remove: (owner, page, subcodes): void => {
       sender.distribute(owner, page, copies.remove(owner, page, subcodes));
     },
-    release: (session, page): void => {
-      const countBefore = copies.get(session, page)?.subpages.size ?? 0;
-      if (copies.release(session, page)) {
-        sender.released(session, page, countBefore);
+    release: (connection, page): void => {
+      const countBefore = copies.get(connection, page)?.subpages.size ?? 0;
+      if (copies.release(connection, page)) {
+        sender.released(connection, page, countBefore);
       }
     },
     titleOf: (page): string | undefined => titles.get(page),
@@ -105,36 +106,42 @@ function publishing(parts: HostParts): PublishingHost {
 
 type SelectionHost = Pick<Host, "redirect" | "deny">;
 
-/** ReGIS commands as the wire carries them: their bytes, a character of text a byte (ReGIS is ASCII, with eight-bit characters in its strings), as base64. */
-function regisBase64(data: string | Uint8Array): string {
-  const bytes = typeof data === "string" ? Buffer.from(data, "latin1") : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
-  return bytes.toString("base64");
+/** ReGIS commands as bytes: a character of text a byte (ReGIS is ASCII, with eight-bit characters in its strings). */
+function regisBytes(data: string | Uint8Array): Uint8Array {
+  return typeof data === "string" ? new Uint8Array(Buffer.from(data, "latin1")) : data;
 }
 
-type MessagingHost = Pick<
-  Host,
-  "sound" | "authorLog" | "log" | "cookie" | "cookies" | "measure" | "packets" | "regis" | "regisLinks" | "regisCursor" | "naplps"
->;
-
-/** The connections a call about `session` means: the one it came from when that is the session's, otherwise each of the session's. */
-function sessionsConnections(parts: HostParts, session: number): number[] {
-  const current = parts.current();
-  return current !== null && parts.connections.get(current)?.session === session ? [current] : parts.connections.ofSession(session);
-}
+type MessagingHost = Pick<Host, "sound" | "authorLog" | "log" | "measure" | "packets" | "regis" | "regisLinks" | "regisCursor" | "naplps">;
 
 /** What an application does with a viewer's selection. */
 function selecting(parts: HostParts): SelectionHost {
   const { sender } = parts;
   return {
-    redirect: (session, to, sub): void => {
-      for (const connection of sessionsConnections(parts, session)) {
-        sender.redirectTo(connection, to, sub ?? ANY_SUB);
-      }
+    redirect: (connection, to, sub): void => {
+      sender.redirectTo(connection, to, sub ?? ANY_SUB);
     },
-    deny: (session, status): void => {
-      for (const connection of sessionsConnections(parts, session)) {
-        sender.deny(connection, status);
-      }
+    deny: (connection, status): void => {
+      sender.deny(connection, status);
+    },
+  };
+}
+
+type ViewerHost = Pick<Host, "viewer" | "remembered" | "requestState" | "endState" | "offerRemember">;
+
+/** A connection's viewer, and what a program asks of the viewer's state (viewer-state.md VS-352). */
+function viewing(parts: HostParts): ViewerHost {
+  const { connections, sender } = parts;
+  return {
+    viewer: (connection): Viewer | null => connections.get(connection)?.viewer ?? null,
+    remembered: (connection): boolean => connections.get(connection)?.remembered ?? false,
+    requestState: (connection): void => {
+      sender.send({ type: "request_state", connection });
+    },
+    endState: (viewer): void => {
+      sender.send({ type: "end_state", viewer: viewer.handle });
+    },
+    offerRemember: (connection): void => {
+      sender.send({ type: "offer_remember", connection });
     },
   };
 }
@@ -143,16 +150,14 @@ function selecting(parts: HostParts): SelectionHost {
 function bytesMessages(sender: Sender): Pick<Host, "packets" | "regis" | "regisLinks" | "regisCursor" | "naplps"> {
   return {
     packets: (to, packets): void => {
-      const text = Buffer.from(packets.buffer, packets.byteOffset, packets.byteLength).toString("base64");
-      sender.toAudience(to, (named) => ({ type: "packets", connections: named, packets: text }));
+      sender.toAudience(to, (named) => ({ type: "packets", connections: named, packets }));
     },
     regis: (to, page, sub, data, restart): void => {
-      const text = regisBase64(data);
-      sender.toAudience(to, (named) => ({ type: "regis", connections: named, page: pageText(page), sub: subText(sub), restart, data: text }));
+      const bytes = regisBytes(data);
+      sender.toAudience(to, (named) => ({ type: "regis", connections: named, page: pageText(page), sub: subText(sub), restart, data: bytes }));
     },
     naplps: (to, page, sub, data, restart): void => {
-      const text = Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString("base64");
-      sender.toAudience(to, (named) => ({ type: "naplps", connections: named, page: pageText(page), sub: subText(sub), restart, data: text }));
+      sender.toAudience(to, (named) => ({ type: "naplps", connections: named, page: pageText(page), sub: subText(sub), restart, data }));
     },
     regisLinks: (to, page, sub, links): void => {
       const listed = links.map(({ drawing, target }) => ({ drawing, target }));
@@ -168,9 +173,9 @@ function bytesMessages(sender: Sender): Pick<Host, "packets" | "regis" | "regisL
 function messaging(parts: HostParts): MessagingHost {
   const { app, sender } = parts;
   return {
+    // The member as the program built it, with `type` and `connections` added and nothing else changed (typescript.md TS-19).
     sound: (to, member): void => {
-      const fields = soundFields(member);
-      sender.toAudience(to, (named) => ({ type: "sound", connections: named, ...fields }));
+      sender.toAudience(to, (named) => ({ type: "sound", connections: named, ...member }));
     },
     authorLog: (to, level, text, page): void => {
       // As fitText makes a title: the server refuses a control, a bidirectional formatting character, and text not in NFC.
@@ -189,23 +194,6 @@ function messaging(parts: HostParts): MessagingHost {
         sender.send({ type: "log", level: "info", event: APPLICATION_EVENT, text: fitted });
       }
     },
-    cookie: (connection, name, value, options: CookieOptions): void => {
-      sender.send({
-        type: "cookie",
-        connection,
-        name,
-        value,
-        path: options.path ?? null,
-        max_age: options.maxAge ?? null,
-        same_site: options.sameSite ?? null,
-        secure: options.secure ?? false,
-        http_only: options.httpOnly ?? false,
-      });
-    },
-    cookies: (session): Readonly<Record<string, string>> => {
-      const connection = sessionsConnections(parts, session).at(-1);
-      return connection === undefined ? {} : (parts.connections.get(connection)?.cookies ?? {});
-    },
     measure: (page, screen) => parts.measures.ask(app, page, screen.content()),
     ...bytesMessages(sender),
   };
@@ -221,7 +209,7 @@ export function makeHost(parts: HostParts): Host {
     ...publishing(parts),
     ...selecting(parts),
     ...messaging(parts),
+    ...viewing(parts),
     connection: parts.current,
-    connectionsOf: (session): number[] => parts.connections.ofSession(session),
   };
 }

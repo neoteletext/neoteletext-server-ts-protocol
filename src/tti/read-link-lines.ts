@@ -7,7 +7,7 @@ import { DECIMAL } from "./format.ts";
 import { COLUMNS } from "../page/geometry.ts";
 import { longestLabel, targetKind } from "../page/link-targets.ts";
 import { PAGE_RADIX, isPageNumber, pageText } from "../page/page-numbers.ts";
-import type { WireLinkKey } from "../wire/protocol.ts";
+import type { LinkKey } from "../wire/generated/protocol.js";
 
 /** The Link Extension's bounds (the schema's $defs/LinkExtension). */
 const MOST_KEY_LINKS = 5;
@@ -15,7 +15,7 @@ const MOST_NUMBER_LINKS = 8;
 const MOST_TEXT_LINKS = 8;
 const FIRST_TEXT_LINK_ROW = 1;
 const LAST_TEXT_LINK_ROW = 23;
-const KEY_LETTERS: Readonly<Record<string, WireLinkKey>> = { R: "red", G: "green", Y: "yellow", C: "cyan", I: "index" };
+const KEY_LETTERS: Readonly<Record<string, LinkKey>> = { R: "red", G: "green", Y: "yellow", C: "cyan", I: "index" };
 
 /** `LN,key,target,label`. */
 export function readKeyLink(page: Being, rest: string): void {

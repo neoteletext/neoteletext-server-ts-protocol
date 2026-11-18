@@ -11,7 +11,7 @@ import { START_LINE } from "./fixtures/start-line.ts";
 
 /** The keyboard's focus coming to page 100, as the server writes it. */
 const SELECTED_LINE = '{"type":"selected","connection":3,"request":2,"path":"100","page":"100","sub":"3F7F"}';
-const CONNECTED_LINE = '{"type":"connected","connection":3,"session":1,"request":1,"cookies":[],"selection":null}';
+const CONNECTED_LINE = '{"type":"connected","connection":3,"request":1,"remembered":false,"selection":null}';
 /** The server's start, 5 ms after the epoch. */
 const START_AT_5 = START_LINE.replace('"epoch_ms":0', '"epoch_ms":5');
 const FOCUS_LINE = '{"type":"input","connection":3,"page":"100","sub":"3F7F","lost":false,"event":{"kind":"focus"}}';
@@ -59,6 +59,16 @@ test("a line too long, or not UTF-8, is dropped whole and reported", () => {
 
 /** An event this test does not listen for. */
 const ignored = (): void => undefined;
+/** The events of viewers and sounds, which this test does not listen for. */
+const QUIET = {
+  viewerBegan: ignored,
+  viewerLeft: ignored,
+  stateRefused: ignored,
+  viewersReset: ignored,
+  soundBuilt: ignored,
+  measured: ignored,
+  describe: ignored,
+};
 
 test("the line loop hands on each valid line, reports each bad one, and ends with its input", async () => {
   const input = new PassThrough();
@@ -68,8 +78,8 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
     start: (epochMs) => {
       heard.push(`start ${epochMs}`);
     },
-    connected: (connection, session, _request, selection) => {
-      heard.push(`connected ${connection} ${session} ${selection === null ? "none" : selection.page.toString(16)}`);
+    connected: (connection, _request, selection) => {
+      heard.push(`connected ${connection} ${selection === null ? "none" : selection.page.toString(16)}`);
     },
     selected: (connection, _request, selection) => {
       heard.push(`selected ${connection} ${selection.page.toString(16)} ${selection.sub.toString(16)}`);
@@ -80,17 +90,16 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
     input: (connection, page, _sub, event) => {
       heard.push(`input ${connection} ${page.toString(16)} ${event.kind}`);
     },
-    closed: (session) => {
-      heard.push(`closed ${session}`);
+    gone: (connection) => {
+      heard.push(`gone ${connection}`);
     },
+    ...QUIET,
     stats: (stats) => {
       heard.push(`stats ${stats.server.uptime_s} ${stats.channel.most_opened.map(({ page, opens }) => `${page}:${opens}`).join(",")}`);
     },
     refused: (refusal) => {
       heard.push(`refused ${refusal.rule}`);
     },
-    measured: ignored,
-    describe: ignored,
   };
   const served = serveLines(events, {
     input,
@@ -103,9 +112,9 @@ test("the line loop hands on each valid line, reports each bad one, and ends wit
   input.write(`${SELECTED_LINE}\n${FOCUS_LINE}\n`);
   const stats = serverStats({ server: { uptime_s: 10 }, channel: { viewers: 1, most_opened: [{ page: "100", opens: 3 }] } });
   input.write(`${JSON.stringify({ type: "stats", ...stats })}\n${SELECTED_LINE.replace("}", ',"view":0}')}\n`);
-  input.end('{"type":"left","connection":3,"page":"100"}\n{"type":"closed","session":1}');
+  input.end('{"type":"left","connection":3,"page":"100"}\n{"type":"gone","connection":3}');
   await served;
-  assert.deepEqual(heard, ["start 5", "connected 3 1 none", "selected 3 100 3f7f", "input 3 100 focus", "stats 10 100:3", "left 3 100", "closed 1"]);
+  assert.deepEqual(heard, ["start 5", "connected 3 none", "selected 3 100 3f7f", "input 3 100 focus", "stats 10 100:3", "left 3 100", "gone 3"]);
   assert.equal(errors.length, 2);
   assert.match(errors[0] ?? "", /not JSON/u);
   assert.match(errors[1] ?? "", /unknown_field/u, "a view number is no field of protocol 3 (DEC-1527)");
@@ -123,7 +132,12 @@ function unheard(): ServerEvents {
     selected: never,
     input: never,
     left: never,
-    closed: never,
+    gone: never,
+    viewerBegan: never,
+    viewerLeft: never,
+    stateRefused: never,
+    viewersReset: never,
+    soundBuilt: never,
     stats: never,
     refused: never,
     measured: never,
@@ -142,7 +156,7 @@ test("REQ-2215 item 3: a start of another protocol stops the program, both versi
     },
   });
   const other = PROTOCOL - 1;
-  input.write(`${START_LINE.replace(`"protocol":${PROTOCOL}`, `"protocol":${other}`)}\n{"type":"closed","session":1}\n`);
+  input.write(`${START_LINE.replace(`"protocol":${PROTOCOL}`, `"protocol":${other}`)}\n{"type":"gone","connection":1}\n`);
   await assert.rejects(served, (error: unknown) => error instanceof ProtocolVersionError && error.server === other);
   assert.equal(errors.length, 1);
   assert.match(errors[0] ?? "", new RegExp(`protocol ${other}.*protocol ${PROTOCOL}`, "u"), "both versions are named");
@@ -162,11 +176,11 @@ test("REQ-2215 and REQ-2216: start's languages, measured and a refusal's request
   assert.deepEqual(measured, {
     type: "measured",
     request: 7,
-    measured: { triplets: 5, limit: 208, designation: { default: 0, second: null }, runs: [{ cells: 6, triplets: 3 }] },
+    triplets: 5,
+    limit: 208,
+    designation: { default: 0, second: null },
+    runs: [{ cells: 6, triplets: 3 }],
   });
   const refused = readMessage('{"type":"refused","message":"measure","request":9,"path":"page.text[0]","rule":"text_unshown","detail":"U+4E2D"}');
-  assert.deepEqual(refused, {
-    type: "refused",
-    refusal: { message: "measure", request: 9, path: "page.text[0]", rule: "text_unshown", detail: "U+4E2D" },
-  });
+  assert.deepEqual(refused, { type: "refused", message: "measure", request: 9, path: "page.text[0]", rule: "text_unshown", detail: "U+4E2D" });
 });

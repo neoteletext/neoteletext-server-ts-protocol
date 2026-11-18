@@ -3,22 +3,26 @@
 // crates/teletext-runtime/src/protocol/check.rs at neoteletext-app-server
 // e6d95f7 (REQ-1475, REQ-1477, REQ-1478, REQ-1479; DEC-1482 item 7). Text
 // has no control and no bidirectional formatting character and is in
-// Unicode normalisation form C; base64 is exact and decodes to whole rows,
-// samples and packets; orders, duplicates, reserved pages and the forms of
+// Unicode normalisation form C; base64 is exact and decodes to whole rows
+// and packets; orders, duplicates, reserved pages and the forms of
 // link targets are the server's; and every bound `start` gives is taken
 // from the limits it gave, so the kit holds none of its own (REQ-1033).
 // Each field is checked in the order the server checks it, and a fault is
 // named at the path the server names it, with its rule.
 
-import { authorLogFault, cookieFault, redirectFault } from "./connection-rules.ts";
+import { authorLogFault, redirectFault } from "./connection-rules.ts";
+import type { Encoded } from "./encoded.ts";
 import type { Fault } from "./fault.ts";
 import type { Limits } from "./limits.ts";
 import { LAST_SUBPAGE_CODE, pageFault } from "./page-rules.ts";
-import type { PictureMessage, ProgramMessage, WireConnections, WireMagazine, WireSubPageEntry } from "./protocol.ts";
+import type { Connections, Magazine, ProgramMessage as WireMessage, SubPageEntry } from "./generated/protocol.js";
+import type { PictureMessage } from "./picture-rules.ts";
 import { CODE_POINT_DIGITS, HEX, PAGE_DIGITS, base64Bytes, boundedTextFault, firstOf, given, hex, isFault, textFault, wholeFault } from "./rule-pieces.ts";
-import { soundFault } from "./sound-rules.ts";
 import { PACKET_BYTES, isValidStreamPacket } from "./stream-packets.ts";
 import { isReserved } from "../page/page-numbers.ts";
+
+/** A message as its line carries it. */
+type ProgramMessage = Encoded<WireMessage>;
 
 /** A page number's magazine: its first hexadecimal digit (EN 300 706 clause 7.1.2). */
 const MAGAZINE_SHIFT = 8;
@@ -28,7 +32,7 @@ const FIRST_MAGAZINE = 1;
 const MOST_RAW_BYTES = 1024 * 1024;
 
 /** A message naming a selection's number names exactly one connection (the server's check_answer; DEC-1759 lesson 13). */
-function answerFault(connections: WireConnections, request: number | null | undefined): Fault | null {
+function answerFault(connections: Connections, request: number | null | undefined): Fault | null {
   if (!given(request) || (connections !== "all" && connections.length === 1)) {
     return null;
   }
@@ -41,7 +45,7 @@ function mostPages(magazine: number, limits: Limits): number {
 }
 
 /** A page of the index, in its magazine (the server's check_magazines). */
-function entryFault(at: string, entry: WireMagazine["pages"][number], magazine: number, before: number, limits: Limits): Fault | null {
+function entryFault(at: string, entry: Magazine["pages"][number], magazine: number, before: number, limits: Limits): Fault | null {
   const page = Number.parseInt(entry.page, HEX);
   if (page >> MAGAZINE_SHIFT !== magazine) {
     return { path: `${at}.page`, rule: "wrong_magazine", detail: `${entry.page} is not in magazine ${magazine}` };
@@ -63,7 +67,7 @@ function entryFault(at: string, entry: WireMagazine["pages"][number], magazine: 
 }
 
 /** The magazines of an index: ascending, each with its pages ascending, in it and not reserved (the server's check_magazines). */
-function magazinesFault(path: string, magazines: readonly WireMagazine[], limits: Limits): Fault | null {
+function magazinesFault(path: string, magazines: readonly Magazine[], limits: Limits): Fault | null {
   let lastMagazine = 0;
   return firstOf(magazines, (magazine, index) => {
     const at = `${path}[${index}]`;
@@ -98,7 +102,7 @@ function subpagesFault(message: Extract<ProgramMessage, { type: "subpages" }>, l
     return { path: "subpages", rule: "out_of_range", detail: `${message.subpages.length} sub-pages, 1 to ${most}` };
   }
   let before = -1;
-  return firstOf(message.subpages, (entry: WireSubPageEntry, index) => {
+  return firstOf(message.subpages, (entry: SubPageEntry, index) => {
     const at = `subpages[${index}]`;
     const sub = Number.parseInt(entry.sub, HEX);
     if (sub > LAST_SUBPAGE_CODE) {
@@ -181,11 +185,8 @@ function regisFault(message: Extract<ProgramMessage, { type: "regis" }>): Fault 
   return isFault(bytes) ? bytes : null;
 }
 
-/** A sound's, raw packets' or ReGIS's bytes; a denial has none. */
-function bytesMessageFault(message: Extract<ProgramMessage, { type: "sound" | "packets" | "regis" | "denied" }>): Fault | null {
-  if (message.type === "sound") {
-    return soundFault(message);
-  }
+/** Raw packets' or ReGIS's bytes; a denial has none. */
+function bytesMessageFault(message: Extract<ProgramMessage, { type: "packets" | "regis" | "denied" }>): Fault | null {
   if (message.type === "regis") {
     return regisFault(message);
   }
@@ -194,6 +195,10 @@ function bytesMessageFault(message: Extract<ProgramMessage, { type: "sound" | "p
 
 /** The first fault of a message the schema has passed, by the server's rules and `start`'s limits; null when it has none. What is said of a ReGIS sub-page's picture has its rules in picture-rules.ts. */
 export function checkRules(message: Exclude<ProgramMessage, PictureMessage>, limits: Limits): Fault | null {
+  // A sound is held to the schema alone: every other rule of it is the server's, which its refusal reports (typescript.md TS-17). The viewer's requests have none beyond the schema.
+  if (message.type === "sound" || message.type === "request_state" || message.type === "end_state" || message.type === "offer_remember") {
+    return null;
+  }
   let fault: Fault | null;
   switch (message.type) {
     case "reply": {
@@ -213,10 +218,6 @@ export function checkRules(message: Exclude<ProgramMessage, PictureMessage>, lim
       fault = magazinesFault("magazines", message.magazines, limits);
       break;
     }
-    case "cookie": {
-      fault = cookieFault(message);
-      break;
-    }
     case "author_log": {
       fault = authorLogFault(message.text, limits);
       break;
@@ -233,7 +234,6 @@ export function checkRules(message: Exclude<ProgramMessage, PictureMessage>, lim
       fault = descriptionFault(message, limits);
       break;
     }
-    case "sound":
     case "packets":
     case "regis":
     case "denied": {

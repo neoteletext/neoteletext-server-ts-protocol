@@ -18,7 +18,7 @@ const FIXTURES = join(import.meta.dirname, "fixtures");
 test("the kit's fixture channel answers a connection and its selections with the lines kept", () => {
   const start = [
     START_LINE,
-    '{"type":"connected","connection":1,"session":1,"request":1,"cookies":[],"selection":null}',
+    '{"type":"connected","connection":1,"request":1,"remembered":false,"selection":null}',
     '{"type":"left","connection":1,"page":"100"}',
     '{"type":"selected","connection":1,"request":2,"path":"101","page":"101","sub":"3F7F"}',
     '{"type":"selected","connection":1,"request":3,"path":"101/0002","page":"101","sub":"0002"}',

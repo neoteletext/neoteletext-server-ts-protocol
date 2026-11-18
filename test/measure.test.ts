@@ -1,15 +1,22 @@
 // A program's measures of its pages (REQ-2216 item 4), and what `start`
-// and `connected` tell its applications: the languages (REQ-2215) and each
-// viewer's cookies (REQ-2217's ground in the kit).
+// tells its applications: the languages (REQ-2215).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type Context, MeasureRefusedError, type Measured, type PageEntry, Screen } from "../src/index.ts";
+import { type Context, MeasureRefusedError, type PageEntry, Screen } from "../src/index.ts";
+import type { Measured, Refused } from "../src/protocol.ts";
 import { Harness, SERVER_LANGUAGES } from "../src/testing/index.ts";
 
 const PAGE = 0x100;
-const MEASURED: Measured = { triplets: 5, limit: 208, designation: { default: 0, second: null }, runs: [{ cells: 6, triplets: 3 }] };
+const MEASURED: Measured = {
+  type: "measured",
+  request: 0,
+  triplets: 5,
+  limit: 208,
+  designation: { default: 0, second: null },
+  runs: [{ cells: 6, triplets: 3 }],
+};
 
 /** A harness whose one application keeps its context from `start`, for the test to call. */
 interface Started {
@@ -66,7 +73,7 @@ test("REQ-2216 item 4: measure sends the page with a number of its own and resol
 test("REQ-2216 item 4: a measure the server refuses rejects with the refusal; another refusal of that number is not its", async () => {
   const { harness, context } = started();
   const measured = context().measure(PAGE, screen());
-  const refusal = { message: "measure", request: 0, path: "page.text[0].text", rule: "text_unshown", detail: "U+4E2D" };
+  const refusal: Refused = { type: "refused", message: "measure", request: 0, path: "page.text[0].text", rule: "text_unshown", detail: "U+4E2D" };
   harness.channel.refused({ ...refusal, message: "page" });
   assert.equal(harness.errors.length, 1, "a page's refusal of the same number is reported, not taken for the measure's");
   harness.channel.refused(refusal);
@@ -85,14 +92,4 @@ test("REQ-2216: a measure waiting when the server starts again is rejected", asy
 test("REQ-2215: an application has the languages start listed", () => {
   const { context } = started();
   assert.equal(context().languages(), SERVER_LANGUAGES);
-});
-
-test("an application reads a viewer's cookies as their connection opened with them", () => {
-  const { harness, context } = started();
-  harness.join(3, PAGE, [
-    { name: "language", value: "ru" },
-    { name: "seen", value: "1" },
-  ]);
-  assert.deepEqual(context().cookies(3), { language: "ru", seen: "1" });
-  assert.deepEqual(context().cookies(4), {}, "a session with no connection has none");
 });

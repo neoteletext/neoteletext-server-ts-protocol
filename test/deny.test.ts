@@ -4,20 +4,20 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Application, Context, PageEntry, PageRequest, WireDeniedStatus } from "../src/index.ts";
+import type { Application, Context, PageEntry, PageRequest, DeniedStatus } from "../src/index.ts";
 import { Harness } from "../src/testing/index.ts";
 import { screen } from "./recorder.ts";
 
 const OPEN = 0x100;
 const CLOSED = 0x200;
-const FORBIDDEN: WireDeniedStatus = 403;
-const BUSY: WireDeniedStatus = 429;
+const FORBIDDEN: DeniedStatus = 403;
+const BUSY: DeniedStatus = 429;
 /** The numbers of a connection's first two selections, as the server gives them. */
 const FIRST_SELECTION = 1;
 const SECOND_SELECTION = 2;
 
 /** A channel of two pages, the second of which is denied when it is asked for. */
-function guarded(status: WireDeniedStatus): Application {
+function guarded(status: DeniedStatus): Application {
   return {
     pages: (): PageEntry[] => [
       { page: OPEN, title: "Open" },

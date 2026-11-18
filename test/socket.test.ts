@@ -29,7 +29,7 @@ const SCRATCH = join(import.meta.dirname, "..", "tmp");
  */
 const ARRIVES_WITHIN_MS = 10_000;
 /** A viewer connecting with no selection, which the channel answers with one reply. */
-const CONNECTED_LINE = '{"type":"connected","connection":1,"session":1,"request":1,"cookies":[],"selection":null}';
+const CONNECTED_LINE = '{"type":"connected","connection":1,"request":1,"remembered":false,"selection":null}';
 
 /** `promise`, or a failure naming `what` once the ceiling passes. */
 async function within<T>(promise: Promise<T>, what: string): Promise<T> {

@@ -1,6 +1,6 @@
 // The pages the program has drawn, which it keeps itself since the server
 // keeps none (REQ-1474; DEC-1482 leaves caching to the program): for each
-// page, the channel's copy every viewer sees and each session's own copy,
+// page, the channel's copy every viewer sees and each connection's own copy,
 // each sub-page by its sub-code in ascending order (DEC-1526), with the
 // page's sub-page list's version. A sub-page is sent from here, one at a
 // time, as a connection selects it or as it changes (REQ-1501).
@@ -8,7 +8,7 @@
 import type { SubPageContent } from "../page/content.ts";
 import { Copy } from "./copy.ts";
 
-/** Who a copy belongs to: the channel's one shared copy, or one session's own. */
+/** Who a copy belongs to: the channel's one shared copy, or one connection's own. */
 export type Owner = "channel" | number;
 
 /** A sub-page given to be kept. */
@@ -45,9 +45,9 @@ export class Copies {
     return this.#copies.get(owner)?.get(page);
   }
 
-  /** The copy `session` sees of `page`: its own, or the channel's. */
-  seen(session: number, page: number): Copy | undefined {
-    return this.get(session, page) ?? this.get("channel", page);
+  /** The copy `connection` sees of `page`: its own, or the channel's. */
+  seen(connection: number, page: number): Copy | undefined {
+    return this.get(connection, page) ?? this.get("channel", page);
   }
 
   changes(owner: Owner, page: number): number {
@@ -95,14 +95,14 @@ export class Copies {
     return this.#changed(owner, page, copy, before, countBefore, new Set());
   }
 
-  /** Drops the session's own copy of `page`: whether it had one. */
-  release(session: number, page: number): boolean {
-    return this.#copies.get(session)?.delete(page) ?? false;
+  /** Drops the connection's own copy of `page`: whether it had one. */
+  release(connection: number, page: number): boolean {
+    return this.#copies.get(connection)?.delete(page) ?? false;
   }
 
-  /** Forgets every copy of the session's. */
-  forget(session: number): void {
-    this.#copies.delete(session);
+  /** Forgets every copy of the connection's. */
+  forget(connection: number): void {
+    this.#copies.delete(connection);
   }
 
   #changed(owner: Owner, page: number, copy: Copy, before: string, countBefore: number, changed: ReadonlySet<number>): Change {

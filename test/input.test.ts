@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { Button, character, clicked, decimalDigit, Held, type Input, Key, Mods, pressed, readMessage, released, typed } from "../src/index.ts";
+import { Button, character, clicked, decimalDigit, Held, type Input, Key, Mods, pressed, readInput, readMessage, released, typed } from "../src/index.ts";
 
 /** An input event as the server's line carries it, read whole. */
 function read(event: unknown): Input | string {
@@ -9,7 +9,7 @@ function read(event: unknown): Input | string {
   if (typeof message === "string") {
     return message;
   }
-  return message.type === "input" ? message.input : "not input";
+  return message.type === "input" ? readInput(message.event, message.lost) : "not input";
 }
 
 test("every kind of event the server writes is read", () => {
@@ -92,7 +92,7 @@ test("protocol 11: the pointer's going and a second finger reach a program (REQ-
       event: { kind: "touch", action: "release", contact: 1, column: 0, row: 0 },
     }),
   );
-  assert.deepEqual(typeof lost === "string" || lost.type !== "input" ? lost : lost.input, {
+  assert.deepEqual(typeof lost === "string" || lost.type !== "input" ? lost : readInput(lost.event, lost.lost), {
     kind: "touch",
     action: "release",
     contact: 1,

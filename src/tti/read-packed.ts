@@ -8,7 +8,8 @@ import { olCodes } from "./format.ts";
 import { ANY_SUBCODE, PACKED_LINKS_ROW, readPackedLinks } from "./packed-links.ts";
 import { SUBCODE_DIGITS, hex } from "./write-row.ts";
 import { pageText } from "../page/page-numbers.ts";
-import type { WirePackedLine, WireTriplet } from "../wire/protocol.ts";
+import { fixed } from "../wire/fixed.ts";
+import type { Enhancement, PackedLine, Triplet } from "../wire/generated/protocol.js";
 
 /** The packets of a packed line: X/26 enhancements, X/27 links, X/28 page and M/29 magazine enhancements (REQ-INP-023). */
 export const PACKET_ENHANCEMENT = 26;
@@ -36,8 +37,8 @@ const LAST_DESIGNATION = 15;
 const MOST_PACKETS = 16;
 
 /** Thirteen triplets from 39 characters, six bits each, low first (the engine's unpack_triplets). */
-function triplets(values: readonly number[]): WireTriplet[] {
-  return Array.from({ length: TRIPLETS }, (_, index) => {
+function triplets(values: readonly number[]): Enhancement["triplets"] {
+  const read = Array.from({ length: TRIPLETS }, (_, index): Triplet => {
     const [first = 0, second = 0, third = 0] = values.slice(index * 3, index * 3 + 3);
     const value =
       (first & TRIPLET_CHARACTER_MASK) |
@@ -45,6 +46,7 @@ function triplets(values: readonly number[]): WireTriplet[] {
       ((third & TRIPLET_CHARACTER_MASK) << (2 * TRIPLET_CHARACTER_BITS));
     return { address: value & ADDRESS_MASK, mode: (value >> ADDRESS_BITS) & MODE_MASK, data: (value >> (ADDRESS_BITS + MODE_BITS)) & DATA_MASK };
   });
+  return fixed<Enhancement["triplets"]>(read, TRIPLETS);
 }
 
 /** Puts `line` in `list` in place of one of the same packet and designation code, or after them, within the bound. */
@@ -77,7 +79,7 @@ export function readPacked(page: Being, number: number, text: string): void {
     place(page.enhancements, { designation, triplets: triplets(values) }, (one, two) => one.designation === two.designation);
     return;
   }
-  let line: WirePackedLine;
+  let line: PackedLine;
   if (number === PACKED_LINKS_ROW) {
     line =
       designation <= LAST_NIBBLE_DESIGNATION

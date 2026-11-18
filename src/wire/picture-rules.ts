@@ -4,8 +4,12 @@
 
 import type { Fault } from "./fault.ts";
 import type { Limits } from "./limits.ts";
-import type { PictureMessage } from "./protocol.ts";
+import type { Encoded } from "./encoded.ts";
+import type { ProgramMessage } from "./generated/protocol.js";
 import { base64Bytes, isFault } from "./rule-pieces.ts";
+
+/** What a program says of a sub-page's picture beside its ReGIS, as its line carries it: its drawing links, its cursor drawing, and its NAPLPS. */
+export type PictureMessage = Extract<Encoded<ProgramMessage>, { type: "regis_links" | "regis_cursor" | "naplps" }>;
 
 /** The sub-code that names no sub-page (EN 300 706 clause 9.6.1). */
 const ANY_SUBPAGE = "3F7F";

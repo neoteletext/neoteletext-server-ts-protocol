@@ -13,7 +13,7 @@
 #                             formatting, lint and Knip checks, and the
 #                             tests: what the gates run, here or on the host
 #   scripts/check.sh build    the release build into dist/
-#   scripts/check.sh schema   schema/protocol-12.json against the server's
+#   scripts/check.sh schema   schema/protocol-13.json against the server's
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -26,11 +26,11 @@ readonly NODE_LEAST="22.18.0"
 readonly INSTALLED_FROM="node_modules/.installed-from.sha256"
 # Every file is the program or its checks.
 readonly CHECKED_PATHS=(.)
-# The server's repository, and the commit whose protocol/schema-12.json
-# schema/protocol-12.json is a copy of: a new schema is taken by copying it
-# and naming its commit here.
+# The server's repository, and the commit whose protocol/schema-13.json
+# schema/protocol-13.json is a copy of: a new schema is taken by copying it
+# and naming its commit here (typescript.md TS-5 to TS-7).
 server="${NEOTELETEXT_SERVER:-$HOME/devel/neoteletext-app-server}"
-readonly SCHEMA_FROM="df662b92de74155e793e7dbd27330b7077913319"
+readonly SCHEMA_FROM="08023b4ff7f40298eac6e08213d836710f344d54"
 # The server commit whose PROGRAM_REPLY_LIMIT_MS the testing entry's
 # SERVER_LIMITS must equal (DEC-2438).
 readonly REPLY_LIMIT_FROM="fa18b08928651a6161c1158375171b61aabf56f7"
@@ -78,6 +78,11 @@ process.exit(newer === -1 || found[newer] > least[newer] ? 0 : 1);
 
     locked_tools
 
+    # Generated twice, the second time into memory only, so that one schema gives one text (typescript.md TS-12).
+    step "the types, from the server's schema"
+    node scripts/types.ts
+    node scripts/types.ts --check
+
     step "the validators, from the server's schema (Ajv's standalone mode)"
     node scripts/validators.ts
 
@@ -88,7 +93,7 @@ process.exit(newer === -1 || found[newer] > least[newer] ? 0 : 1);
     # The quality tools run on TypeScript 7: oxlint's type-aware rules are
     # typescript-go's own.
     step "formatting (Prettier, .prettierrc.json)"
-    npx --no -- prettier --check src test scripts/validators.ts
+    npx --no -- prettier --check src test scripts/validators.ts scripts/types.ts
 
     step "lint, type-aware, warnings fail (oxlint, .oxlintrc.json)"
     npx --no -- oxlint --type-aware --tsconfig tsconfig.json --deny-warnings src test
@@ -104,22 +109,23 @@ build() {
     locked_tools
     step "the release build (tsconfig.build.json)"
     rm -rf dist
+    node scripts/types.ts
     node scripts/validators.ts
     npx --no -- tsc -p tsconfig.build.json
-    # The validators are generated JavaScript, which tsc does not emit.
+    # The generated files are JavaScript and declarations, which tsc does not emit (TS-12).
     mkdir -p dist/wire/generated
-    cp src/wire/generated/validators.js src/wire/generated/validators.d.ts dist/wire/generated/
+    cp src/wire/generated/validators.js src/wire/generated/validators.d.ts src/wire/generated/protocol.d.ts src/wire/generated/bytes.js src/wire/generated/bytes.d.ts dist/wire/generated/
 }
 
 # The copy is the server's file at the commit named, byte for byte, so the
 # validators check what the server checks. The server's repository is on
 # this machine, not on the Linux host, whose steps (stage) do not ask it.
 schema() {
-    step "schema/protocol-12.json is the server's protocol/schema-12.json at ${SCHEMA_FROM:0:7}"
+    step "schema/protocol-13.json is the server's protocol/schema-13.json at ${SCHEMA_FROM:0:7}"
     server_git rev-parse --git-dir >/dev/null 2>&1 || fail "the server's repository is needed at $server (or NEOTELETEXT_SERVER) to check the schema's copy"
-    server_git cat-file -e "$SCHEMA_FROM:protocol/schema-12.json" 2>/dev/null || fail "$server has no protocol/schema-12.json at $SCHEMA_FROM"
-    cmp -s schema/protocol-12.json <(server_git show "$SCHEMA_FROM:protocol/schema-12.json") ||
-        fail "schema/protocol-12.json differs from $server's protocol/schema-12.json at $SCHEMA_FROM; copy that file, or name in scripts/check.sh the commit the copy is from"
+    server_git cat-file -e "$SCHEMA_FROM:protocol/schema-13.json" 2>/dev/null || fail "$server has no protocol/schema-13.json at $SCHEMA_FROM"
+    cmp -s schema/protocol-13.json <(server_git show "$SCHEMA_FROM:protocol/schema-13.json") ||
+        fail "schema/protocol-13.json differs from $server's protocol/schema-13.json at $SCHEMA_FROM; copy that file, or name in scripts/check.sh the commit the copy is from"
 }
 
 reply_limit() {

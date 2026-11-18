@@ -89,7 +89,7 @@ function encodeSound(path: string, samples: Int16Array, rate: SampleRate): Encod
   }
   // The last page's granule is the sound's length, pre-skip and all (RFC 7845 section 4); its packets' frames hold it, the last only partly.
   const samplesHeld = Math.min(count * OPUS_FRAME_SAMPLES, Math.max((count - 1) * OPUS_FRAME_SAMPLES + 1, reader.granule));
-  return { packetBytes: OPUS_PACKET_BYTES, samples: samplesHeld, packets };
+  return { packet_bytes: OPUS_PACKET_BYTES, samples: samplesHeld, packets };
 }
 
 /** A stream encoded by one ffmpeg process, read as it writes. */

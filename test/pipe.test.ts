@@ -22,7 +22,7 @@ const FIXTURES = join(import.meta.dirname, "fixtures");
  */
 const ARRIVES_WITHIN_MS = 10_000;
 /** A viewer connecting with no selection, which the channel answers with one reply. */
-const CONNECTED_LINE = '{"type":"connected","connection":1,"session":1,"request":1,"cookies":[],"selection":null}';
+const CONNECTED_LINE = '{"type":"connected","connection":1,"request":1,"remembered":false,"selection":null}';
 /** The viewer selecting page 102, which the channel answers with that one page. */
 const SELECTED_LINE = '{"type":"selected","connection":1,"request":2,"path":"102","page":"102","sub":"3F7F"}';
 

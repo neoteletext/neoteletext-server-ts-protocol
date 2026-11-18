@@ -20,5 +20,5 @@ test("start, as the harness tells a program, carries the server's reply limit of
   const expected = Math.ceil((MARGIN * SLOWEST_MEASURED_MS) / MS_PER_SECOND) * MS_PER_SECOND;
   const start = readMessage(START_LINE);
   assert.ok(typeof start !== "string" && start.type === "start", JSON.stringify(start));
-  assert.equal(start.limits.budgets.replyLimitMs, expected);
+  assert.equal(start.budgets.reply_limit_ms, expected);
 });

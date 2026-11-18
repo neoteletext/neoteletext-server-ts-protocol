@@ -9,7 +9,7 @@ import { Context, type Host } from "./context.ts";
 import type { Copies } from "./copies.ts";
 import { FIRST_PAGE, isReserved, pageText } from "../page/page-numbers.ts";
 import type { Limits } from "../wire/limits.ts";
-import type { WireMagazine } from "../wire/protocol.ts";
+import type { Magazine } from "../wire/generated/protocol.js";
 
 /** The channel's applications, and what it knows of their pages. */
 export class Applications {
@@ -37,11 +37,11 @@ export class Applications {
     });
   }
 
-  /** The index `session` is sent: each page's title as it is now, and its sub-pages as the copy the session sees has them, its own or the channel's. */
-  index(copies: Copies, limits: Limits, session: number): WireMagazine[] {
+  /** The index `connection` is sent: each page's title as it is now, and its sub-pages as the copy the connection sees has them, its own or the channel's. */
+  index(copies: Copies, limits: Limits, connection: number): Magazine[] {
     return channelIndex(
       [...this.entries.values()],
-      { title: (page): string => this.titles.get(page) ?? "", subpages: (page): number => copies.seen(session, page)?.subpages.size ?? 1 },
+      { title: (page): string => this.titles.get(page) ?? "", subpages: (page): number => copies.seen(connection, page)?.subpages.size ?? 1 },
       limits,
       this.#errors,
     );
@@ -83,32 +83,45 @@ export class Applications {
     });
   }
 
-  /** A session not among `sessions` joins as it is first named. */
-  know(sessions: Set<number>, session: number, host: Host, now: number): void {
-    if (!sessions.has(session)) {
-      sessions.add(session);
+  /** A connection not among `known` joins as it is first named. */
+  know(known: Set<number>, connection: number, host: Host, now: number): void {
+    if (!known.has(connection)) {
+      known.add(connection);
       this.each(host, now, (application, context) => {
-        application.joined?.(session, context);
+        application.joined?.(connection, context);
       });
     }
   }
 
-  /**
-   * After `start` the server tells the program of every viewer afresh, and
-   * says nothing of those it no longer has, which only this can end
-   * (REQ-1056). Each application hears `ended` as for `closed`, before its
-   * `start`, so that what it holds is gone before it mounts or publishes
-   * anything. The channel's copies stay: `start` replaces them.
-   */
-  endEvery(sessions: Set<number>, copies: Copies, host: Host, now: number): void {
-    const ending = [...sessions];
-    sessions.clear();
-    for (const session of ending) {
-      copies.forget(session);
-      this.each(host, now, (application, context) => {
-        application.ended?.(session, context);
-      });
+  /** The connection is gone (VS-351 item 6): its copies go, and every application hears it; false for a connection not known. */
+  gone(known: Set<number>, copies: Copies, connection: number, host: Host, now: number): boolean {
+    if (!known.delete(connection)) {
+      return false;
     }
+    copies.forget(connection);
+    this.each(host, now, (application, context) => {
+      application.gone?.(connection, context);
+    });
+    return true;
+  }
+
+  /**
+   * After `start` the server tells the program of every connection afresh,
+   * and says nothing of those it no longer has, which only this can end
+   * (REQ-1056). Each application hears `gone` for each, before its `start`,
+   * so that what it holds is gone before it mounts or publishes anything.
+   * The channel's copies stay: `start` replaces them.
+   */
+  endEvery(known: Set<number>, copies: Copies, host: Host, now: number): void {
+    // A set's iteration passes over what is deleted from it as it goes, and visits each that stays once.
+    for (const connection of known) {
+      this.gone(known, copies, connection, host, now);
+    }
+  }
+
+  /** Whether any application hears refusals itself (typescript.md TS-22). */
+  hearsRefusals(): boolean {
+    return this.#applications.some((application) => application.refused !== undefined);
   }
 
   /** Runs `run` on the application that serves `page`. */

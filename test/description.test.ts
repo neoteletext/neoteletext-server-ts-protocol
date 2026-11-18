@@ -37,7 +37,7 @@ function described(describe: NonNullable<Application["describe"]>): Harness {
 }
 
 test("`describe` is read from its line and carries a page and nothing else", () => {
-  assert.deepEqual(readMessage('{"type":"describe","page":"100"}'), { type: "describe", page: PAGE });
+  assert.deepEqual(readMessage('{"type":"describe","page":"100"}'), { type: "describe", page: "100" });
   const withViewer = readMessage('{"type":"describe","page":"100","session":1}');
   assert.ok(typeof withViewer === "string" && withViewer.includes("unknown_field"), JSON.stringify(withViewer));
 });

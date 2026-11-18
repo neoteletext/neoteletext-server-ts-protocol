@@ -1,7 +1,8 @@
 // The server's figures for a test to give a channel (Harness.stats): every
 // figure the schema names, nought unless the test says otherwise.
 
-import type { ChannelCounts, ChannelTotals, ServerFigures, ServerStats, ServerTotals } from "../wire/stats.ts";
+import type { ChannelCounts, ChannelTotals, ServerFigures, ServerTotals } from "../wire/generated/protocol.js";
+import type { ServerStats } from "../wire/server-message.ts";
 
 const SERVER_TOTALS: ServerTotals = { connections_total: 0, connections_peak: 0, messages_sent: 0, bytes_sent: 0, requests: 0, restarts: 0 };
 
@@ -36,7 +37,7 @@ const CHANNEL_TOTALS: ChannelTotals = {
   lines_to_application: 0,
   lines_from_application: 0,
   lines_dropped: 0,
-  sessions_resumed: 0,
+  proofs_accepted: 0,
   pages_opened: {},
 };
 
@@ -58,8 +59,8 @@ const CHANNEL: ChannelCounts = {
   lines_to_application: 0,
   lines_from_application: 0,
   lines_dropped: 0,
-  sessions_waiting: 0,
-  sessions_resumed: 0,
+  proofs_accepted: 0,
+  proofs_refused: 0,
   most_opened: [],
   all_time: CHANNEL_TOTALS,
 };

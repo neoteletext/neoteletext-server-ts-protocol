@@ -8,7 +8,7 @@
 // is bounded as it is read, and anything out of its bounds is dropped.
 
 import { CODE_MASK, COLUMNS, ROWS, SPACE } from "../page/geometry.ts";
-import { type ReadPage, type SubPageContent, NO_CONTROL, X27_LINKS, blankContent, encodeRow, readBack } from "../page/content.ts";
+import { type ReadPage, type SubPageContent, NO_CONTROL, X27_LINKS, blankContent, encodeRow, linksOf, readBack } from "../page/content.ts";
 import { CursorFlag } from "../page/cursor.ts";
 import { FIRST_PAGE, PAGE_DIGITS, PAGE_RADIX, isPageNumber, pageText } from "../page/page-numbers.ts";
 import { type Being, wholeField } from "./being.ts";
@@ -127,7 +127,7 @@ function contentOf(page: Being): SubPageContent {
   return {
     ...blankContent(),
     rows: page.rows.map((row) => encodeRow(row)),
-    links: page.links,
+    links: linksOf(page.links),
     display_row_24: page.displayRow24,
     link_extension: { keys: page.keys, numbers: page.numbers, texts: page.texts },
     control: page.control,

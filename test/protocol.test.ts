@@ -6,21 +6,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import {
-  type Application,
-  App,
-  blankContent,
-  checkProgram,
-  checkServer,
-  type PageEntry,
-  type ProgramMessage,
-  ProtocolError,
-  Screen,
-  type WirePage,
-} from "../src/index.ts";
+import { type Application, App, blankContent, checkProgram, checkServer, type PageEntry, ProtocolError, Screen } from "../src/index.ts";
+import type { Page } from "../src/protocol.ts";
 import { Harness, SERVER_LANGUAGES, SERVER_LIMITS, type Sent } from "../src/testing/index.ts";
 
-const PAGE: WirePage = { page: "100", sub: "0000", ...blankContent() };
+const PAGE: Page = { page: "100", sub: "0000", ...blankContent() };
 
 /** Packet 1/0, a header, as a stream carries it: its address bytes are magazine 1 and packet 0 in Hamming 8/4 (EN 300 706 clause 8.2, Table 3), then spaces. */
 const MAGAZINE_1_HEADER = Buffer.from([0x02, 0x15, ...Array.from({ length: 40 }, () => 0x20)]).toString("base64");
@@ -32,7 +22,8 @@ function subCodeAt(place: number): string {
 }
 
 test("a valid value of each program message passes the server's schema", () => {
-  const messages: ProgramMessage[] = [
+  // As their lines carry them: bytes fields base64.
+  const messages: unknown[] = [
     {
       type: "reply",
       connection: 1,
@@ -54,7 +45,9 @@ test("a valid value of each program message passes the server's schema", () => {
     { type: "index", connections: [1], magazines: [] },
     { type: "redirect", connection: 1, request: 1, page: "1A0", sub: "3F7F" },
     { type: "sound", connections: [1], kind: "stop", channel: 0, fade_ms: 0 },
-    { type: "cookie", connection: 1, name: "seen", value: "1", path: "/", max_age: 60, same_site: "Lax", secure: true, http_only: true },
+    { type: "request_state", connection: 1 },
+    { type: "end_state", viewer: "0123456789abcdef0123456789abcdef" },
+    { type: "offer_remember", connection: 1 },
     { type: "author_log", connections: "all", level: "I", text: "hello", page: null },
     { type: "log", level: "info", event: "application", text: "hello" },
     { type: "packets", connections: [1], packets: MAGAZINE_1_HEADER },
@@ -152,7 +145,7 @@ function carousel(): Application {
 
 test("connected is answered by one reply: the index and the one sub-page selected, then its page's list", () => {
   const harness = new Harness([carousel()]);
-  harness.channel.connected(5, 1, 1, { page: 0x101, sub: 0x3f7f }, []);
+  harness.channel.connected(5, 1, { page: 0x101, sub: 0x3f7f });
   const [reply, list, ...rest] = harness.sent;
   assert.equal(reply?.["type"], "reply");
   assert.equal(subOf(reply, "selected"), "0001", "3F7F shows the first sub-page in ascending order (DEC-1526)");

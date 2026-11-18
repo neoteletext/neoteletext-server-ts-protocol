@@ -5,13 +5,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { checkProgram, Screen, type WirePage } from "../src/index.ts";
+import { checkProgram, Screen } from "../src/index.ts";
+import type { Page } from "../src/protocol.ts";
 import { SERVER_LIMITS } from "../src/testing/index.ts";
 
 /** The most page-number and text links a sub-page may have (the engine's page::NUMBER_LINKS and TEXT_LINKS). */
 const MOST_LINKS = 8;
 
-function sent(screen: Screen): WirePage["link_extension"] {
+function sent(screen: Screen): Page["link_extension"] {
   return screen.content().link_extension;
 }
 

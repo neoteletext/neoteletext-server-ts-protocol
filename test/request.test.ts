@@ -1,6 +1,6 @@
 // DEC-1730: a viewer's query arrives with a selection, and an application
-// hears it as a request: the path, the query read and as written, and the
-// connection's cookies.
+// hears it as a request: the path and the query, read and as written; the
+// viewer's cookies are gone with protocol 13 (viewer-state.md VS-402).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -50,7 +50,7 @@ function requestFor(query: string): PageRequest {
 }
 
 // REQ-1674: the query reaches the application with the selection.
-test("DEC-1730 item 9: an application hears a selection as a request, with its path, query and cookies", () => {
+test("DEC-1730 item 9: an application hears a selection as a request, with its path and query, and no cookies (VS-402)", () => {
   const heard: (PageRequest | null | undefined)[] = [];
   const harness = new Harness([
     hearing((_text, request) => {
@@ -59,13 +59,10 @@ test("DEC-1730 item 9: an application hears a selection as a request, with its p
       }
     }),
   ]);
-  harness.channel.connected(1, 1, 1, null, [
-    { name: "theme", value: "dark" },
-    { name: "seen", value: "1" },
-  ]);
+  harness.channel.connected(1, 1, null);
   heard.length = 0;
   harness.channel.selected(1, 2, { page: 0x302, sub: SUB }, "302/0002", "a=1");
-  assert.deepEqual(heard, [null, { method: "GET", path: "302/0002", query: { a: "1" }, queryText: "a=1", cookies: { theme: "dark", seen: "1" } }]);
+  assert.deepEqual(heard, [null, { method: "GET", path: "302/0002", query: { a: "1" }, queryText: "a=1" }]);
 });
 
 // REQ-1674 item 4: the kit parses it with the standard URL parsers.
@@ -86,25 +83,10 @@ test("DEC-1730 item 9: a query is read as URLSearchParams reads it, and kept as 
   assert.deepEqual([...new URLSearchParams(request.queryText).getAll("a")], ["1", "2"], "a name given twice is whole in the text");
 });
 
-test("DEC-1730 item 9: a viewer's names are plain names, in a query and in cookies", () => {
+test("DEC-1730 item 9: a viewer's names are plain names in a query", () => {
   const { query } = requestFor("__proto__=x&constructor=y");
   assert.equal(Object.getPrototypeOf(query), Object.prototype, "the query's prototype is its own still");
   assert.deepEqual(Object.keys(query), ["__proto__", "constructor"]);
-
-  let cookies: Readonly<Record<string, string>> | undefined;
-  const harness = new Harness([
-    hearing((_text, request) => {
-      cookies = request?.cookies ?? cookies;
-    }),
-  ]);
-  harness.channel.connected(1, 1, 1, null, [
-    { name: "__proto__", value: "x" },
-    { name: "a", value: "1" },
-    { name: "a", value: "2" },
-  ]);
-  harness.open(1, 0x302, ANY_SUB, "q=1");
-  assert.deepEqual(Object.keys(cookies ?? {}), ["__proto__", "a"]);
-  assert.equal(cookies?.["a"], "2");
 });
 
 test("an application hears a request before the page opens, and null when another selection leaves it behind", () => {
@@ -212,8 +194,8 @@ test("a program that starts again hears the request of a connection's selection,
       }
     }),
   ]);
-  harness.channel.connected(1, 1, 1, { page: 0x302, sub: SUB }, [{ name: "theme", value: "dark" }], "302/0002", "a=1");
-  assert.deepEqual(heard, [{ method: "GET", path: "302/0002", query: { a: "1" }, queryText: "a=1", cookies: { theme: "dark" } }]);
+  harness.channel.connected(1, 1, { page: 0x302, sub: SUB }, "302/0002", "a=1");
+  assert.deepEqual(heard, [{ method: "GET", path: "302/0002", query: { a: "1" }, queryText: "a=1" }]);
 });
 
 test("a query reaches no application on a connection that selected nothing it serves", () => {
@@ -223,18 +205,20 @@ test("a query reaches no application on a connection that selected nothing it se
       heard.push(text);
     }),
   ]);
-  harness.channel.connected(1, 1, 1, null, [], null, "a=1");
-  harness.channel.connected(2, 2, 1, { page: 0x777, sub: ANY_SUB }, [], "777", "a=1");
+  harness.channel.connected(1, 1, null, null, "a=1");
+  harness.channel.connected(2, 1, { page: 0x777, sub: ANY_SUB }, "777", "a=1");
   assert.deepEqual(heard, ["request 1 100 ", "opened 1 100", "request 2 100 ", "opened 2 100"]);
 });
 
 test("schema 6: connected and selected carry a number, a path and a query, and the old fields are refused", () => {
-  const connected = { type: "connected", connection: 1, session: 1, request: 1, cookies: [] };
+  const connected = { type: "connected", connection: 1, request: 1, remembered: false };
   const selected = { type: "selected", connection: 1, request: 2, path: "302/0002", page: "302", sub: "0002" };
   assert.equal(checkServer({ ...connected, selection: { page: "302", sub: "0002" }, path: "302/0002", query: "a=1" }), null);
   assert.equal(checkServer({ ...selected, query: "a=1" }), null);
   assert.equal(checkServer({ ...selected, parameters: "a=1" })?.rule, "unknown_field");
   assert.equal(checkServer({ ...connected, parameters: "a=1" })?.rule, "unknown_field");
+  assert.equal(checkServer({ ...connected, session: 1 })?.rule, "unknown_field", "protocol 13 has no server session (VS-354)");
+  assert.equal(checkServer({ ...connected, cookies: [] })?.rule, "unknown_field", "nor cookies (VS-402)");
   const missing = checkServer({ type: "selected", connection: 1, request: 2, page: "302", sub: "0002" });
   assert.equal(missing?.rule, "missing_field");
   assert.match(missing?.detail ?? "", /'path'/u);

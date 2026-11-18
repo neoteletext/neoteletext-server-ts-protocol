@@ -28,7 +28,6 @@ const NOT_LIMITS: ReadonlyMap<string, string> = new Map([
   ["sound/profile.ts MOST_SAMPLES", "120 seconds of samples, not a title's characters"],
   ["sound/profile.ts SECOND_MS", "milliseconds in a second"],
   ["sound/profile.ts OPUS_BITRATE", "the Opus profile's 16,000 bits a second (the engine's DEC-647)"],
-  ["wire/connection-rules.ts COOKIE_BYTES", "a cookie field's 4,096 bytes (RFC 6265 section 6.1), which start does not give"],
   [
     "wire/socket.ts FIRST_PAUSE_MS",
     "the first pause before connecting to the server's socket again, one second as the server's own FIRST_PAUSE, not a log line's characters",

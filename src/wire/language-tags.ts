@@ -78,5 +78,3 @@ export const LANGUAGE_TAGS = [
   "ja-Kana",
   "ja-Latn",
 ] as const;
-
-export type WireLanguageTag = (typeof LANGUAGE_TAGS)[number];

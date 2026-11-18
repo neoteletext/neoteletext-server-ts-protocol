@@ -2,7 +2,7 @@
 // (validate.ts), as the kit's own Input.
 
 import { Button, Held, type Input, type Pointed } from "./input.ts";
-import type { WireButtons, WireInputEvent } from "../wire/server-wire.ts";
+import type { Buttons, InputEvent } from "../wire/generated/protocol.js";
 
 /** The modifiers held, when any is. */
 function modsOf(mods: number): { readonly mods?: number } {
@@ -16,7 +16,7 @@ function pointedOf(event: { readonly mods: number; readonly px?: number | null |
 }
 
 /** The buttons a move says are held, as bits ({@link Held}). */
-function heldOf(buttons: WireButtons | null | undefined): number {
+function heldOf(buttons: Buttons | null | undefined): number {
   if (buttons === null || buttons === undefined) {
     return 0;
   }
@@ -24,7 +24,7 @@ function heldOf(buttons: WireButtons | null | undefined): number {
 }
 
 /** An event as the kit's Input; `lost` marks a release the page lost. */
-export function readInput(event: WireInputEvent, lost: boolean): Input {
+export function readInput(event: InputEvent, lost: boolean): Input {
   const marked = lost ? ({ lost: true } as const) : {};
   if (event.kind === "key") {
     const { action, key } = event;

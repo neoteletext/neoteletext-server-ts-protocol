@@ -40,49 +40,73 @@ function wakeTimer(channel: Channel, clock: Clock): { readonly schedule: () => v
   };
 }
 
+/** `run`, then the wake timer set again, since any event may ask for a wake. */
+type Then = <Given extends unknown[]>(run: (...given: Given) => void) => (...given: Given) => void;
+
+/** The server's messages about one connection to `channel`. */
+function connectionEvents(
+  channel: Channel,
+  then: Then,
+): Pick<ServerEvents, "connected" | "selected" | "input" | "left" | "gone" | "viewerBegan" | "viewerLeft" | "stateRefused"> {
+  return {
+    connected: then((...given: Parameters<ServerEvents["connected"]>) => {
+      channel.connected(...given);
+    }),
+    selected: then((...given: Parameters<ServerEvents["selected"]>) => {
+      channel.selected(...given);
+    }),
+    input: then((...given: Parameters<ServerEvents["input"]>) => {
+      channel.input(...given);
+    }),
+    left: then((...given: Parameters<ServerEvents["left"]>) => {
+      channel.left(...given);
+    }),
+    gone: then((...given: Parameters<ServerEvents["gone"]>) => {
+      channel.gone(...given);
+    }),
+    viewerBegan: then((...given: Parameters<ServerEvents["viewerBegan"]>) => {
+      channel.viewerBegan(...given);
+    }),
+    viewerLeft: then((...given: Parameters<ServerEvents["viewerLeft"]>) => {
+      channel.viewerLeft(...given);
+    }),
+    stateRefused: then((...given: Parameters<ServerEvents["stateRefused"]>) => {
+      channel.stateRefused(...given);
+    }),
+  };
+}
+
 /** The server's messages to `channel`, the wake timer set again after each. */
 function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
+  const then: Then =
+    (run) =>
+    (...given): void => {
+      run(...given);
+      schedule();
+    };
   return {
-    start(epochMs, limits, languages): void {
-      channel.start(epochMs, limits, languages);
-      schedule();
-    },
-    connected(connection, session, request, selection, cookies, path, query): void {
-      channel.connected(connection, session, request, selection, cookies, path, query);
-      schedule();
-    },
-    selected(connection, request, selection, path, query): void {
-      channel.selected(connection, request, selection, path, query);
-      schedule();
-    },
-    input(connection, page, sub, input): void {
-      channel.input(connection, page, sub, input);
-      schedule();
-    },
-    left(connection, page): void {
-      channel.left(connection, page);
-      schedule();
-    },
-    closed(session): void {
-      channel.closed(session);
-      schedule();
-    },
-    stats(stats): void {
-      channel.stats(stats);
-      schedule();
-    },
-    refused(refusal): void {
-      channel.refused(refusal);
-      schedule();
-    },
-    measured(request, measured): void {
-      channel.measured(request, measured);
-      schedule();
-    },
-    describe(page): void {
-      channel.describe(page);
-      schedule();
-    },
+    ...connectionEvents(channel, then),
+    start: then((...given: Parameters<ServerEvents["start"]>) => {
+      channel.start(...given);
+    }),
+    viewersReset: then(() => {
+      channel.viewersReset();
+    }),
+    stats: then((...given: Parameters<ServerEvents["stats"]>) => {
+      channel.stats(...given);
+    }),
+    refused: then((...given: Parameters<ServerEvents["refused"]>) => {
+      channel.refused(...given);
+    }),
+    measured: then((...given: Parameters<ServerEvents["measured"]>) => {
+      channel.measured(...given);
+    }),
+    describe: then((...given: Parameters<ServerEvents["describe"]>) => {
+      channel.describe(...given);
+    }),
+    soundBuilt: then((...given: Parameters<ServerEvents["soundBuilt"]>) => {
+      channel.soundBuilt(...given);
+    }),
   };
 }
 

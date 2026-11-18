@@ -33,7 +33,7 @@ const NOT_TAKEN: Navigated = { taken: false };
 
 const TAKEN: Navigated = { taken: true, redirect: null };
 
-/** Each session's digits typed towards a page number. */
+/** Each connection's digits typed towards a page number. */
 export class Navigation {
   readonly #serves: (page: number) => boolean;
   readonly #typed = new Map<number, number[]>();
@@ -43,8 +43,8 @@ export class Navigation {
     this.#serves = serves;
   }
 
-  /** What `input` from `session` does on a page that uses `keys` itself and shows `links`. */
-  take(session: number, input: Input, keys: PageKeys, links: FastextLinks): Navigated {
+  /** What `input` from `connection` does on a page that uses `keys` itself and shows `links`. */
+  take(connection: number, input: Input, keys: PageKeys, links: FastextLinks): Navigated {
     if (keys.ownsColourKeys !== true && input.kind === "key") {
       const link = COLOUR_KEYS.get(input.key);
       if (link !== undefined) {
@@ -61,7 +61,7 @@ export class Navigation {
       }
       let redirect: number | null = null;
       for (const digit of digits) {
-        redirect = this.#digit(session, digit ?? 0) ?? redirect;
+        redirect = this.#digit(connection, digit ?? 0) ?? redirect;
       }
       return { taken: true, redirect };
     }
@@ -71,34 +71,34 @@ export class Navigation {
       if (digit === undefined) {
         return NOT_TAKEN;
       }
-      return input.action === "press" ? { taken: true, redirect: this.#digit(session, digit) } : TAKEN;
+      return input.action === "press" ? { taken: true, redirect: this.#digit(connection, digit) } : TAKEN;
     }
     return NOT_TAKEN;
   }
 
-  /** One more digit from `session`: the page, once three make one the channel has. */
-  #digit(session: number, digit: number): number | null {
-    const typed = this.#typed.get(session) ?? [];
+  /** One more digit from `connection`: the page, once three make one the channel has. */
+  #digit(connection: number, digit: number): number | null {
+    const typed = this.#typed.get(connection) ?? [];
     if (typed.length === 0 && (digit < FIRST_MAGAZINE || digit > LAST_MAGAZINE)) {
       return null;
     }
     typed.push(digit);
     if (typed.length < PAGE_DIGITS) {
-      this.#typed.set(session, typed);
+      this.#typed.set(connection, typed);
       return null;
     }
-    this.#typed.delete(session);
+    this.#typed.delete(connection);
     const page = Number.parseInt(typed.join(""), PAGE_RADIX);
     return this.#serves(page) ? page : null;
   }
 
-  /** The session opened a page: what it had typed towards another is forgotten. */
-  reset(session: number): void {
-    this.#typed.delete(session);
+  /** The connection opened a page: what it had typed towards another is forgotten. */
+  reset(connection: number): void {
+    this.#typed.delete(connection);
   }
 
-  forget(session: number): void {
-    this.#typed.delete(session);
+  forget(connection: number): void {
+    this.#typed.delete(connection);
   }
 
   /** Every connection went: what any of them typed goes with it. */

@@ -112,8 +112,8 @@ async function attempt(events: ServerEvents, path: string, setOutput: SetOutput,
  * again at once, since the server went after serving it; after one that
  * failed, or that the server closed before `start` (a second program is
  * closed, one at a time), it waits, longer each time, up to
- * {@link LONGEST_PAUSE_MS}. Each connection is a session afresh: the server
- * sends `start` on it, which ends every session the program knew (REQ-1056).
+ * {@link LONGEST_PAUSE_MS}. Each socket connection is a start afresh: the server
+ * sends `start` on it, after which every connection the program knew is gone (REQ-1056).
  * Lines written while no connection is open are dropped, as the server drops
  * those that waited for a program that went. Rejects only as
  * {@link serveLines} does, on a `start` of another protocol.

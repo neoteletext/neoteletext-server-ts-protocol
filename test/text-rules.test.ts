@@ -2,17 +2,18 @@
 // program's messages to before they are written (REQ-1475 items 5 and 6,
 // REQ-1479; the server's crates/teletext-runtime/src/protocol/check.rs at
 // neoteletext-app-server 165a2c1; DEC-1548): text in Unicode normalisation
-// form C, no control or bidirectional formatting character, a cookie's
-// fields and an author's log line bounded in bytes; and the bounds the
+// form C, no control or bidirectional formatting character, an author's
+// log line bounded in bytes; and the bounds the
 // schema does state, at the paths the server names.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { App, blankContent, checkProgram, checkServer, fitText, ProtocolError, type WirePage, type WireTriplet } from "../src/index.ts";
+import { App, blankContent, checkProgram, checkServer, fitText, ProtocolError } from "../src/index.ts";
+import type { Page, Triplet } from "../src/protocol.ts";
 import { SERVER_LANGUAGES, SERVER_LIMITS } from "../src/testing/index.ts";
 
-const PAGE: WirePage = { page: "100", sub: "0000", ...blankContent() };
+const PAGE: Page = { page: "100", sub: "0000", ...blankContent() };
 /** "é" as one code point, which is NFC, and as "e" and a combining acute accent, which is not. */
 const COMPOSED = "\u00E9";
 const DECOMPOSED = "e\u0301";
@@ -23,12 +24,8 @@ function index(name: string, title: string, section: string | null): unknown {
   return { type: "index", connections: "all", magazines: [{ magazine: 1, name, pages: [{ page: "100", title, section, subpages: 1 }] }] };
 }
 
-function labelled(label: string): WirePage {
+function labelled(label: string): Page {
   return { ...PAGE, link_extension: { keys: [{ key: "red", target: "101", label }], numbers: [], texts: [] } };
-}
-
-function cookie(fields: Readonly<Record<string, unknown>>): unknown {
-  return { type: "cookie", connection: 1, name: "seen", value: "1", path: "/", max_age: null, same_site: null, secure: false, http_only: false, ...fields };
 }
 
 function authorLog(text: string): unknown {
@@ -36,7 +33,7 @@ function authorLog(text: string): unknown {
 }
 
 /** X/27's thirteen triplets and thirty-nine nibbles (EN 300 706 clause 9.6). */
-const TRIPLETS: WireTriplet[] = Array.from({ length: 13 }, () => ({ address: 0, mode: 0, data: 0 }));
+const TRIPLETS: Triplet[] = Array.from({ length: 13 }, () => ({ address: 0, mode: 0, data: 0 }));
 const NIBBLES: number[] = Array.from({ length: 39 }, () => 0);
 
 function nibbles(designation: number): unknown {
@@ -93,9 +90,6 @@ function everyTextField(text: string): [unknown, string][] {
     [index("News", "Index", text), "magazines[0].pages[0].section"],
     [{ type: "page", connections: [1], page: labelled(text) }, "page.link_extension.keys[0].label"],
     [{ type: "subpages", connections: [1], page: "100", version: 0, subpages: [{ sub: "0001", title: text }] }, "subpages[0].title"],
-    [cookie({ name: text }), "name"],
-    [cookie({ value: text }), "value"],
-    [cookie({ path: text }), "path"],
     [{ type: "author_log", connections: "all", level: "I", text, page: null }, "text"],
     [{ type: "log", level: "info", event: "application", text }, "text"],
   ];
@@ -144,24 +138,6 @@ test("REQ-1475: a control (C0, DEL, C1) or a bidirectional formatting character 
   for (const [message] of everyTextField("a\u200Db\u00ADc")) {
     assert.equal(checkProgram(message, SERVER_LIMITS), null, JSON.stringify(message).slice(0, 120));
   }
-});
-
-test("REQ-1475: a cookie's name, value and path are bounded in bytes, as RFC 6265 section 6.1 bounds them (the server's 165a2c1)", () => {
-  for (const field of ["name", "value", "path"]) {
-    assert.equal(checkProgram(cookie({ [field]: "a".repeat(4096) }), SERVER_LIMITS), null, `${field}: 4,096 bytes`);
-    assert.equal(checkProgram(cookie({ [field]: COMPOSED.repeat(2048) }), SERVER_LIMITS), null, `${field}: 2,048 two-byte characters are 4,096 bytes`);
-    assert.deepEqual(
-      checkProgram(cookie({ [field]: COMPOSED.repeat(2049) }), SERVER_LIMITS),
-      { path: field, rule: "too_long", detail: "4098 bytes, at most 4096" },
-      field,
-    );
-    assert.equal(
-      checkProgram(cookie({ [field]: "a".repeat(4097) }), SERVER_LIMITS)?.rule,
-      "too_long",
-      `${field}: the schema bounds the characters by the same figure`,
-    );
-  }
-  assert.deepEqual(checkProgram(cookie({ name: "_session" }), SERVER_LIMITS), { path: "name", rule: "reserved", detail: "names starting _ are the server's" });
 });
 
 test("REQ-1475: an author's log line is at most 200 bytes of UTF-8", () => {

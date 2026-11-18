@@ -4,16 +4,18 @@
 // it (REQ-1501, REQ-1473); what it sends otherwise goes to the connections
 // it names.
 
-import { Random } from "./random.ts";
+// oxlint-disable import/max-dependencies, max-lines -- a context is a program's every call (kit-calls.tsv), each reaching its part of the channel
+import type { Audience } from "./audience.ts";
+import type { DeniedStatus } from "./connections.ts";
 import type { Owner } from "./copies.ts";
+import { Random } from "./random.ts";
+import type { Viewer } from "./viewer.ts";
 import { Screen } from "../page/screen.ts";
 import type { Subpage } from "../page/subpage.ts";
-import type { Audience, SoundMember } from "../sound/members.ts";
 import type { App } from "../wire/app.ts";
+import type { AuthorLevel, Measured, SoundMember } from "../wire/generated/protocol.js";
 import type { Language } from "../wire/languages.ts";
 import type { Limits } from "../wire/limits.ts";
-import type { Measured } from "../wire/server-message.ts";
-import type { WireAuthorLevel, WireDeniedStatus, WireSameSite } from "../wire/protocol.ts";
 
 /** One numbered drawing of a ReGIS picture that is a link, and where it leads (the server's REQ-6372). */
 export interface DrawingLink {
@@ -21,16 +23,6 @@ export interface DrawingLink {
   readonly drawing: number;
   /** A page (`"200"`), a sub-page (`"200:0001"`), a page of another channel (`"news:300"`), an address, or `"web:"` and a web address. */
   readonly target: string;
-}
-
-/** A cookie's attributes (RFC 6265bis), each typed (DOC-1970). */
-export interface CookieOptions {
-  readonly path?: string;
-  /** Seconds it lasts, 0 removing it; absent, it lasts the browser's session. */
-  readonly maxAge?: number;
-  readonly sameSite?: WireSameSite;
-  readonly secure?: boolean;
-  readonly httpOnly?: boolean;
 }
 
 /** What a context reaches of its channel. */
@@ -42,16 +34,14 @@ export interface Host {
   publish(owner: Owner, page: number, subpages: readonly Subpage[], whole: boolean): void;
   publishTti(owner: Owner, page: number, text: string, titles: readonly (string | null)[]): void;
   remove(owner: Owner, page: number, subcodes: readonly number[]): void;
-  release(session: number, page: number): void;
+  release(connection: number, page: number): void;
   titleOf(page: number): string | undefined;
   title(page: number, title: string): void;
-  redirect(session: number, to: number | string, sub: number | null): void;
-  deny(session: number, status: WireDeniedStatus): void;
+  redirect(connection: number, to: number | string, sub: number | null): void;
+  deny(connection: number, status: DeniedStatus): void;
   sound(to: Audience, member: SoundMember): void;
-  authorLog(to: Audience, level: WireAuthorLevel, text: string, page: number | null): void;
+  authorLog(to: Audience, level: AuthorLevel, text: string, page: number | null): void;
   log(text: string): void;
-  cookie(connection: number, name: string, value: string, options: CookieOptions): void;
-  cookies(session: number): Readonly<Record<string, string>>;
   measure(page: number, screen: Screen): Promise<Measured>;
   packets(to: Audience, packets: Uint8Array): void;
   regis(to: Audience, page: number, sub: number, data: string | Uint8Array, restart: boolean): void;
@@ -59,7 +49,11 @@ export interface Host {
   regisCursor(to: Audience, page: number, sub: number, drawing: number): void;
   naplps(to: Audience, page: number, sub: number, data: Uint8Array, restart: boolean): void;
   connection(): number | null;
-  connectionsOf(session: number): number[];
+  viewer(connection: number): Viewer | null;
+  remembered(connection: number): boolean;
+  requestState(connection: number): void;
+  endState(viewer: Viewer): void;
+  offerRemember(connection: number): void;
 }
 
 /** An application's view of the channel during one call. */
@@ -137,28 +131,25 @@ export class Context {
   }
 
   /**
-   * Sends the session's viewer elsewhere (DOC-1960): to
-   * `page`, and sub-page `sub` when given, or to another channel's
-   * `address`, which the viewer's receiver shows a notice for and then
-   * opens by its own rules. It goes to the connection the call came from
-   * when it is the session's, otherwise each of the session's connections.
+   * Sends the connection elsewhere (DOC-1960): to `page`, and sub-page
+   * `sub` when given, or to another channel's `address`, which the viewer's
+   * receiver shows a notice for and then opens by its own rules.
    */
-  redirect(session: number, page: number, sub?: number): void;
-  redirect(session: number, address: string): void;
-  redirect(session: number, to: number | string, sub?: number): void {
-    this.#host.redirect(session, to, sub ?? null);
+  redirect(connection: number, page: number, sub?: number): void;
+  redirect(connection: number, address: string): void;
+  redirect(connection: number, to: number | string, sub?: number): void {
+    this.#host.redirect(connection, to, sub ?? null);
   }
 
   /**
    * Ends the viewer's selection without a page (DOC-1961):
    * 403 not allowed, 404 no such page, 429 a limit, 503 not answering. The
-   * viewer stays where they were and the connection stays open. It goes to
-   * the connection the call came from when it is the session's, otherwise
-   * each of the session's connections. Called from `request` or `opened`,
-   * it is the selection's answer, in place of the page.
+   * viewer stays where they were and the connection stays open. Called
+   * from `request` or `opened`, it is the selection's answer, in place of
+   * the page.
    */
-  deny(session: number, status: WireDeniedStatus): void {
-    this.#host.deny(session, status);
+  deny(connection: number, status: DeniedStatus): void {
+    this.#host.deny(connection, status);
   }
 
   /** The title the channel's index lists one of its pages under now, if it has the page. */
@@ -171,34 +162,29 @@ export class Context {
     this.#host.title(page, title);
   }
 
-  /** Drops the session's own copy of `page`: from now on it sees the channel's copy, as every viewer does, and is sent it at once. */
-  release(session: number, page: number): void {
-    this.#host.release(session, page);
+  /** Drops the connection's own copy of `page`: from now on it sees the channel's copy, as every viewer does, and is sent it at once. */
+  release(connection: number, page: number): void {
+    this.#host.release(connection, page);
   }
 
-  /** Sends a sound (DOC-1970). */
+  /**
+   * Sends a sound, of any kind the schema gives (typescript.md TS-19): the
+   * member as the program built it, with `type` and `connections` added, one
+   * line for each chunk of the audience's connections, every line held to the
+   * schema before the first is written; nothing for an audience with no
+   * connection. It throws a {@link ProtocolError} for what the schema refuses
+   * and checks nothing more: every other rule is the server's, which a
+   * `refused` handler hears (TS-17, TS-22). Bytes fields are Uint8Arrays.
+   * Send a connection a page's `play` once, when it opens the page: a new
+   * play starts the sound again (integration.md INT-28).
+   */
   sound(to: Audience, member: SoundMember): void {
     this.#host.sound(to, member);
   }
 
   /** A line for the developer console of the viewers' browsers (`author_log`, REQ-INP-026): `E`, `W` or `I`, cut to `start`'s `author_log_bytes`. */
-  authorLog(to: Audience, level: WireAuthorLevel, text: string, page?: number): void {
+  authorLog(to: Audience, level: AuthorLevel, text: string, page?: number): void {
     this.#host.authorLog(to, level, text, page ?? null);
-  }
-
-  /**
-   * The viewer's cookies, as their connection opened with them (DEC-1730
-   * item 8): untrusted, from the viewer. The connection the call came from
-   * when it is the session's, else the session's latest; none for a
-   * session with no connection open.
-   */
-  cookies(session: number): Readonly<Record<string, string>> {
-    return this.#host.cookies(session);
-  }
-
-  /** Sets one of the program's cookies for the connection's viewer; names starting `_` are the server's. */
-  cookie(connection: number, name: string, value: string, options: CookieOptions = {}): void {
-    this.#host.cookie(connection, name, value, options);
   }
 
   /** Raw packets, whole 42-byte packets back to back (DOC-1970). */
@@ -265,9 +251,33 @@ export class Context {
     return this.#host.connection();
   }
 
-  /** The connections open for `session`: one a browser tab. */
-  connectionsOf(session: number): number[] {
-    return this.#host.connectionsOf(session);
+  /** The connection's viewer, or null when it has none (viewer-state.md VS-401). */
+  viewer(connection: number): Viewer | null {
+    return this.#host.viewer(connection);
+  }
+
+  /** Whether the connection's viewer chose to be remembered on this channel; false with no viewer (VS-351 item 1). */
+  remembered(connection: number): boolean {
+    return this.#host.remembered(connection);
+  }
+
+  /**
+   * Asks that the viewer on the connection be given state (VS-352 item 1):
+   * the server answers later, `viewerBegan` or `stateRefused`. Ask only
+   * after the viewer acted (VS-212).
+   */
+  requestState(connection: number): void {
+    this.#host.requestState(connection);
+  }
+
+  /** Ends the viewer's state (VS-352 item 2): every connection presenting it hears `viewerLeft`. Delete what is kept for it (VS-409). */
+  endState(viewer: Viewer): void {
+    this.#host.endState(viewer);
+  }
+
+  /** Asks the browser to offer the viewer "remember me" (VS-352 item 3, VS-208); refused with `stateRefused` when it cannot. */
+  offerRemember(connection: number): void {
+    this.#host.offerRemember(connection);
   }
 
   /** Asks for `wake` at `at`, in milliseconds; the earliest asked for wins. */

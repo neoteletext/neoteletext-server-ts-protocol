@@ -3,8 +3,9 @@
 // before it is written, so a mistake is caught where it is made, and the
 // server's after it is read, so nothing acts on a line that is not valid.
 // A program's message the schema passes is then held to the server's rules
-// that the schema cannot state, with the limits `start` gave
-// (server-rules.ts), so the kit never writes what the server refuses. A fault is said as the server says a
+// for pages, indexes and text that the schema cannot state, with the limits
+// `start` gave (server-rules.ts); a sound is held to the schema alone, every
+// other rule of it the server's (typescript.md TS-17). A fault is said as the server says a
 // refusal: the path of the first fault and the rule broken, from the
 // server's closed list (REQ-1475).
 
@@ -12,9 +13,10 @@ import type { Fault } from "./fault.ts";
 import { type ValidationFault, type Validator, program, server } from "./generated/validators.js";
 import type { Limits } from "./limits.ts";
 import { pictureFault } from "./picture-rules.ts";
-import type { ProgramMessage } from "./protocol.ts";
+import { decodeBytes } from "./bytes.ts";
+import type { Encoded } from "./encoded.ts";
+import type { ProgramMessage, ServerMessage } from "./generated/protocol.js";
 import { checkRules } from "./server-rules.ts";
-import type { WireServerMessage } from "./server-wire.ts";
 
 /** A message the program was about to write broke the protocol: nothing of it was written. */
 export class ProtocolError extends Error {
@@ -93,11 +95,11 @@ function check(validators: Readonly<Record<string, Validator>>, message: unknown
   return validator(message) ? null : first(validator.errors ?? []);
 }
 
-function isProgramMessage(message: unknown): message is ProgramMessage {
+function isProgramMessage(message: unknown): message is Encoded<ProgramMessage> {
   return check(program, message) === null;
 }
 
-/** Whether a message the program would send is valid, by the schema and then by the server's rules within the limits `start` gave: null, or its first fault. */
+/** Whether a message the program would send, as its line carries it, is valid, by the schema and then by the server's rules within the limits `start` gave: null, or its first fault. */
 export function checkProgram(message: unknown, limits: Limits): Fault | null {
   if (!isProgramMessage(message)) {
     return check(program, message);
@@ -112,11 +114,10 @@ export function checkServer(message: unknown): Fault | null {
   return check(server, message);
 }
 
-function isServerMessage(message: unknown): message is WireServerMessage {
-  return checkServer(message) === null;
-}
-
-/** A message the server sent, valid by the schema; or its first fault. */
-export function readServer(message: unknown): WireServerMessage | Fault {
-  return isServerMessage(message) ? message : (checkServer(message) ?? { path: "", rule: "syntax", detail: "not valid" });
+/** A message the server sent, valid by the schema, with its bytes fields as bytes; or its first fault. */
+export function readServer(message: unknown): ServerMessage | Fault {
+  const fault = checkServer(message);
+  // The validator has passed it: it is the generated type, as its line carried it.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the validator compiled from the schema has passed it
+  return fault ?? (decodeBytes(message, "ServerMessage") as ServerMessage);
 }

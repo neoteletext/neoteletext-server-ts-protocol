@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type Application, type Input, Key, type PageEntry, readMessage } from "../src/index.ts";
+import { type Application, type Input, Key, type PageEntry, readInput, readMessage } from "../src/index.ts";
 import { Harness } from "../src/testing/index.ts";
 import { ANY_SUB } from "../src/channel/channel.ts";
 import { Recorder, screen } from "./recorder.ts";
@@ -21,11 +21,11 @@ function blank(text: string): { readonly screen: ReturnType<typeof screen> } {
 test("input carries its sub-code and whether the page lost it, and the schema asks for both", () => {
   const message = readMessage(inputLine({ sub: "0002", lost: true, event: { kind: "key", action: "release", key: "a", mods: 0, text: null, base: null } }));
   assert.ok(typeof message !== "string" && message.type === "input");
-  assert.equal(message.sub, 2);
-  assert.deepEqual(message.input, { kind: "key", action: "release", key: "a", lost: true } satisfies Input);
+  assert.equal(message.sub, "0002");
+  assert.deepEqual(readInput(message.event, message.lost), { kind: "key", action: "release", key: "a", lost: true } satisfies Input);
   const real = readMessage(inputLine({ sub: "0000", lost: false, event: { kind: "key", action: "release", key: "a", mods: 0, text: null, base: null } }));
   assert.ok(typeof real !== "string" && real.type === "input");
-  assert.deepEqual(real.input, { kind: "key", action: "release", key: "a" } satisfies Input);
+  assert.deepEqual(readInput(real.event, real.lost), { kind: "key", action: "release", key: "a" } satisfies Input);
   assert.equal(typeof readMessage(inputLine({ lost: false })), "string", "no sub");
   assert.equal(typeof readMessage(inputLine({ sub: "0000" })), "string", "no lost");
 });
@@ -45,7 +45,7 @@ test("a coloured key follows the links of the sub-page the input names", () => {
 
 test("a selection of a sub-page the page lacks gets a reply with none, then the page", () => {
   const harness = new Harness([new Recorder([{ page: 0x100, title: "Index" }])]);
-  harness.channel.connected(5, 5, 1, { page: 0x100, sub: 0x0009 }, []);
+  harness.channel.connected(5, 1, { page: 0x100, sub: 0x0009 });
   const reply = harness.sent.find((message) => message["type"] === "reply" && message["connection"] === 5);
   assert.equal(reply?.["selected"], null);
   assert.deepEqual(harness.redirects(5), [0x100]);
@@ -53,7 +53,7 @@ test("a selection of a sub-page the page lacks gets a reply with none, then the 
 
 test("a selection of a page no application serves gets a reply with none, then the initial page", () => {
   const harness = new Harness([new Recorder([{ page: 0x100, title: "Index" }])]);
-  harness.channel.connected(6, 6, 1, { page: 0x777, sub: ANY_SUB }, []);
+  harness.channel.connected(6, 1, { page: 0x777, sub: ANY_SUB });
   const reply = harness.sent.find((message) => message["type"] === "reply" && message["connection"] === 6);
   assert.equal(reply?.["selected"], null, "the server holds 777 as the selection, and would show this connection nothing else");
   assert.deepEqual(harness.redirects(6), [0x100]);

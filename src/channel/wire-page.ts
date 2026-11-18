@@ -5,7 +5,7 @@ import type { Copy } from "./copy.ts";
 import { blankContent } from "../page/content.ts";
 import { pageText } from "../page/page-numbers.ts";
 import { SUBCODE_DIGITS, hex } from "../tti/write-row.ts";
-import type { WirePage } from "../wire/protocol.ts";
+import type { Page } from "../wire/generated/protocol.js";
 
 /** 3F7F: the page and none of its sub-pages in particular (EN 300 706 clause 9.6.1). */
 export const ANY_SUB = 0x3f7f;
@@ -21,7 +21,7 @@ export function pathOf({ page, sub }: { readonly page: number; readonly sub: num
 }
 
 /** Sub-page `sub` of the copy as the protocol carries it; blank if the copy has none of that sub-code. */
-export function wirePage(page: number, sub: number, copy: Copy): WirePage {
+export function wirePage(page: number, sub: number, copy: Copy): Page {
   const content = copy.subpages.get(sub)?.content ?? blankContent();
   return { page: pageText(page), sub: subText(sub), ...content };
 }

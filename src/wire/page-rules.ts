@@ -6,7 +6,11 @@
 
 import type { Fault } from "./fault.ts";
 import type { Limits } from "./limits.ts";
-import type { WireLinkExtension, WirePackedLine, WirePage } from "./protocol.ts";
+import type { Encoded } from "./encoded.ts";
+import type { LinkExtension, PackedLine, Page as WirePage } from "./generated/protocol.js";
+
+/** A sub-page as its line carries it, its rows base64. */
+type Page = Encoded<WirePage>;
 import { HEX, base64Bytes, boundedTextFault, firstOf, given, isFault, textFault } from "./rule-pieces.ts";
 import { CODE_MASK, COLUMNS } from "../page/geometry.ts";
 import { longestLabel, targetKind } from "../page/link-targets.ts";
@@ -47,7 +51,7 @@ function kindOf(target: string, longest: number): ReturnType<typeof targetKind> 
 }
 
 /** The Link Extension's links: each key once, each target in a form of Appendix E.1, labels within their target's bound, no page number to the web, text links within their row (the server's check_link_extension). */
-function linksFault(path: string, links: WireLinkExtension, longest: number): Fault | null {
+function linksFault(path: string, links: LinkExtension, longest: number): Fault | null {
   return (
     firstOf(links.keys, (link, index) => {
       const at = `${path}.keys[${index}]`;
@@ -89,7 +93,7 @@ function linksFault(path: string, links: WireLinkExtension, longest: number): Fa
 }
 
 /** Each X/26's designation code once (clause 12.3). */
-function enhancementsFault(path: string, page: WirePage): Fault | null {
+function enhancementsFault(path: string, page: Page): Fault | null {
   return firstOf(page.enhancements, (packet, index) =>
     page.enhancements.slice(0, index).some((earlier) => earlier.designation === packet.designation)
       ? { path: `${path}.enhancements[${index}].designation`, rule: "duplicate", detail: `designation code ${packet.designation} twice` }
@@ -98,7 +102,7 @@ function enhancementsFault(path: string, page: WirePage): Fault | null {
 }
 
 /** X/27's nibbles are four bits each (clause 9.6). */
-function packedFault(path: string, packets: readonly WirePackedLine[]): Fault | null {
+function packedFault(path: string, packets: readonly PackedLine[]): Fault | null {
   return firstOf(packets, (line, index) => {
     if (line.packet !== "x27_nibbles") {
       return null;
@@ -109,7 +113,7 @@ function packedFault(path: string, packets: readonly WirePackedLine[]): Fault | 
 }
 
 /** A page names its language or its character set, never both, and each run's text is text (REQ-2214 items 2 and 4; the server's check_text_runs). */
-function textRunsFault(path: string, page: WirePage): Fault | null {
+function textRunsFault(path: string, page: Page): Fault | null {
   if (given(page.language) && given(page.character_set)) {
     return { path: `${path}.character_set`, rule: "language_and_character_set", detail: "a page names its language or its character set, never both" };
   }
@@ -117,7 +121,7 @@ function textRunsFault(path: string, page: WirePage): Fault | null {
 }
 
 /** A sub-page, in the order of the server's check_page and check_subpage. */
-export function pageFault(path: string, page: WirePage, limits: Limits): Fault | null {
+export function pageFault(path: string, page: Page, limits: Limits): Fault | null {
   if (isReserved(Number.parseInt(page.page, HEX))) {
     return { path: `${path}.page`, rule: "reserved", detail: `${page.page} is reserved by the standard (EN 300 706 Annex A.10)` };
   }

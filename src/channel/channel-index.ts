@@ -7,7 +7,7 @@
 import type { PageEntry } from "./application.ts";
 import { pageText } from "../page/page-numbers.ts";
 import type { Limits } from "../wire/limits.ts";
-import type { WireIndexEntry, WireMagazine } from "../wire/protocol.ts";
+import type { IndexEntry, Magazine } from "../wire/generated/protocol.js";
 
 /** A page number's magazine: its first hexadecimal digit (EN 300 706 clause 7.1.2). */
 const MAGAZINE_SHIFT = 8;
@@ -33,7 +33,7 @@ export interface IndexFacts {
 }
 
 /** The index of `entries`, in ascending order; pages past a magazine's bound are left out and reported. */
-export function channelIndex(entries: readonly PageEntry[], facts: IndexFacts, limits: Limits, report: (text: string) => void): WireMagazine[] {
+export function channelIndex(entries: readonly PageEntry[], facts: IndexFacts, limits: Limits, report: (text: string) => void): Magazine[] {
   const most = limits.budgets.titleCharacters;
   const byMagazine = new Map<number, PageEntry[]>();
   for (const entry of [...entries].toSorted((one, two) => one.page - two.page)) {
@@ -44,12 +44,12 @@ export function channelIndex(entries: readonly PageEntry[], facts: IndexFacts, l
   }
   return [...byMagazine.entries()]
     .toSorted(([one], [two]) => one - two)
-    .map(([magazine, pages]): WireMagazine => {
+    .map(([magazine, pages]): Magazine => {
       const room = magazine === FIRST_MAGAZINE ? limits.standard.pagesInMagazine1 : limits.standard.pagesPerMagazine;
       if (pages.length > room) {
         report(`magazine ${magazine} has ${pages.length} pages; the index lists its first ${room}`);
       }
-      const listed = pages.slice(0, room).map((entry): WireIndexEntry => ({
+      const listed = pages.slice(0, room).map((entry): IndexEntry => ({
         page: pageText(entry.page),
         title: fitText(facts.title(entry.page), most),
         section: entry.section === undefined ? null : fitText(entry.section, most),

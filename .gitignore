@@ -6,7 +6,7 @@ tmp/
 # The build, made from src/ by scripts/check.sh build.
 dist/
 
-# The validators, compiled from schema/ by scripts/validators.ts at every check and build.
+# The types and validators, generated from schema/ by scripts/types.ts and scripts/validators.ts at every check and build (typescript.md TS-7).
 src/wire/generated/
 
 # Secrets: they live in ~/devel/credentials, never here.

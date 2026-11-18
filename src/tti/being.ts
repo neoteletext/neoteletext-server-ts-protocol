@@ -2,7 +2,7 @@
 // a line's numeric fields, which every line's reader shares.
 
 import { PAGE_RADIX } from "../page/page-numbers.ts";
-import type { WireControl, WireEnhancement, WireKeyLink, WireLink, WireNumberLink, WirePackedLine, WireTextLink } from "../wire/protocol.ts";
+import type { Control, Enhancement, KeyLink, Link, NumberLink, PackedLine, TextLink } from "../wire/generated/protocol.js";
 import { DECIMAL } from "./format.ts";
 
 /** A sub-page as it is read. */
@@ -10,16 +10,16 @@ export interface Being {
   readonly address: number;
   subcode: number | null;
   readonly rows: number[][];
-  links: (WireLink | null)[];
+  links: (Link | null)[];
   displayRow24: boolean;
-  control: WireControl;
+  control: Control;
   nationalOption: number;
   region: number | null;
-  readonly enhancements: WireEnhancement[];
-  readonly packets: WirePackedLine[];
-  readonly keys: WireKeyLink[];
-  readonly numbers: WireNumberLink[];
-  readonly texts: WireTextLink[];
+  readonly enhancements: Enhancement[];
+  readonly packets: PackedLine[];
+  readonly keys: KeyLink[];
+  readonly numbers: NumberLink[];
+  readonly texts: TextLink[];
   cursor: { row: number; column: number; block: boolean } | null;
 }
 

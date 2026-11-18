@@ -5,7 +5,7 @@
 import type { SubPageContent } from "../page/content.ts";
 import { pageText } from "../page/page-numbers.ts";
 import type { App } from "../wire/app.ts";
-import type { Measured, Refusal } from "../wire/server-message.ts";
+import type { Measured, Refused } from "../wire/generated/protocol.js";
 import { MeasureRefusedError } from "./measure-refused.ts";
 import { subText } from "./wire-page.ts";
 
@@ -50,8 +50,8 @@ export class Measures {
   }
 
   /** A refusal: the measure it names is rejected with it, and true; false for a refusal of anything else. */
-  refused(refusal: Refusal): boolean {
-    if (refusal.message !== "measure" || refusal.request === null) {
+  refused(refusal: Refused): boolean {
+    if (refusal.message !== "measure" || refusal.request === null || refusal.request === undefined) {
       return false;
     }
     const waiting = this.#waiting.get(refusal.request);

@@ -49,7 +49,7 @@ export class Recorder implements Application {
     this.onInput?.(session, page, context);
   }
 
-  ended(session: number): void {
-    this.heard.push(`ended ${session}`);
+  gone(session: number): void {
+    this.heard.push(`gone ${session}`);
   }
 }
