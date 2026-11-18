@@ -5,7 +5,7 @@
 import type { SubPageContent } from "../page/content.ts";
 import { pageText } from "../page/page-numbers.ts";
 import type { App } from "../wire/app.ts";
-import type { Measured, Refused } from "../wire/generated/protocol.js";
+import type { ServerMessageMeasured, ServerMessageRefused } from "../wire/generated/protocol.js";
 import { MeasureRefusedError } from "./measure-refused.ts";
 import { subText } from "./wire-page.ts";
 
@@ -15,7 +15,7 @@ const REQUEST_NUMBERS = 2 ** 32;
 const MEASURED_SUB = 0;
 
 interface Waiting {
-  readonly resolve: (measured: Measured) => void;
+  readonly resolve: (measured: ServerMessageMeasured) => void;
   readonly reject: (error: Error) => void;
 }
 
@@ -25,7 +25,7 @@ export class Measures {
   #next = 0;
 
   /** Sends `measure` for `content` as page `page`, resolving to the server's `measured`, or rejecting with its refusal. */
-  ask(app: App, page: number, content: SubPageContent): Promise<Measured> {
+  ask(app: App, page: number, content: SubPageContent): Promise<ServerMessageMeasured> {
     const request = this.#next;
     this.#next = (this.#next + 1) % REQUEST_NUMBERS;
     return new Promise((resolve, reject) => {
@@ -42,7 +42,7 @@ export class Measures {
   }
 
   /** The server's answer to measure `request`; false when no measure of that number waits. */
-  answered(request: number, measured: Measured): boolean {
+  answered(request: number, measured: ServerMessageMeasured): boolean {
     const waiting = this.#waiting.get(request);
     this.#waiting.delete(request);
     waiting?.resolve(measured);
@@ -50,7 +50,7 @@ export class Measures {
   }
 
   /** A refusal: the measure it names is rejected with it, and true; false for a refusal of anything else. */
-  refused(refusal: Refused): boolean {
+  refused(refusal: ServerMessageRefused): boolean {
     if (refusal.message !== "measure" || refusal.request === null || refusal.request === undefined) {
       return false;
     }

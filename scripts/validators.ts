@@ -46,10 +46,37 @@ function branches(union: string): Map<string, string> {
 }
 const program = branches("ProgramMessage");
 const server = branches("ServerMessage");
+
+/** Each kind of `sound` by its `kind`: so that a sound's fault is reported against its own kind, not against the other 50 (typescript.md TS-16). */
+function soundKinds(): Map<string, string> {
+  const branches = (
+    schema as {
+      readonly $defs: {
+        readonly ProgramMessage: {
+          readonly oneOf: readonly {
+            readonly properties: { readonly type: { readonly const: string } };
+            readonly oneOf?: readonly { readonly properties: { readonly kind: { readonly const: string } } }[];
+          }[];
+        };
+      };
+    }
+  ).$defs.ProgramMessage.oneOf;
+  const at = branches.findIndex((branch) => branch.properties.type.const === "sound");
+  const found = new Map<string, string>();
+  branches[at]?.oneOf?.forEach((kind, index) => {
+    found.set(kind.properties.kind.const, `${SCHEMA_ID}#/$defs/ProgramMessage/oneOf/${at}/oneOf/${index}`);
+  });
+  if (found.size === 0) {
+    throw new Error("the schema's sound message has no kinds");
+  }
+  return found;
+}
+const sound = soundKinds();
 const exported: Record<string, string> = {};
 for (const [prefix, union] of [
   ["program", program],
   ["server", server],
+  ["sound", sound],
 ] as const) {
   for (const [type, reference] of union) {
     exported[`${prefix}_${type}`] = reference;
@@ -57,7 +84,7 @@ for (const [prefix, union] of [
 }
 const named = (prefix: string, union: ReadonlyMap<string, string>): string =>
   `{ ${[...union.keys()].map((type) => `${JSON.stringify(type)}: ${prefix}_${type}`).join(", ")} }`;
-const code = `${standaloneCode(ajv, exported)}\nexport const program = ${named("program", program)};\nexport const server = ${named("server", server)};\n`;
+const code = `${standaloneCode(ajv, exported)}\nexport const program = ${named("program", program)};\nexport const server = ${named("server", server)};\nexport const sound = ${named("sound", sound)};\n`;
 
 /**
  * Ajv's standalone code takes two helpers from Ajv's runtime with
@@ -89,6 +116,7 @@ writeFileSync(
 /** One fault Ajv found. */
 export interface ValidationFault {
   readonly instancePath: string;
+  readonly schemaPath: string;
   readonly keyword: string;
   readonly params: Readonly<Record<string, unknown>>;
   readonly message?: string;
@@ -102,5 +130,7 @@ export interface Validator {
 export declare const program: Readonly<Record<string, Validator>>;
 /** Each message the server sends, by its \`type\`: the schema's $defs/ServerMessage. */
 export declare const server: Readonly<Record<string, Validator>>;
+/** Each kind of the program's \`sound\` message, by its \`kind\`. */
+export declare const sound: Readonly<Record<string, Validator>>;
 `,
 );

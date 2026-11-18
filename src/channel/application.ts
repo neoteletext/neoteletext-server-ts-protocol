@@ -14,7 +14,7 @@ import type { PageRequest } from "./request.ts";
 import type { Viewer } from "./viewer.ts";
 import type { Input } from "../input/input.ts";
 import type { PageKeys } from "../navigation/page-keys.ts";
-import type { Refused, SoundBuilt, StateRefusal } from "../wire/generated/protocol.js";
+import type { ServerMessageRefused, ServerMessageSoundBuilt, StateRefusal } from "../wire/generated/protocol.js";
 import type { ServerStats } from "../wire/server-message.ts";
 
 /** One page an application serves: its number, its title, which keys it uses itself, and the section it starts, if any. */
@@ -87,9 +87,9 @@ export interface Application {
    * one (typescript.md TS-22): have it do something a person will see. A
    * refusal of a `measure` rejects that measure's promise instead.
    */
-  refused?(refusal: Refused, context: Context): void;
+  refused?(refusal: ServerMessageRefused, context: Context): void;
   /** A stored synthesizer sound was built and sent, with what a Standard MIDI File's reading dropped and the banks lifted from it (server.md SRV-47; TS-23). */
-  soundBuilt?(report: SoundBuilt, context: Context): void;
+  soundBuilt?(report: ServerMessageSoundBuilt, context: Context): void;
   /** The connection, which had no viewer, now has one: after `requestState`, or when the viewer offered state (VS-351 item 2). */
   viewerBegan?(connection: number, viewer: Viewer, remembered: boolean, context: Context): void;
   /** The connection no longer carries a viewer (VS-351 item 3): what was kept for the viewer on this connection ends. */

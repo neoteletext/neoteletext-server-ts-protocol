@@ -10,7 +10,7 @@
 // server's closed list (REQ-1475).
 
 import type { Fault } from "./fault.ts";
-import { type ValidationFault, type Validator, program, server } from "./generated/validators.js";
+import { type ValidationFault, type Validator, program, server, sound } from "./generated/validators.js";
 import type { Limits } from "./limits.ts";
 import { pictureFault } from "./picture-rules.ts";
 import { decodeBytes } from "./bytes.ts";
@@ -67,8 +67,27 @@ const LANGUAGE_FIELD = "/language";
 /** Keywords that say only that no alternative of a union fitted: another fault at the same place says more. */
 const VAGUE: ReadonlySet<string> = new Set(["type", "anyOf", "oneOf", "const", "enum"]);
 
+/** The properties a union's branches are told apart by: its tags (typescript.md TS-10 rule 2). */
+const TAG_CONST = /\/properties\/(?:type|kind|event|form|packet)\/const$/u;
+
+/**
+ * The faults of the branches the message is of: a branch whose tag the
+ * message does not hold is not the message's, and what else it found there
+ * is no fault of the message's (a sound of kind synth7_events is not
+ * reported missing a synth7_bank's `bank`). Where no branch's tag fits,
+ * every fault stays.
+ */
+function ofItsBranch(faults: readonly ValidationFault[]): readonly ValidationFault[] {
+  const others = faults
+    .filter((fault) => fault.keyword === "const" && TAG_CONST.test(fault.schemaPath))
+    .map((fault) => fault.schemaPath.replace(TAG_CONST, "/"));
+  const kept = faults.filter((fault) => !others.some((branch) => fault.schemaPath.startsWith(branch)));
+  return kept.some((fault) => !VAGUE.has(fault.keyword)) ? kept : faults;
+}
+
 /** The fault to report of those Ajv found: the deepest, where a union's alternatives each found one, and of those the most telling. */
-function first(faults: readonly ValidationFault[]): Fault {
+function first(given: readonly ValidationFault[]): Fault {
+  const faults = ofItsBranch(given);
   const depth = Math.max(...faults.map((fault) => fault.instancePath.length));
   const deepest = faults.filter((fault) => fault.instancePath.length === depth);
   const chosen = deepest.find((fault) => !VAGUE.has(fault.keyword)) ?? deepest[0];
@@ -92,7 +111,16 @@ function check(validators: Readonly<Record<string, Validator>>, message: unknown
   if (validator === undefined) {
     return { path: "type", rule: "not_listed", detail: `no message is of type ${JSON.stringify(type) ?? "undefined"}` };
   }
-  return validator(message) ? null : first(validator.errors ?? []);
+  if (validator(message)) {
+    return null;
+  }
+  // A sound's faults are told against its own kind's schema, when it names a kind the schema has.
+  const kind: unknown = validators === program && type === "sound" && "kind" in message ? message.kind : undefined;
+  const own = typeof kind === "string" && Object.hasOwn(sound, kind) ? sound[kind] : undefined;
+  if (own !== undefined && !own(message)) {
+    return first(own.errors ?? []);
+  }
+  return first(validator.errors ?? []);
 }
 
 function isProgramMessage(message: unknown): message is Encoded<ProgramMessage> {

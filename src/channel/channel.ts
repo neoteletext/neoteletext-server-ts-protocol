@@ -32,7 +32,7 @@ import { pageText } from "../page/page-numbers.ts";
 import type { App } from "../wire/app.ts";
 import type { Language } from "../wire/languages.ts";
 import type { Limits } from "../wire/limits.ts";
-import type { Handle, Magazine, Measured, Refused, SoundBuilt, StateRefusal } from "../wire/generated/protocol.js";
+import type { Handle, Magazine, ServerMessageMeasured, ServerMessageRefused, ServerMessageSoundBuilt, StateRefusal } from "../wire/generated/protocol.js";
 import type { ServerEvents } from "../wire/server-events.ts";
 import type { Selection, ServerStats } from "../wire/server-message.ts";
 
@@ -272,7 +272,7 @@ export class Channel implements ServerEvents {
   }
 
   /** A stored synthesizer sound was built (server.md SRV-47): every application that wants it hears it unchanged; one no application hears is passed over (typescript.md TS-23). */
-  soundBuilt(report: SoundBuilt): void {
+  soundBuilt(report: ServerMessageSoundBuilt): void {
     this.#each((application, context) => application.soundBuilt?.(report, context));
   }
 
@@ -289,14 +289,14 @@ export class Channel implements ServerEvents {
   }
 
   /** The answer to a measure (REQ-2216). */
-  measured(request: number, measured: Measured): void {
+  measured(request: number, measured: ServerMessageMeasured): void {
     if (!this.#measures.answered(request, measured)) {
       this.#errors(`the server answered measure ${request}, which nothing waits for`);
     }
   }
 
   /** A refusal (typescript.md TS-22): a measure's rejects its promise; any other reaches every application's `refused`, or is reported when none has one. */
-  refused(refusal: Refused): void {
+  refused(refusal: ServerMessageRefused): void {
     if (this.#measures.refused(refusal)) {
       return;
     }

@@ -56,9 +56,6 @@ const KNOWN = new Set([
 /** The properties that tag a union's branches (TS-10 rule 2), and `packet`, which tags a packed line (the schema's PackedLine, which TS-10 does not name). */
 const TAGS = ["type", "kind", "event", "form", "packet"] as const;
 
-/** The union of the server's messages, whose branches are named by their tag alone. */
-const SERVER_MESSAGES = "ServerMessage";
-
 /** The longest fixed-length array written as a tuple (TS-9: as SRV-23's 16-entry channel map). */
 const LONGEST_TUPLE = 16;
 
@@ -377,8 +374,7 @@ class Generator {
       if (tag !== undefined) {
         const properties = branch["properties"] as Node;
         const value = String((properties[tag] as Node)["const"]);
-        // The server's messages to a program are its types named by their \`type\` alone (its Rust \`Refused\`, \`SoundBuilt\`, \`Gone\`), which \`schemars\` inlines: TS-22, TS-23 and TS-27 name them so.
-        const branchName = name === SERVER_MESSAGES ? upperCamel(value) : `${name}${upperCamel(value)}`;
+        const branchName = `${name}${upperCamel(value)}`;
         return this.expression(branch, branchName, at, open);
       }
       if (branch["type"] === "object" && branch["$ref"] === undefined) {

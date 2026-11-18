@@ -5,11 +5,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { type Context, MeasureRefusedError, type PageEntry, Screen } from "../src/index.ts";
-import type { Measured, Refused } from "../src/protocol.ts";
+import type { ServerMessageMeasured, ServerMessageRefused } from "../src/protocol.ts";
 import { Harness, SERVER_LANGUAGES } from "../src/testing/index.ts";
 
 const PAGE = 0x100;
-const MEASURED: Measured = {
+const MEASURED: ServerMessageMeasured = {
   type: "measured",
   request: 0,
   triplets: 5,
@@ -73,7 +73,7 @@ test("REQ-2216 item 4: measure sends the page with a number of its own and resol
 test("REQ-2216 item 4: a measure the server refuses rejects with the refusal; another refusal of that number is not its", async () => {
   const { harness, context } = started();
   const measured = context().measure(PAGE, screen());
-  const refusal: Refused = { type: "refused", message: "measure", request: 0, path: "page.text[0].text", rule: "text_unshown", detail: "U+4E2D" };
+  const refusal: ServerMessageRefused = { type: "refused", message: "measure", request: 0, path: "page.text[0].text", rule: "text_unshown", detail: "U+4E2D" };
   harness.channel.refused({ ...refusal, message: "page" });
   assert.equal(harness.errors.length, 1, "a page's refusal of the same number is reported, not taken for the measure's");
   harness.channel.refused(refusal);

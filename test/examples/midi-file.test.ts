@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import type { Context } from "../../src/index.ts";
-import type { SoundBuilt, SoundSynth7Member } from "../../src/protocol.ts";
+import type { ServerMessageSoundBuilt, SoundSynth7Member } from "../../src/protocol.ts";
 import { Harness } from "../../src/testing/index.ts";
 import { expected, inputFile, inputOf, serving, soundLines } from "./shared.ts";
 
@@ -46,7 +46,7 @@ test("TS-43, 4.6: connection 1 opening page 330 is sent the file's bytes as they
         context.sound({ page }, fromFile(file));
       }
     },
-    soundBuilt(report: SoundBuilt, context: Context): void {
+    soundBuilt(report: ServerMessageSoundBuilt, context: Context): void {
       context.log(`${report.kind} ${report.handle}: ${report.blocks} blocks, dropped ${JSON.stringify(report.dropped)}`);
       logged.push(report.kind);
     },

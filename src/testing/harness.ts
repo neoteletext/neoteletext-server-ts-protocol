@@ -26,12 +26,12 @@ import type { Rows } from "../tti/read-tti.ts";
 import { App } from "../wire/app.ts";
 import { type Language, type Limits, SERVER_LANGUAGES, SERVER_LIMITS } from "./server-limits.ts";
 import { decodeBytes } from "../wire/bytes.ts";
-import type { ProgramMessageSound, Refused, Rule, SoundBuilt, SoundMember, StateRefusal } from "../wire/generated/protocol.js";
+import type { ProgramMessageSound, ServerMessageRefused, Rule, ServerMessageSoundBuilt, SoundMember, StateRefusal } from "../wire/generated/protocol.js";
 import type { ServerStats } from "../wire/server-message.ts";
 import { checkServer } from "../wire/validate.ts";
 
 /** What a test gives of a report of a sound (`sound_built`, server.md SRV-47): everything but what names the sound, which the harness takes from the member reported. */
-export type SoundReport = Omit<SoundBuilt, "type" | "kind" | "handle" | "generation">;
+export type SoundReport = Omit<ServerMessageSoundBuilt, "type" | "kind" | "handle" | "generation">;
 
 export interface HarnessOptions {
   /** The real time when the channel starts, in milliseconds since the Unix epoch. */
@@ -377,7 +377,7 @@ export class Harness {
   /** The server refuses `member`, which the channel wrote, as it would (server.md SRV-48): the channel hears it as from the server (TS-30). */
   refuse(member: SoundMember, path: string, rule: Rule, detail: string): void {
     this.#written(member, "refuse");
-    const refusal: Refused = {
+    const refusal: ServerMessageRefused = {
       type: "refused",
       message: "sound",
       path,
@@ -399,7 +399,7 @@ export class Harness {
     if (!("handle" in member) || !("generation" in member)) {
       throw new Error(`report: a ${member.kind} names no sound`);
     }
-    const built: SoundBuilt = { type: "sound_built", kind: member.kind, handle: member.handle, generation: member.generation, ...report };
+    const built: ServerMessageSoundBuilt = { type: "sound_built", kind: member.kind, handle: member.handle, generation: member.generation, ...report };
     this.#fromServer(built);
     this.channel.soundBuilt(built);
   }

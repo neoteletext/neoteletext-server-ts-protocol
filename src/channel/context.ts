@@ -13,7 +13,7 @@ import type { Viewer } from "./viewer.ts";
 import { Screen } from "../page/screen.ts";
 import type { Subpage } from "../page/subpage.ts";
 import type { App } from "../wire/app.ts";
-import type { AuthorLevel, Measured, SoundMember } from "../wire/generated/protocol.js";
+import type { AuthorLevel, ServerMessageMeasured, SoundMember } from "../wire/generated/protocol.js";
 import type { Language } from "../wire/languages.ts";
 import type { Limits } from "../wire/limits.ts";
 
@@ -42,7 +42,7 @@ export interface Host {
   sound(to: Audience, member: SoundMember): void;
   authorLog(to: Audience, level: AuthorLevel, text: string, page: number | null): void;
   log(text: string): void;
-  measure(page: number, screen: Screen): Promise<Measured>;
+  measure(page: number, screen: Screen): Promise<ServerMessageMeasured>;
   packets(to: Audience, packets: Uint8Array): void;
   regis(to: Audience, page: number, sub: number, data: string | Uint8Array, restart: boolean): void;
   regisLinks(to: Audience, page: number, sub: number, links: readonly DrawingLink[]): void;
@@ -95,7 +95,7 @@ export class Context {
    * viewer. It rejects with a MeasureRefusedError when the server
    * would refuse the page, naming the run at fault.
    */
-  measure(page: number, screen: Screen): Promise<Measured> {
+  measure(page: number, screen: Screen): Promise<ServerMessageMeasured> {
     return this.#host.measure(page, screen);
   }
 

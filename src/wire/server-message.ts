@@ -4,7 +4,7 @@
 // message (typescript.md TS-8, TS-18).
 
 import { PAGE_RADIX } from "../page/page-numbers.ts";
-import type { ServerMessage, Stats } from "./generated/protocol.js";
+import type { ServerMessage, ServerMessageStats } from "./generated/protocol.js";
 import { readServer } from "./validate.ts";
 
 /** A page and a sub-code, as numbers: the sub-code 0x3F7F is the page and none of its sub-pages. */
@@ -14,7 +14,7 @@ export interface Selection {
 }
 
 /** The server's figures, as `stats` carries them (DOC-1968): its own, and this channel's. */
-export type ServerStats = Omit<Stats, "type">;
+export type ServerStats = Omit<ServerMessageStats, "type">;
 
 /** Whether `value` is a connection as the protocol writes it: a whole number from 1, below 2^53. */
 export function isConnection(value: unknown): value is number {

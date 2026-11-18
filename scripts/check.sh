@@ -38,7 +38,7 @@ readonly SCHEMA_FROM="08023b4ff7f40298eac6e08213d836710f344d54"
 # are copies of: the calls and the worked examples' lines both kits must have
 # (typescript.md TS-2, TS-6).
 common="${NEOTELETEXT_COMMON:-$HOME/devel/neoteletext-common}"
-readonly COMMON_FROM="38a754001238dba23f646d39fc09acf2f5afc714"
+readonly COMMON_FROM="47edd919236144d965fb6976e10e944b461c294c"
 # Each copy and the file of neoteletext-common it is a copy of.
 readonly SHARED_COPIES=("kit-calls.tsv:docs/audio/kit-calls.tsv" "test/fixtures/examples.jsonl:docs/audio/examples.jsonl")
 # The server commit whose PROGRAM_REPLY_LIMIT_MS the testing entry's

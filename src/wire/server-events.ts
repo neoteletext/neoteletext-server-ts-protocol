@@ -4,7 +4,7 @@
 
 import type { Input } from "../input/input.ts";
 import { readInput } from "../input/read-input.ts";
-import type { Handle, Measured, Refused, ServerMessage, SoundBuilt, StateRefusal } from "./generated/protocol.js";
+import type { Handle, ServerMessageMeasured, ServerMessageRefused, ServerMessage, ServerMessageSoundBuilt, StateRefusal } from "./generated/protocol.js";
 import { type Language, readLanguages } from "./languages.ts";
 import { type Limits, readLimits } from "./limits.ts";
 import { type Selection, type ServerStats, numberOf } from "./server-message.ts";
@@ -40,13 +40,13 @@ export interface ServerEvents {
   viewersReset(): void;
   stats(stats: ServerStats): void;
   /** A line the program sent was refused whole. */
-  refused(refusal: Refused): void;
+  refused(refusal: ServerMessageRefused): void;
   /** The answer to the program's `measure` of number `request` (REQ-2216). */
-  measured(request: number, measured: Measured): void;
+  measured(request: number, measured: ServerMessageMeasured): void;
   /** A web visitor is at the page's address: answer with `description`. Nothing here says who, because nothing in the answer may depend on it (REQ-1728). */
   describe(page: number): void;
   /** A stored synthesizer sound was built and sent (server.md SRV-47). */
-  soundBuilt(report: SoundBuilt): void;
+  soundBuilt(report: ServerMessageSoundBuilt): void;
 }
 
 /** The messages about one connection. */
