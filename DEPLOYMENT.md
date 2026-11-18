@@ -46,6 +46,21 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
+## Release 18.1.0: NAPLPS labels, the picture's title and one object redefined
+
+Release 18.1.0 still speaks program protocol 15, at the server's schema of
+neoteletext-app-server `9d5eb99`, whose `naplps_objects` takes a label on
+each object, the picture's title, and one object redefined (ANIM-11). It
+adds and changes nothing a consumer already calls:
+
+- **`NaplpsObject.label`**, new and optional: what a screen reader says
+  for the object, at most 64 bytes of plain text.
+- **`context.naplpsObjects(to, page, sub, objects)`** also takes a
+  `NaplpsObjectSet`: `{ objects, title }` sets the picture's title with
+  the objects, and `{ objects: [object], one: true }` redefines that one
+  object, keeping every other object and the title. A list is read as
+  before, and clears the title as the server always has.
+
 ## Release 18.0.0: the object page by its objects, and the rule table's limits
 
 Release 18.0.0 still speaks program protocol 15, at the server's schema of
