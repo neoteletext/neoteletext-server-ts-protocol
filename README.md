@@ -276,6 +276,64 @@ sub-codes, which are kept as given, 0000 beside others included
 (DEC-1526), and a `Subpage`'s `title` is its title in the page's list (at
 most 40 characters).
 
+**Pictures** (neoteletext-common's `docs/renderer-parity.md`, PAR-16 to
+PAR-40). A sub-page may be drawn in ReGIS or NAPLPS in place of its
+teletext page. `context.regis(to, page, sub, data, { restart })` and
+`context.naplps(…)` send its bytes: bytes, text written a byte a
+character, or a list of parts, each bytes or `{ text, language?, outside? }`,
+Unicode text the server writes in the language's provided character sets.
+The builders `Regis` and `Naplps` make that list, every number held to the
+renderer's limits by its own name (`regisLimits`, `naplpsLimits`):
+
+```ts
+import { Naplps, Regis } from "neoteletext-server-ts-protocol";
+
+const button = new Regis()
+  .colour(1, 20, 20, 80)
+  .drawing(11, {}, (look) => look.pen(2).box(0, 0, 100, 40, { fill: true }))
+  .drawing(10, { detectable: true, hover: 11, label: "Play" }, (play) =>
+    play.pen(1).box(0, 0, 100, 40, { fill: true }).at(10, 10).text("Play"),
+  )
+  .bytes("D(S11(V0),S10(X200,Y200))")
+  .title("Player")
+  .commit();
+context.regis({ kept: true }, 0x200, 1, button.parts(), { restart: true });
+
+const sign = new Naplps().reset().colour(1, 255, 0, 0).pen(1).rect(40, 40, 200, 120, { filled: true }).point(40, 200).text("שלום", { language: "he" });
+context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
+```
+
+- **Kept pictures:** to `{ kept: true }` the server keeps what the seven
+  picture calls send (`regis`, `regisLinks`, `regisCursor`, `naplps`,
+  `naplpsObjects`, `naplpsLinks`, `naplpsCursor`) for that page and
+  sub-code, which are one page (DEC-6599), and sends it whole to every
+  viewer who selects them, now or later, until
+  `context.forgetPicture(page, sub)`. No other call takes it: the type
+  checker refuses it.
+- **Links and the cursor:** `regisLinks` and `regisCursor` name a ReGIS
+  picture's numbered drawings, `naplpsLinks(to, page, sub, [{ object,
+  target }])` and `naplpsCursor(to, page, sub, object)` a NAPLPS picture's
+  objects.
+- **Measuring text:** `context.measurePictureText(text, { language,
+  outside })` resolves to `{ cells, regisBytes, naplpsBytes, sets,
+  standIns }`, what the text costs as a text part, or rejects with
+  `PictureTextRefusedError`.
+- **A public page's picture:** a description may give `picture`, `{ kept:
+  sub }` or `{ language, data, objects? }`, which the server draws as the
+  page's picture on the web.
+- **Regis** writes the VT330/VT340 manual's commands and ReGIS v2's
+  numbered drawings: `erase(background?)`, `colour(index, r, g, b)` (0 to
+  100 percent, written in HLS), `pen`, `at`, `line`, `box(x, y, width,
+  height, { fill, pen })`, `circle(x, y, radius, { fill })`, `text(text,
+  { language, outside, size })`, `bytes`, `drawing(number, { detectable,
+  layer, hover, pressed, label }, build)`, `commit`, `title`, `parts`.
+- **Naplps** writes ANSI X3.110-1983's instructions in the 7-bit form, in
+  the 640 by 480 design picture: `reset`, `clear`, `colour(index, r, g,
+  b)` (0 to 255), `pen`, `point` (moves the drawing point), `line`,
+  `rect(x, y, width, height, { filled })`, `polygon(points, { filled })`,
+  `text`, `bytes`, `defineMacro(code, build)`, `object(spec)` (a
+  `NaplpsObject` for `naplpsObjects`), `parts`.
+
 ## What is in it
 
 - **Pages:** `Screen`, a page drawn as a terminal draws its screen (text
@@ -328,6 +386,12 @@ most 40 characters).
   `stopTimeline`; the `Timeline` builder; `PageState`, `QueryRefusedError`
   and `TICKS_PER_SECOND`; and the builders `physicalKey`, `characterKey`,
   `namedKey` and `level`.
+- **Pictures:** `Context.regis`, `naplps`, `regisLinks`, `regisCursor`,
+  `naplpsLinks`, `naplpsCursor`, `forgetPicture` and `measurePictureText`;
+  the audiences with `{ kept: true }` (`PictureAudience`); `PicturePart`
+  and `PictureText`; the builders `Regis` and `Naplps`; and the renderers'
+  limits by their names, `regisLimits` and `naplpsLimits`, generated from
+  the renderers' own files.
 - **The rule table's limits** (page-rules.md RULE-57, REQ-6608): every
   limit by the engine's name (`MAX_RULES`, `MAX_RECTS`, `MAX_GROUPS`, …,
   `TICKS_PER_SECOND`), generated from `neoteletext_rules::limits`; write a
