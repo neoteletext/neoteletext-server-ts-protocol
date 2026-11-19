@@ -46,6 +46,25 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
+## Release 18.4.0: NAPLPS at four-byte precision
+
+Release 18.4.0 still speaks program protocol 15, at the server's schema of
+neoteletext-app-server `9059c09`. The `Naplps` builder writes every
+coordinate at four-byte precision (renderer parity PAR-40, DEC-6849): it
+sends DOMAIN (ANSI X3.110-1983 section 5.3.2.2) before its first PDI or
+bytes of the program's own, again after its own `reset()`, and in each
+macro's contents, and then writes twelve bits an axis, a step of 1/2048
+of the unit screen, so that a fill can begin and end on any pixel of the
+teletext raster's 480 by 462 canvas, including its last dot, 479
+(TODO-6846, TODO-6848). SET COLOR's operand takes four bytes too, each
+primary's eight bits. Design coordinates need not be whole numbers. A
+picture's bytes change: each coordinate and colour operand is a byte
+longer, and each builder that draws pays DOMAIN's 6 or 7 bytes once.
+Bytes of a program's own are read in the four-byte domain, so a program
+that writes multi-value operands itself writes them in four bytes, or in
+three when the operand is the last of its instruction (a short operand is
+read with zero bits after it, section 5.3.2.2.5).
+
 ## Release 18.3.0: a picture's links and cursor in a rule table's group
 
 Release 18.3.0 still speaks program protocol 15, at the server's schema of
