@@ -273,6 +273,39 @@ test("REQ-6901: a_picture_sent_to_the_snapshot_connection_goes_with_the_page", (
   assert.deepEqual(snapshot(large, PAGE), [{ type: "snapshot_declined", snapshot: SNAPSHOT }], "a picture past 262,144 bytes declines");
 });
 
+test("REQ-6901: a_picture_sent_to_a_list_naming_the_snapshot_among_viewers_is_not_gathered", () => {
+  let viewer = 0;
+  const harness = new Harness([
+    twoSubpages({
+      opened: (connection, page, context): void => {
+        if (!context.isSnapshot(connection)) {
+          return;
+        }
+        // What a list naming viewers carries may be meant for them: a stranger's snapshot holds only what is addressed to a stranger.
+        const both = { connections: [connection, viewer] };
+        context.regis(both, page, FIRST_SUB, "P[1,1]", { restart: true });
+        context.naplps(both, page, SECOND_SUB, Uint8Array.from([0x0e, 0x20]), { restart: true });
+        context.naplpsObjects(both, page, SECOND_SUB, OBJECTS);
+      },
+    }),
+  ]);
+  viewer = harness.join(1, PAGE);
+  const first = snapshot(harness, PAGE);
+  assert.deepEqual(
+    first.map((line) => [line["type"], line["connections"]]),
+    [
+      ["regis", [viewer]],
+      ["naplps", [viewer]],
+      ["naplps_objects", [viewer]],
+      ["snapshot_page", undefined],
+    ],
+    "the list's pictures go to the viewer alone",
+  );
+  assert.equal(first.at(-1)?.["picture"], undefined, "nothing sent to the list is the snapshot's picture");
+  assert.equal(snapshot(harness, PAGE, SECOND_SUB, SNAPSHOT + 1).at(-1)?.["picture"], undefined, "nor the NAPLPS picture of another sub-page");
+  assert.deepEqual(harness.errors, []);
+});
+
 test("REQ-6901: a_kept_picture_is_named_by_its_sub_code", () => {
   let channel: Context | null = null;
   let keepAtStart = true;

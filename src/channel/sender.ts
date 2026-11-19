@@ -3,8 +3,9 @@
 // (REQ-1501); a page's sub-page list (REQ-1503); the index; and the rest
 // to the connections an audience names, in lists of at most `start`'s
 // `named_connections`. Nothing goes to a snapshot's connection
-// (snapshots.ts): what names it is gathered for its answer or dropped, and
-// the message goes to the others it names alone (REQ-6901 item 5).
+// (snapshots.ts): what is addressed to it alone is gathered for its answer
+// or dropped; a list naming it among others goes to the others alone and is
+// not gathered (REQ-6901 items 4 and 5).
 
 import { fitText } from "./channel-index.ts";
 import type { Connection, Connections } from "./connections.ts";
@@ -159,12 +160,11 @@ export class Sender {
   toAudience(to: Audience, build: (connections: WireConnections) => ProgramMessage): void {
     const named = namedIn(to);
     const snapshots = this.#snapshots.among(named);
-    if (snapshots.length > 0) {
-      // Built once for what it says: its connections are never written (REQ-6901 item 5).
-      const message = build(snapshots);
-      for (const snapshot of snapshots) {
-        this.#snapshots.heard(snapshot, message);
-      }
+    if ("connection" in to && snapshots.length > 0) {
+      // Gathered only when addressed to the snapshot's connection alone (section 7.1 item 4): a list naming it among
+      // viewers may carry what is meant for those viewers, and a stranger's snapshot holds only what is addressed to a
+      // stranger. Built once for what it says: its connection is never written (REQ-6901 item 5).
+      this.#snapshots.heard(to.connection, build(snapshots));
     }
     const others = snapshots.length === 0 ? to : { connections: named.filter((connection) => !snapshots.includes(connection)) };
     const connections = this.#connections.audience(others);

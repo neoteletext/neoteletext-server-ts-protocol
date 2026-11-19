@@ -260,14 +260,15 @@ remembered and an empty query: `joined`, `request` and `opened`, as for a
 connection that has just arrived. It answers `snapshot_page` with the
 sub-page that connection would be shown first (its own copy, else the
 channel's; the sub-page asked for, or the first for 3F7F) and the ReGIS or
-NAPLPS picture sent to that connection for it (with a NAPLPS picture's
+NAPLPS picture sent to that connection alone for it (with a NAPLPS picture's
 objects, at most 262,144 bytes), or else the picture kept for that
 sub-page; then the connection leaves the page and is gone. Nothing else
 addressed to it is sent: no sound, rule table, command, animation, link,
 cursor, author's log line or viewer state, and a list that names it with
-others goes to the others alone. `requestState` on it is refused
-`stateless` at once; no message to `"all"`, to a page's viewers or to the
-channel's copy ever reaches it.
+others goes to the others alone: not even a picture in such a list is
+gathered, since it may be meant for those viewers. `requestState` on it
+is refused `stateless` at once; no message to `"all"`, to a page's viewers
+or to the channel's copy ever reaches it.
 
 A snapshot may be shown to any stranger for a minute, so draw it from
 nothing that belongs to one viewer. `context.isSnapshot(connection)` is
