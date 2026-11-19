@@ -72,6 +72,7 @@ const QUIET = {
   measured: ignored,
   measuredPictureText: ignored,
   describe: ignored,
+  snapshot: ignored,
 };
 
 test("the line loop hands on each valid line, reports each bad one, and ends with its input", async () => {
@@ -150,6 +151,7 @@ function unheard(): ServerEvents {
     measured: never,
     measuredPictureText: never,
     describe: never,
+    snapshot: never,
   };
 }
 

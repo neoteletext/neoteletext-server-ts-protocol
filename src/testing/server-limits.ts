@@ -33,6 +33,8 @@ export const SERVER_LIMITS: Limits = {
     replyLimitMs: 7000,
     descriptionTextCharacters: 16_000,
     descriptionLimitMs: 2000,
+    // The server's SNAPSHOT_ANSWER_MS (tab-thumbnails.md section 5.3).
+    snapshotLimitMs: 2000,
   },
 };
 

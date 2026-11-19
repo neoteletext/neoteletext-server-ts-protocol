@@ -11,7 +11,7 @@ const SOURCE = join(import.meta.dirname, "..", "src");
 
 /** What src/sound/ keeps (TS-36): the Opus encoder, its reader of Ogg, the samples' bytes and the profile they are made to. */
 const SOUND = ["ffmpeg-opus.ts", "ogg-opus.ts", "opus-encoder.ts", "pcm.ts", "profile.ts"];
-/** What src/wire/ keeps: the lines, the validators and their faults, the server's rules for pages and text, the bytes fields, and the generated files. */
+/** What src/wire/ keeps: the lines, the validators and their faults, the server's rules for pages, text and snapshots, the bytes fields, and the generated files. */
 const WIRE = [
   "app.ts",
   "bytes.ts",
@@ -32,6 +32,7 @@ const WIRE = [
   "server-events.ts",
   "server-message.ts",
   "server-rules.ts",
+  "snapshot-rules.ts",
   "socket.ts",
   "stream-packets.ts",
   "streams.ts",

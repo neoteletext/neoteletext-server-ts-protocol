@@ -66,6 +66,12 @@ export interface ServerEvents {
   describe(page: number): void;
   /** A stored synthesizer sound was built and sent (server.md SRV-47). */
   soundBuilt(report: ServerMessageSoundBuilt): void;
+  /**
+   * Draw `selection` for no one in particular (tab-thumbnails.md section 6.2): answer `snapshot` with
+   * `snapshot_page` or `snapshot_declined`. Nothing here names a connection or a viewer, because the answer may go to
+   * any stranger (DEC-6875 item 3).
+   */
+  snapshot(snapshot: number, selection: Selection, path: string): void;
 }
 
 /** The messages about one connection. */
@@ -123,6 +129,18 @@ function dispatchConnection(message: ConnectionMessage, events: ServerEvents): v
   }
 }
 
+/** The messages that ask for a page with no connection in scope. */
+type PageMessage = Extract<ServerMessage, { readonly type: "describe" | "snapshot" }>;
+
+/** Calls the event of a message asking for a page: a web visitor's description (REQ-1728) or a snapshot (REQ-6901). */
+function dispatchPage(message: PageMessage, events: ServerEvents): void {
+  if (message.type === "describe") {
+    events.describe(numberOf(message.page));
+  } else {
+    events.snapshot(message.snapshot, { page: numberOf(message.page), sub: numberOf(message.sub) }, message.path);
+  }
+}
+
 /** Calls the event of `message`. */
 export function dispatch(message: ServerMessage, events: ServerEvents): void {
   switch (message.type) {
@@ -150,12 +168,13 @@ export function dispatch(message: ServerMessage, events: ServerEvents): void {
       events.measuredPictureText(message);
       return;
     }
-    case "describe": {
-      events.describe(numberOf(message.page));
-      return;
-    }
     case "sound_built": {
       events.soundBuilt(message);
+      return;
+    }
+    case "describe":
+    case "snapshot": {
+      dispatchPage(message, events);
       return;
     }
     case "connected":

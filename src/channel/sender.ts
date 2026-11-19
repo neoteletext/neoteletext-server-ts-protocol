@@ -2,12 +2,15 @@
 // sub-page to those whose selection shows it, one sub-page a message
 // (REQ-1501); a page's sub-page list (REQ-1503); the index; and the rest
 // to the connections an audience names, in lists of at most `start`'s
-// `named_connections`.
+// `named_connections`. Nothing goes to a snapshot's connection
+// (snapshots.ts): what names it is gathered for its answer or dropped, and
+// the message goes to the others it names alone (REQ-6901 item 5).
 
 import { fitText } from "./channel-index.ts";
 import type { Connection, Connections } from "./connections.ts";
 import type { Change, Copies, Owner } from "./copies.ts";
 import type { Copy } from "./copy.ts";
+import type { Snapshots } from "./snapshots.ts";
 import { ANY_SUB, subText, wirePage } from "./wire-page.ts";
 import { pageText } from "../page/page-numbers.ts";
 import type { Audience, PictureAudience } from "./audience.ts";
@@ -20,22 +23,33 @@ const NO_CONNECTION_REQUEST = 1;
 /** A sub-page's title in its page's list: at most a row's 40 characters (REQ-1503). */
 const SUBPAGE_TITLE_CHARACTERS = 40;
 
+/** The connections an audience names one by one: none for a page's viewers or everyone, which no snapshot is among. */
+function namedIn(to: Audience): readonly number[] {
+  if ("connection" in to) {
+    return [to.connection];
+  }
+  return "connections" in to && to.connections !== "all" ? to.connections : [];
+}
+
 /** The channel's sending. */
 export class Sender {
   readonly #app: App;
   readonly #connections: Connections;
   readonly #copies: Copies;
   readonly #index: (connection: number) => Magazine[];
+  readonly #snapshots: Snapshots;
 
-  constructor(app: App, connections: Connections, copies: Copies, index: (connection: number) => Magazine[]) {
+  constructor(app: App, connections: Connections, copies: Copies, snapshots: Snapshots, index: (connection: number) => Magazine[]) {
     this.#app = app;
     this.#connections = connections;
     this.#copies = copies;
+    this.#snapshots = snapshots;
     this.#index = index;
   }
 
   send(message: ProgramMessage): void {
     this.#app.send(message);
+    this.#snapshots.sent(message);
   }
 
   /** `connections` in lists of at most `start`'s `named_connections`. */
@@ -104,12 +118,19 @@ export class Sender {
 
   /** Sends the connection to `page` and `sub`, with a query it keeps: a selection, which the server then tells the program of. */
   redirect(connection: number, page: number, sub: number, query: string | null = null): void {
+    if (this.#snapshots.has(connection)) {
+      // A redirect is how an application declines a snapshot, as a deny is (REQ-6901 item 4).
+      this.#snapshots.decline(connection);
+      return;
+    }
     this.send({ type: "redirect", connection, request: this.#request(connection), page: pageText(page), sub: subText(sub), query });
   }
 
   /** Sends the connection's viewer to a page, or to another channel's address, which changes no selection (REQ-1688). */
   redirectTo(connection: number, to: number | string, sub: number): void {
-    if (typeof to === "string") {
+    if (typeof to === "string" && this.#snapshots.has(connection)) {
+      this.#snapshots.decline(connection);
+    } else if (typeof to === "string") {
       this.send({ type: "redirect", connection, request: this.#request(connection), address: to });
     } else {
       this.redirect(connection, to, sub);
@@ -118,6 +139,11 @@ export class Sender {
 
   /** Ends the connection's selection with `status`: as its answer when one is being made, which then holds no page, otherwise at once. */
   deny(connection: number, status: DeniedStatus): void {
+    if (this.#snapshots.has(connection)) {
+      // Any status: a deny is how an application declines a snapshot (REQ-6901 item 4).
+      this.#snapshots.decline(connection);
+      return;
+    }
     const state = this.#connections.get(connection);
     if (state === undefined) {
       return;
@@ -131,12 +157,26 @@ export class Sender {
 
   /** Sends `build`'s message to the connections `to` names, in lists of at most `named_connections`: every line is made and held to the schema before the first is written (typescript.md TS-19). */
   toAudience(to: Audience, build: (connections: WireConnections) => ProgramMessage): void {
-    const connections = this.#connections.audience(to);
+    const named = namedIn(to);
+    const snapshots = this.#snapshots.among(named);
+    if (snapshots.length > 0) {
+      // Built once for what it says: its connections are never written (REQ-6901 item 5).
+      const message = build(snapshots);
+      for (const snapshot of snapshots) {
+        this.#snapshots.heard(snapshot, message);
+      }
+    }
+    const others = snapshots.length === 0 ? to : { connections: named.filter((connection) => !snapshots.includes(connection)) };
+    const connections = this.#connections.audience(others);
     if (connections === null) {
       return;
     }
     const chunks = connections === "all" ? ["all" as const] : this.#chunks(connections);
-    this.#app.writeLines(chunks.map((chunk) => this.#app.line(build(chunk))));
+    const messages = chunks.map((chunk) => build(chunk));
+    this.#app.writeLines(messages.map((message) => this.#app.line(message)));
+    for (const message of messages) {
+      this.#snapshots.sent(message);
+    }
   }
 
   /**
@@ -145,7 +185,7 @@ export class Sender {
    */
   toPictureAudience(to: PictureAudience, build: (connections: WirePictureAudience) => ProgramMessage): void {
     if ("kept" in to) {
-      this.#app.send(build("kept"));
+      this.send(build("kept"));
       return;
     }
     this.toAudience(to, build);

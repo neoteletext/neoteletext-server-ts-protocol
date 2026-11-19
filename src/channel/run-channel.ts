@@ -110,6 +110,9 @@ function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
     soundBuilt: then((...given: Parameters<ServerEvents["soundBuilt"]>) => {
       channel.soundBuilt(...given);
     }),
+    snapshot: then((...given: Parameters<ServerEvents["snapshot"]>) => {
+      channel.snapshot(...given);
+    }),
     ruleEvent: then((...given: Parameters<ServerEvents["ruleEvent"]>) => {
       channel.ruleEvent(...given);
     }),

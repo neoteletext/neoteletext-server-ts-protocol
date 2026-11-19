@@ -55,6 +55,8 @@ export interface Budgets {
   readonly descriptionTextCharacters: number;
   /** How long the server waits for a page's description, in milliseconds. */
   readonly descriptionLimitMs: number;
+  /** How long the server waits for an answer to `snapshot`, in milliseconds (tab-thumbnails.md section 6.5: the server's SNAPSHOT_ANSWER_MS). */
+  readonly snapshotLimitMs: number;
 }
 
 /** What `start` tells a program of the limits it works within. */
@@ -86,6 +88,7 @@ export function readLimits(standard: WireStandard, budgets: WireBudgets): Limits
       descriptionTextCharacters: budgets.description_text_characters,
       descriptionLimitMs: budgets.description_limit_ms,
       replyLimitMs: budgets.reply_limit_ms,
+      snapshotLimitMs: budgets.snapshot_limit_ms,
     },
   };
 }

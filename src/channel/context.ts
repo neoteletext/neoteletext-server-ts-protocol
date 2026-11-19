@@ -118,6 +118,7 @@ export interface Host {
   requestState(connection: number): void;
   endState(viewer: Viewer): void;
   offerRemember(connection: number): void;
+  isSnapshot(connection: number): boolean;
 }
 
 /** An application's view of the channel during one call. */
@@ -535,6 +536,16 @@ export class Context {
   /** Asks the browser to offer the viewer "remember me" (VS-352 item 3, VS-208); refused with `stateRefused` when it cannot. */
   offerRemember(connection: number): void {
     this.#host.offerRemember(connection);
+  }
+
+  /**
+   * Whether the connection is a snapshot's (tab-thumbnails.md section 7.1; REQ-6901 item 3): the page drawn for no one
+   * in particular, for a tab's thumbnail, which may be shown to any stranger for a minute. It has no viewer, no query
+   * and no receiver; what is sent to it beyond its page and picture is dropped. Check it before an effect beyond
+   * drawing, such as counting visitors or telling others someone arrived; `deny` it to decline the snapshot.
+   */
+  isSnapshot(connection: number): boolean {
+    return this.#host.isSnapshot(connection);
   }
 
   /** Asks for `wake` at `at`, in milliseconds; the earliest asked for wins. */

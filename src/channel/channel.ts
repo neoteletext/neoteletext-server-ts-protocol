@@ -9,7 +9,7 @@
 
 // oxlint-disable import/max-dependencies, max-lines -- the channel is where the protocol's parts meet: the wire, input, navigation, pages and applications; it is every event of the server's (ServerEvents)
 import type { Application, PageEntry } from "./application.ts";
-import { type AnswerParts, answerConnected, answerSelected, followClick, viewOf } from "./answers.ts";
+import { type AnswerParts, answerConnected, answerSelected, followClick, resolve, viewOf } from "./answers.ts";
 import { Applications } from "./applications.ts";
 import type { ChannelOptions, Clock } from "./channel-options.ts";
 import { Connections } from "./connections.ts";
@@ -24,8 +24,9 @@ import { Queries } from "./queries.ts";
 import { type PageCalls, tellLeft, tellOpened, tellRequest, tellRequestEnded } from "./page-calls.ts";
 import { pageRequest } from "./request.ts";
 import { Sender } from "./sender.ts";
+import { type Snapshot, Snapshots } from "./snapshots.ts";
 import { Viewers } from "./viewers.ts";
-import { ANY_SUB, pathOf } from "./wire-page.ts";
+import { ANY_SUB, pathOf, wirePage } from "./wire-page.ts";
 import type { Input } from "../input/input.ts";
 import type { PageView } from "../navigation/clicked-link.ts";
 import { Navigation } from "../navigation/navigation.ts";
@@ -37,6 +38,7 @@ import type { Limits } from "../wire/limits.ts";
 import type {
   Handle,
   Magazine,
+  ProgramMessage,
   ServerMessageMeasured,
   ServerMessageMeasuredPictureText,
   ServerMessagePageState,
@@ -74,18 +76,21 @@ export class Channel implements ServerEvents {
   readonly #pictureTextMeasures = new PictureTextMeasures();
   readonly #queries = new Queries();
   readonly #current = new CurrentCall();
+  readonly #snapshots = new Snapshots();
+  /** The connection of the snapshot being drawn: a failure reported while it is declines it (REQ-6901 item 4). */
+  #drawing: number | null = null;
   #epochAtStart = 0;
 
   /** A channel of `applications`, writing through `app`; the first application to declare a page serves it. */
   constructor(applications: readonly Application[], app: App, options: ChannelOptions) {
-    this.#applications = new Applications(applications, options.errors);
+    this.#errors = this.#declining(options.errors);
+    this.#applications = new Applications(applications, this.#errors);
     this.#entries = this.#applications.entries;
     this.#titles = this.#applications.titles;
     this.#app = app;
     this.#clock = options.clock;
-    this.#errors = options.errors;
     this.#navigation = new Navigation((page) => this.#entries.has(page));
-    this.#sender = new Sender(app, this.#connections, this.#copies, (connection): Magazine[] =>
+    this.#sender = new Sender(app, this.#connections, this.#copies, this.#snapshots, (connection): Magazine[] =>
       this.#applications.index(this.#copies, this.#app.limits(), connection),
     );
     this.#host = makeHost({
@@ -106,6 +111,10 @@ export class Channel implements ServerEvents {
       measures: this.#measures,
       pictureTextMeasures: this.#pictureTextMeasures,
       queries: this.#queries,
+      snapshots: this.#snapshots,
+      refuseState: (connection) => {
+        this.stateRefused(connection, "stateless");
+      },
     });
     this.#answers = {
       copies: this.#copies,
@@ -148,6 +157,7 @@ export class Channel implements ServerEvents {
     this.#measures.forgetAll();
     this.#pictureTextMeasures.forgetAll();
     this.#queries.forgetAll();
+    this.#snapshots.clear();
     this.#connections.clear();
     this.#navigation.clear();
     this.#applications.endEvery(this.#known, this.#copies, this.#host, this.#clock.now());
@@ -359,6 +369,68 @@ export class Channel implements ServerEvents {
     );
   }
 
+  /**
+   * The server asks for `selection` drawn for no one in particular, for a tab's thumbnail (tab-thumbnails.md section
+   * 7.1; REQ-6901). The page's own selection runs for a stranger on a connection of the kit's own, numbered
+   * `-snapshot`, with no viewer and no query, held apart from the server's connections: `joined`, `request` and
+   * `opened`, as `connected` runs them. The answer is the sub-page that connection would be shown first, with the
+   * picture sent to it alone, or the kept picture of that sub-page; it is declined when no application serves the page,
+   * its entry says `snapshots: false`, the application denied or redirected it, there is nothing to show, its picture
+   * passes its bound or a handler failed. Then the connection leaves the page and is gone, and is forgotten.
+   */
+  snapshot(snapshot: number, selection: Selection, path: string): void {
+    const entry = this.#entries.get(selection.page);
+    if (entry === undefined || entry.snapshots === false) {
+      this.#app.send({ type: "snapshot_declined", snapshot });
+      return;
+    }
+    const drawn = this.#snapshots.begin(snapshot, selection.page, selection.sub);
+    const { state } = drawn;
+    const { connection } = state;
+    this.#drawing = connection;
+    try {
+      this.#current.from(connection, () => {
+        this.#applications.know(this.#known, connection, this.#host, this.#clock.now());
+        tellRequest(this.#calls, state, pageRequest(path, ""));
+        tellOpened(this.#calls, state);
+      });
+    } catch (error) {
+      this.#errors(`drawing snapshot ${snapshot} failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
+    } finally {
+      this.#drawing = null;
+    }
+    const answer = this.#snapshotAnswer(drawn);
+    try {
+      this.#app.send(answer);
+    } catch (error) {
+      this.#errors(`answering snapshot ${snapshot} failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
+      this.#app.send({ type: "snapshot_declined", snapshot });
+    }
+    this.#current.from(connection, () => {
+      tellRequestEnded(this.#calls, state);
+      tellLeft(this.#calls, state);
+    });
+    this.#applications.gone(this.#known, this.#copies, connection, this.#host, this.#clock.now());
+    this.#snapshots.end(connection);
+  }
+
+  /** What answers a snapshot drawn: its sub-page, resolved as a reply's is (answers.ts), and its picture; or a decline. */
+  #snapshotAnswer(drawn: Snapshot): ProgramMessage {
+    const { snapshot, page, sub, state } = drawn;
+    const declined: ProgramMessage = { type: "snapshot_declined", snapshot };
+    const copy = this.#copies.seen(state.connection, page);
+    const shown = resolve(copy, sub);
+    if (drawn.declined || copy === undefined || shown === undefined) {
+      return declined;
+    }
+    const picture = this.#snapshots.pictureOf(drawn, shown);
+    if (picture === undefined) {
+      return declined;
+    }
+    const content = wirePage(page, shown, copy);
+    return picture === null ? { type: "snapshot_page", snapshot, page: content } : { type: "snapshot_page", snapshot, page: content, picture };
+  }
+
   /** When the channel next needs {@link Channel.deadline}, by its clock. */
   nextWake(): number | null {
     return this.#applications.nextWake();
@@ -370,6 +442,16 @@ export class Channel implements ServerEvents {
   }
 
   // Connections.
+
+  /** `errors`, a failure reported while a snapshot is drawn declining it (REQ-6901 item 4). */
+  #declining(errors: (text: string) => void): (text: string) => void {
+    return (text): void => {
+      if (this.#drawing !== null) {
+        this.#snapshots.decline(this.#drawing);
+      }
+      errors(text);
+    };
+  }
 
   #answering(connection: number, answer: () => void): void {
     this.#current.answering(this.#connections, connection, this.#errors, answer);

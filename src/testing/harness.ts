@@ -105,6 +105,8 @@ export class Harness {
   readonly #viewers = new FakeViewers();
   /** The number the server gives the next connection a viewer joins on: they start again at a restart (VS-404). */
   #nextConnection = 1;
+  /** The number the server gives the next snapshot: they never start again while it runs (tab-thumbnails.md section 6.2). */
+  #nextSnapshot = 1;
   readonly #options: HarnessOptions;
   /** The number of each connection's selection, as the server gives them. */
   readonly #requests = new Map<number, number>();
@@ -144,6 +146,24 @@ export class Harness {
     const answer = this.sent.at(-1);
     if (answer?.["type"] !== "description") {
       throw new Error(`describe ${page}: the channel answered ${String(answer?.["type"])}`);
+    }
+    return answer;
+  }
+
+  /**
+   * The server asks for `page` drawn for no one in particular (tab-thumbnails.md section 6.2; REQ-6901), as a whole
+   * (3F7F) or one sub-page: the one message the channel answers it with, `snapshot_page` or `snapshot_declined`. Each is
+   * numbered as the server numbers them, rising from 1 and never used twice, a restart included.
+   */
+  snapshot(page: number, sub: number = ANY_SUB): Sent {
+    const before = this.sent.length;
+    const number = this.#nextSnapshot;
+    this.#nextSnapshot += 1;
+    this.channel.snapshot(number, { page, sub }, pathOf({ page, sub }));
+    const answers = this.sent.slice(before).filter((line) => line["snapshot"] === number);
+    const [answer] = answers;
+    if (answers.length !== 1 || answer === undefined) {
+      throw new Error(`snapshot ${pathOf({ page, sub })}: the channel answered ${answers.length} times, not once`);
     }
     return answer;
   }

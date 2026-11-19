@@ -249,6 +249,38 @@ when the program starts, for the page viewers arrive at, and the channel is
 ready at `/readyz` from the first answer: so a program answers as soon as it
 has loaded, and an application needs do nothing for that.
 
+**A tab's thumbnail is the page as a stranger sees it** (neoteletext-common's
+`docs/tab-thumbnails.md` section 7; REQ-6901, DEC-6875). The server may ask
+for a page drawn for no one in particular, `snapshot`, with a page, a
+sub-code (3F7F for the page as a whole) and nothing that names a viewer, and
+the kit answers it itself: an application needs no new code to be pictured.
+It runs the page's own selection for a stranger, on a connection of its own
+numbered below zero (the snapshot's number, negated), with no viewer, not
+remembered and an empty query: `joined`, `request` and `opened`, as for a
+connection that has just arrived. It answers `snapshot_page` with the
+sub-page that connection would be shown first (its own copy, else the
+channel's; the sub-page asked for, or the first for 3F7F) and the ReGIS or
+NAPLPS picture sent to that connection for it (with a NAPLPS picture's
+objects, at most 262,144 bytes), or else the picture kept for that
+sub-page; then the connection leaves the page and is gone. Nothing else
+addressed to it is sent: no sound, rule table, command, animation, link,
+cursor, author's log line or viewer state, and a list that names it with
+others goes to the others alone. `requestState` on it is refused
+`stateless` at once; no message to `"all"`, to a page's viewers or to the
+channel's copy ever reaches it.
+
+A snapshot may be shown to any stranger for a minute, so draw it from
+nothing that belongs to one viewer. `context.isSnapshot(connection)` is
+true while it is drawn: check it before an effect beyond drawing, such as
+counting visitors or telling others that someone arrived. Decline a
+snapshot with `context.deny(connection, status)` (any status) when the page
+is not one to show strangers; a redirect, a page with nothing to show, a
+picture too large or a handler that throws declines it too, and
+`snapshots: false` on the page's entry declines every snapshot of it
+without calling the application. A page that keeps members' content in
+the channel's copy and denies nobody would be pictured: the kit cannot know
+(threat T18 of the specification).
+
 **How the kit answers the server.** One connection is one browser tab,
 with one selection (DEC-1527). The kit keeps every page the applications
 publish, the channel's copy and each viewer's own, each sub-page by its
@@ -505,7 +537,10 @@ handles (VS-404): `const alice = harness.viewer("alice")`, and
 viewer who chose to be remembered, `forget(viewer)` a reset,
 `grantState(connection)` and `refuseState(connection, reason)` the
 server's answers to `requestState`, and `restart()` a server restart
-(connection numbers start again; handles do not). For sounds,
+(connection numbers start again; handles do not). `snapshot(page, sub?)`
+asks for a page drawn for no one in particular, as the server's `snapshot`
+does, and gives back its one answer, `snapshot_page` or
+`snapshot_declined`. For sounds,
 `sounds(connection)`, `soundsOfKind(connection, kind)` and
 `soundsToEveryone()` give back the members the program built, bytes as
 `Uint8Array`; `refuse(member, path, rule, detail)` and

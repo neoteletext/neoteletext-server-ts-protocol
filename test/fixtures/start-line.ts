@@ -33,6 +33,7 @@ export const START_LINE = JSON.stringify({
     reply_limit_ms: budgets.replyLimitMs,
     description_text_characters: budgets.descriptionTextCharacters,
     description_limit_ms: budgets.descriptionLimitMs,
+    snapshot_limit_ms: budgets.snapshotLimitMs,
   },
   languages: SERVER_LANGUAGES,
 });

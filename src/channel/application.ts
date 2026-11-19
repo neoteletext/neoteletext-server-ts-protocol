@@ -38,6 +38,12 @@ export interface PageEntry extends PageKeys {
    * sub-page, in place of `ownsDigits` and `ownsColourKeys`.
    */
   readonly keysOf?: (connection: number, sub: number) => PageKeys;
+  /**
+   * Whether the page may be pictured for a tab's thumbnail (tab-thumbnails.md section 7.1 item 2): true when not
+   * given. False declines every snapshot of the page without calling the application, for a page never to be shown
+   * to strangers or too costly to draw for one.
+   */
+  readonly snapshots?: boolean;
 }
 
 /**

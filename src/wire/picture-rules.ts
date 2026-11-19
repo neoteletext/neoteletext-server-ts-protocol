@@ -57,14 +57,28 @@ function shownSubpageFault(sub: string): Fault | null {
   return sub === ANY_SUBPAGE ? { path: "sub", rule: "out_of_range", detail: "3F7F names no sub-page" } : null;
 }
 
-/** One part: its bytes as `data`'s, or its text 1 to MOST_PART_CHARACTERS characters in normalisation form C with no control or bidirectional formatting character. */
-function partFault(part: Encoded<PicturePart>, index: number): Fault | null {
-  const at = `parts[${index}]`;
+/** One part at `path`: its bytes as `data`'s, or its text 1 to MOST_PART_CHARACTERS characters in normalisation form C with no control or bidirectional formatting character. */
+function partFault(path: string, part: Encoded<PicturePart>, index: number): Fault | null {
+  const at = `${path}[${index}]`;
   if ("text" in part) {
     return boundedTextFault(`${at}.text`, part.text, MOST_PART_CHARACTERS);
   }
   const bytes = base64Bytes(`${at}.data`, part.data, MOST_PICTURE_MESSAGE_BYTES);
   return isFault(bytes) ? bytes : null;
+}
+
+/** A picture's parts at `path` (PAR-21): 1 to MOST_PICTURE_PARTS of them, each a part, their bytes at most `mostBytes`. */
+export function partsFault(path: string, listed: readonly Encoded<PicturePart>[], mostBytes: number): Fault | null {
+  if (listed.length === 0 || listed.length > MOST_PICTURE_PARTS) {
+    return { path, rule: "invalid_picture_parts", detail: `${listed.length} parts, 1 to MOST_PICTURE_PARTS (${MOST_PICTURE_PARTS})` };
+  }
+  const fault = firstOf(listed, (part, index) => partFault(path, part, index));
+  if (fault !== null) {
+    return fault;
+  }
+  // The parts' bytes joined are held as `data`'s; what the text parts add is the server's to count once it has written them.
+  const bytes = listed.reduce((sum, part) => sum + ("data" in part ? Buffer.from(part.data, "base64").length : 0), 0);
+  return bytes > mostBytes ? { path, rule: "too_long", detail: `${bytes} bytes of parts, at most ${mostBytes}` } : null;
 }
 
 /**
@@ -94,19 +108,7 @@ function pictureBytesFault(message: Extract<PictureMessage, { type: "regis" | "n
     const bytes = base64Bytes("data", data, MOST_PICTURE_MESSAGE_BYTES);
     return isFault(bytes) ? bytes : null;
   }
-  const listed = parts ?? [];
-  if (listed.length === 0 || listed.length > MOST_PICTURE_PARTS) {
-    return { path: "parts", rule: "invalid_picture_parts", detail: `${listed.length} parts, 1 to MOST_PICTURE_PARTS (${MOST_PICTURE_PARTS})` };
-  }
-  const fault = firstOf(listed, partFault);
-  if (fault !== null) {
-    return fault;
-  }
-  // The parts' bytes joined are held as `data`'s; what the text parts add is the server's to count once it has written them.
-  const bytes = listed.reduce((sum, part) => sum + ("data" in part ? Buffer.from(part.data, "base64").length : 0), 0);
-  return bytes > MOST_PICTURE_MESSAGE_BYTES
-    ? { path: "parts", rule: "too_long", detail: `${bytes} bytes of parts, at most ${MOST_PICTURE_MESSAGE_BYTES}` }
-    : null;
+  return partsFault("parts", parts ?? [], MOST_PICTURE_MESSAGE_BYTES);
 }
 
 /** The detail of a link target that is not one. */

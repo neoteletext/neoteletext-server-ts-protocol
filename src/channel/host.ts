@@ -14,6 +14,7 @@ import type { PictureTextMeasures } from "./picture-text-measures.ts";
 import type { Queries } from "./queries.ts";
 import { Random } from "./random.ts";
 import type { Sender } from "./sender.ts";
+import type { Snapshots } from "./snapshots.ts";
 import { ANY_SUB, fitBytes, subText } from "./wire-page.ts";
 import { numbered } from "../page/numbering.ts";
 import { pageText } from "../page/page-numbers.ts";
@@ -44,6 +45,10 @@ export interface HostParts {
   readonly measures: Measures;
   readonly pictureTextMeasures: PictureTextMeasures;
   readonly queries: Queries;
+  /** The snapshots being drawn, whose connections nothing is sent to (REQ-6901 item 5). */
+  readonly snapshots: Snapshots;
+  /** Tells every application at once that a state request on `connection` was refused `stateless`: a snapshot's (REQ-6901 item 5). */
+  readonly refuseState: (connection: number) => void;
 }
 
 /** The sub-pages given, each with its sub-code: a whole page's numbered by place, a put's its own. */
@@ -128,23 +133,34 @@ function selecting(parts: HostParts): SelectionHost {
   };
 }
 
-type ViewerHost = Pick<Host, "viewer" | "remembered" | "requestState" | "endState" | "offerRemember">;
+type ViewerHost = Pick<Host, "viewer" | "remembered" | "requestState" | "endState" | "offerRemember" | "isSnapshot">;
 
-/** A connection's viewer, and what a program asks of the viewer's state (viewer-state.md VS-352). */
+/**
+ * A connection's viewer, and what a program asks of the viewer's state (viewer-state.md VS-352). A snapshot's
+ * connection has no viewer and can be given none: a request is refused `stateless` at once, and an offer to remember
+ * is dropped (REQ-6901 item 5).
+ */
 function viewing(parts: HostParts): ViewerHost {
-  const { connections, sender } = parts;
+  const { connections, sender, snapshots } = parts;
   return {
     viewer: (connection): Viewer | null => connections.get(connection)?.viewer ?? null,
     remembered: (connection): boolean => connections.get(connection)?.remembered ?? false,
     requestState: (connection): void => {
+      if (snapshots.has(connection)) {
+        parts.refuseState(connection);
+        return;
+      }
       sender.send({ type: "request_state", connection });
     },
     endState: (viewer): void => {
       sender.send({ type: "end_state", viewer: viewer.handle });
     },
     offerRemember: (connection): void => {
-      sender.send({ type: "offer_remember", connection });
+      if (!snapshots.has(connection)) {
+        sender.send({ type: "offer_remember", connection });
+      }
     },
+    isSnapshot: (connection): boolean => snapshots.has(connection),
   };
 }
 
@@ -229,7 +245,10 @@ export function makeHost(parts: HostParts): Host {
     ...pictures(parts),
     ...animationCalls(parts.sender),
     ...commandCalls(parts.sender),
-    queryState: (connection, page, sub) => parts.queries.query(parts.app, connection, page, sub),
+    queryState: (connection, page, sub) =>
+      parts.snapshots.has(connection)
+        ? Promise.reject(new RangeError(`queryState: connection ${connection} is a snapshot's, which has no receiver to ask`))
+        : parts.queries.query(parts.app, connection, page, sub),
     connection: parts.current,
   };
 }

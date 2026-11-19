@@ -160,7 +160,8 @@ function bytesMessageFault(message: Extract<ProgramMessage, { type: "packets" | 
  * ANIM-17, ANIM-19; DEC-6462). A rule table likewise, but for the picture
  * links its groups hold, held as the messages' links are (PAR-20, RULE-119). An object page is
  * its objects' triplets, whose every rule beyond the schema's bounds is the
- * server's (`invalid_object_page`).
+ * server's (`invalid_object_page`). A snapshot declined names its number alone
+ * (tab-thumbnails.md section 6.4), which the server alone knows it awaits.
  */
 const SCHEMA_ALONE = [
   "sound",
@@ -182,6 +183,7 @@ const SCHEMA_ALONE = [
   "report",
   "run",
   "sequence",
+  "snapshot_declined",
 ] as const;
 type SchemaAlone = Extract<ProgramMessage, { readonly type: (typeof SCHEMA_ALONE)[number] }>;
 
@@ -195,7 +197,10 @@ function shownPageFault(message: Extract<ProgramMessage, { readonly type: "page"
 }
 
 /** The first fault of a message the schema has passed, by the server's rules and `start`'s limits; null when it has none. What is said of a sub-page's picture has its rules in picture-rules.ts, a description's in description-rules.ts. */
-export function checkRules(message: Exclude<ProgramMessage, PictureMessage | { readonly type: "description" }>, limits: Limits): Fault | null {
+export function checkRules(
+  message: Exclude<ProgramMessage, PictureMessage | { readonly type: "description" | "snapshot_page" }>,
+  limits: Limits,
+): Fault | null {
   if (isSchemaAlone(message)) {
     return null;
   }

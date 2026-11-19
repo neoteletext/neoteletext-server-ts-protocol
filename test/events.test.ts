@@ -30,10 +30,23 @@ function recordingRules(heard: unknown[]): Pick<ServerEvents, "input" | "ruleEve
   };
 }
 
+/** The events of a page asked for with no connection: a description and a snapshot. */
+function recordingPages(heard: unknown[]): Pick<ServerEvents, "describe" | "snapshot"> {
+  return {
+    describe: (page) => {
+      heard.push(["describe", page]);
+    },
+    snapshot: (snapshot, selection, path) => {
+      heard.push(["snapshot", snapshot, selection, path]);
+    },
+  };
+}
+
 /** Events that each record what they heard. */
 function recording(heard: unknown[]): ServerEvents {
   return {
     ...recordingRules(heard),
+    ...recordingPages(heard),
     start: (epochMs) => {
       heard.push(["start", epochMs]);
     },
@@ -66,9 +79,6 @@ function recording(heard: unknown[]): ServerEvents {
     },
     measuredPictureText: (measured) => {
       heard.push(["measured_picture_text", measured]);
-    },
-    describe: (page) => {
-      heard.push(["describe", page]);
     },
     soundBuilt: (report) => {
       heard.push(["sound_built", report]);

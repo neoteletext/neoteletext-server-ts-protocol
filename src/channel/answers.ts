@@ -32,7 +32,7 @@ export interface AnswerParts {
 }
 
 /** The sub-page a selection of `sub` shows: that one, or for 3F7F the first in ascending order (DEC-1526). */
-function resolve(copy: Copy | undefined, sub: number): number | undefined {
+export function resolve(copy: Copy | undefined, sub: number): number | undefined {
   if (copy === undefined) {
     return undefined;
   }

@@ -18,6 +18,7 @@ import type { Encoded } from "./encoded.ts";
 import type { ProgramMessage, ServerMessage } from "./generated/protocol.js";
 import { checkRules } from "./server-rules.ts";
 import { descriptionFault } from "./description-rules.ts";
+import { snapshotPageFault } from "./snapshot-rules.ts";
 
 /** A message the program was about to write broke the protocol: nothing of it was written. */
 export class ProtocolError extends Error {
@@ -140,7 +141,10 @@ export function checkProgram(message: unknown, limits: Limits): Fault | null {
   if (isPictureMessage(message)) {
     return pictureFault(message, limits);
   }
-  return message.type === "description" ? descriptionFault(message, limits) : checkRules(message, limits);
+  if (message.type === "description") {
+    return descriptionFault(message, limits);
+  }
+  return message.type === "snapshot_page" ? snapshotPageFault(message, limits) : checkRules(message, limits);
 }
 
 /** Whether a message the server sent is valid: null, or its first fault. */
