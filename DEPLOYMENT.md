@@ -46,6 +46,26 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
+## Release 19.0.0: program protocol 16, NAPLPS on the teletext raster
+
+Release 19.0.0 speaks program protocol 16, at the server's schema of
+neoteletext-app-server `303e75d` (branch `parity`, not yet merged), and
+stops on a server of 15 (neoteletext-common `docs/naplps-raster.md`
+RAS-10). Every NAPLPS coordinate is a dot of the 480 by 500 teletext
+raster (DEC-6853), the picture drawn on its 460 lines from line 20,
+teletext rows 1 to 23 (DEC-6857): an object's `x`, `y`, `width`
+(1 to 480), `height` (1 to 500) and origin, and every place the `Naplps`
+builder takes. The builder writes six-byte operands (DOMAIN 2/1 5/4 and
+six 4/0), eighteen bits an axis; colours are six bytes too, each
+primary's eight bits then four zero bits; `rect` covers exactly its dots
+and lines; and `text(text, { row, column })` sets TEXT's field to 3,276
+by 4,452 steps and the point to the cell's lower left before the text
+part, so that every character is one Noto cell (RAS-6, RAS-8). It
+replaces 18.4.0's four bytes and its 640 by 480 design picture below.
+Bytes of a program's own are read in the six-byte domain. Every channel
+moves to 19.0.0 before or with the server of protocol 16, and the
+component library releases against it.
+
 ## Release 18.4.0: NAPLPS at four-byte precision
 
 Release 18.4.0 still speaks program protocol 15, at the server's schema of
