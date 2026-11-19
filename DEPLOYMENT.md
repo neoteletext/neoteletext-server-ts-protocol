@@ -46,6 +46,18 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
+## Release 19.2.1: a snapshot's picture is what was sent to it alone
+
+Release 19.2.1 gathers a snapshot's picture only from a `regis`, `naplps`
+or `naplps_objects` message addressed to the snapshot's connection alone,
+as `docs/tab-thumbnails.md` section 7.1 item 4 says and the Python kit
+does (REQ-6901, TODO-6909 reading 2). 19.2.0 also gathered such a message
+whose list named the snapshot's connection among viewers; that list may
+carry what is meant for those viewers, and a stranger's snapshot holds
+only what is addressed to a stranger. The list still goes to the others
+it names. Nothing else changes: the wire, the API and the shared files
+(neoteletext-common's at a8d9163) are 19.2.0's.
+
 ## Release 19.2.0: snapshots for tabs' thumbnails
 
 Release 19.2.0 answers the server's `snapshot`, added to program protocol
