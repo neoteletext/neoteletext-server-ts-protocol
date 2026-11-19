@@ -46,6 +46,27 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
+## Release 19.2.0: snapshots for tabs' thumbnails
+
+Release 19.2.0 answers the server's `snapshot`, added to program protocol
+16 before its release (neoteletext-common `docs/tab-thumbnails.md`
+sections 6 and 7; REQ-6901, DEC-6875), at the server's schema of
+neoteletext-app-server `c5557e4` (branch `parity`, not yet merged). The kit runs
+the page's own selection for a stranger on a connection of its own,
+numbered below zero, and answers `snapshot_page` with the sub-page that
+connection is shown first and the picture sent to it, or the kept picture
+of that sub-page, or `snapshot_declined`; nothing else addressed to that
+connection is sent. New: `Context.isSnapshot(connection)`,
+`PageEntry.snapshots` (false declines every snapshot of the page),
+`Limits.budgets.snapshotLimitMs` (`start.budgets.snapshot_limit_ms`,
+2,000) and the harness's `snapshot(page, sub?)`. A server built before
+the snapshot messages sends a `start` this release refuses (its budgets
+lack `snapshot_limit_ms`), and a program on 19.1.0 refuses the new
+server's `snapshot`: the kit, the component library 27.2.0, the Python
+kit 1.2.0, the channels and the server are deployed together (section
+6.1). Its shared files are neoteletext-common's at a8d9163, which lists
+`isSnapshot` and the harness's `snapshot`.
+
 ## Release 19.1.0: double-height NAPLPS text
 
 Release 19.1.0 adds `rows` to `Naplps.text`'s options: `text(text,
