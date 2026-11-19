@@ -3,11 +3,18 @@
 // `parts()` gives them, with Unicode text as text parts the server writes in
 // the provided sets (PAR-5, PAR-21), for `naplps`. Coordinates are given in
 // the 640 by 480 design picture of animation.md ANIM-11, origin at the top
-// left and y down, and written as unit-screen operands at the default
-// three-byte precision (section 5.3.2.2.3), so the builder never sends
-// DOMAIN and every operand is read as written after a RESET. Every number is
-// held to the NAPLPS renderer's limits by name (naplps-limits.ts), and a
-// call outside one throws, naming it, before anything is appended.
+// left and y down, any number within it and not only whole pixels, and
+// written as unit-screen operands at a four-byte precision (section
+// 5.3.2.2.3, Table 5): twelve bits an axis, a step of 1/2048 of the unit
+// screen, so that a fill can begin and end on any pixel of the teletext
+// raster's 480 by 462 canvas and of the 640 by 480 one (DEC-6849). The
+// builder sends DOMAIN selecting it before its first PDI or bytes of the
+// program's own, and again after its own RESET, which restores the default
+// (section 5.3.2.2.1); a macro's contents send their own, since an object's
+// macro starts from the default (ANIM-11). Bytes of the program's own are
+// read in it, and must leave it in force. Every number is held to the NAPLPS renderer's limits by name
+// (naplps-limits.ts), and a call outside one throws, naming it, before
+// anything is appended.
 
 // oxlint-disable max-lines -- one method to each instruction PAR-40 names, each with its operands' coding beside it
 import type { NaplpsObject } from "../wire/generated/protocol.js";
@@ -38,6 +45,7 @@ const DEF_MACRO = 0x40;
 const END = 0x45;
 /** The PDI opcodes (section 5.3.1.1, Figure 9). */
 const RESET = 0x20;
+const DOMAIN = 0x21;
 const POINT_SET_ABSOLUTE = 0x24;
 const LINE_ABSOLUTE = 0x28;
 const SET_RECTANGLE_OUTLINED = 0x32;
@@ -52,14 +60,32 @@ const RESET_EVERYTHING = [0x7f, 0x7f] as const;
 const OPERAND = 0x40;
 /** The data bits of an operand byte, b6 to b1. */
 const DATA_BITS = 6;
-/** A multi-value operand's bytes in the default domain (section 5.3.2.2.3, Table 5), and its bits of each axis in two dimensions, three to a byte (Figure 11). */
-const MULTI_VALUE_BYTES = 3;
+/**
+ * A multi-value operand's bytes in the domain the builder selects (section 5.3.2.2.3, Table 5: four, where the
+ * default is three), and its bits of each axis in two dimensions, three to a byte (Figure 11).
+ */
+const MULTI_VALUE_BYTES = 4;
 const AXIS_BITS_PER_BYTE = 3;
 const AXIS_BITS = MULTI_VALUE_BYTES * AXIS_BITS_PER_BYTE;
-/** A coordinate is a two's complement binary fraction, its most significant bit the sign (section 5.3.1): steps of 1/256 of the unit screen in nine bits. */
+/** A coordinate is a two's complement binary fraction, its most significant bit the sign (section 5.3.1): steps of 1/2048 of the unit screen in twelve bits. */
 const AXIS_STEPS = 2 ** (AXIS_BITS - 1);
 const AXIS_MASK = 2 ** AXIS_BITS - 1;
 const AXIS_BYTE_MASK = 2 ** AXIS_BITS_PER_BYTE - 1;
+/**
+ * The largest absolute coordinate, one step short of the unit screen's right and top edges, which an operand's
+ * sign bit leaves out (TODO-6846). The NAPLPS renderer rounds a point to its nearest pixel and a filled shape covers
+ * the pixel its far corner rounds to (sections 5.3.3.4.1 and 5.3.2.2.6), so a far edge written one step short still
+ * covers a canvas's last pixel while the step is under half a pixel: on every canvas no wider than the design picture
+ * (the teletext raster's 480 dots, the 640 by 480 picture), as asserted here. At three-byte precision the step was
+ * 2.5 design pixels, and the raster's dot 479 was never reached.
+ */
+const LARGEST_STEP = AXIS_STEPS - 1;
+if (2 * OBJECT_PICTURE_WIDTH >= AXIS_STEPS) {
+  throw new Error("a step of the operand's precision is half a design pixel or more: a far edge one step short of the unit screen's misses the last pixel");
+}
+/** DOMAIN's fixed-format byte (section 5.3.2.2.1, Figure 14): single-value operands of one byte (b2 b1, Table 4), multi-value operands of MULTI_VALUE_BYTES (b5 b4 b3, Table 5), two dimensions (b6, section 5.3.2.2.4). */
+const MULTI_VALUE_LENGTH_SHIFT = 2;
+const DOMAIN_FORMAT = OPERAND | ((MULTI_VALUE_BYTES - 1) << MULTI_VALUE_LENGTH_SHIFT);
 /** A colour's bits of each primary in one operand byte, G R B G R B from b6 to b1 (section 5.3.2.5.1). */
 const PRIMARY_BITS_PER_BYTE = 2;
 const PRIMARY_BITS = MULTI_VALUE_BYTES * PRIMARY_BITS_PER_BYTE;
@@ -70,7 +96,7 @@ const BLUE_HIGH = 3;
 const GREEN_LOW = 2;
 const RED_LOW = 1;
 const BLUE_LOW = 0;
-/** An 8-bit primary's intensity, of which the operand keeps the top PRIMARY_BITS. */
+/** An 8-bit primary's intensity, of which the operand keeps the top PRIMARY_BITS: all eight in four bytes. A colour written shorter than the domain's length is read with zero bits after it (section 5.3.2.2.5), which would take full intensity down a step. */
 const INTENSITY_BITS = 8;
 const LAST_INTENSITY = 2 ** INTENSITY_BITS - 1;
 /** The colour map's entries (2^DEFAULT_PALETTE_BITS), and a single-value operand's entry in its top bits (section 5.3.2.6.2; one byte in the default domain). */
@@ -143,15 +169,22 @@ function within(call: string, what: string, value: number, least: number, most: 
   }
 }
 
-/** Throws unless (`x`, `y`) lies in the design picture, 0 to OBJECT_PICTURE_WIDTH across and 0 to OBJECT_PICTURE_HEIGHT down. */
-function inPicture(call: string, x: number, y: number): void {
-  within(call, "x", x, 0, OBJECT_PICTURE_WIDTH, "OBJECT_PICTURE_WIDTH");
-  within(call, "y", y, 0, OBJECT_PICTURE_HEIGHT, "OBJECT_PICTURE_HEIGHT");
+/** Throws unless `value` is a number from `least` to `most`, whole or not (a design coordinate: a step of the operand is finer than a design pixel), naming the call, what it is and the bound by its name. */
+function between(call: string, what: string, value: number, least: number, most: number, bound: string): void {
+  if (!Number.isFinite(value) || value < least || value > most) {
+    throw new RangeError(`Naplps.${call}: ${what} ${String(value)} is not a number from ${least} to ${most} (${bound})`);
+  }
 }
 
-/** A unit-screen fraction in AXIS_STEPS steps, rounded and kept within the operand's signed range. */
+/** Throws unless (`x`, `y`) lies in the design picture, 0 to OBJECT_PICTURE_WIDTH across and 0 to OBJECT_PICTURE_HEIGHT down. */
+function inPicture(call: string, x: number, y: number): void {
+  between(call, "x", x, 0, OBJECT_PICTURE_WIDTH, "OBJECT_PICTURE_WIDTH");
+  between(call, "y", y, 0, OBJECT_PICTURE_HEIGHT, "OBJECT_PICTURE_HEIGHT");
+}
+
+/** A unit-screen fraction in AXIS_STEPS steps, rounded and kept within the operand's signed range, to LARGEST_STEP. */
 function steps(fraction: number): number {
-  return Math.min(Math.max(Math.round(fraction * AXIS_STEPS), -AXIS_STEPS), AXIS_STEPS - 1);
+  return Math.min(Math.max(Math.round(fraction * AXIS_STEPS), -AXIS_STEPS), LARGEST_STEP);
 }
 
 /**
@@ -268,6 +301,8 @@ export class Naplps {
   #ownBytes = false;
   /** This builder is a macro's contents, being defined: definitions do not nest (section 6.2.2.1). */
   #inMacro = false;
+  /** DOMAIN was sent, and the builder's own RESET has not restored the default since. */
+  #domain = false;
 
   /** A builder of a macro's contents. */
   static #contents(): Naplps {
@@ -276,8 +311,13 @@ export class Naplps {
     return contents;
   }
 
-  /** A PDI: SO first if the PDI set is not in use, then the opcode and its operands. */
+  /** A PDI: SO first if the PDI set is not in use, then the opcode and its operands; DOMAIN before it when none is in force. */
   #pdi(opcode: number, operands: readonly number[]): this {
+    this.#start();
+    return this.#instruction(opcode, operands);
+  }
+
+  #instruction(opcode: number, operands: readonly number[]): this {
     if (!this.#drawing) {
       this.#bytes.push(SO);
       this.#drawing = true;
@@ -287,9 +327,23 @@ export class Naplps {
     return this;
   }
 
-  /** RESET with every bit (section 5.3.2.9): the domain, colour mode 1 with the default map drawing in white, the screen and border to black, the text, blinks, fields, texture, macros and DRCS to their defaults. */
+  /**
+   * DOMAIN (section 5.3.2.2), before the builder's first PDI or bytes of the program's own, and after its own RESET: multi-value operands
+   * of MULTI_VALUE_BYTES, and the logical pel, which DOMAIN's own multi-value operand gives in that length (section
+   * 5.3.2.2.6), at its default, a point (0, 0).
+   */
+  #start(): void {
+    if (!this.#domain) {
+      this.#domain = true;
+      this.#instruction(DOMAIN, [DOMAIN_FORMAT, ...multiValue(0, 0)]);
+    }
+  }
+
+  /** RESET with every bit (section 5.3.2.9): the domain, colour mode 1 with the default map drawing in white, the screen and border to black, the text, blinks, fields, texture, macros and DRCS to their defaults; then DOMAIN again, since RESET restored the default domain. */
   reset(): this {
-    this.#pdi(RESET, RESET_EVERYTHING);
+    this.#instruction(RESET, RESET_EVERYTHING);
+    this.#domain = false;
+    this.#start();
     this.#pen = NOMINAL_WHITE;
     this.#ownBytes = false;
     return this;
@@ -305,7 +359,7 @@ export class Naplps {
   /**
    * Sets colour-map entry `index` to red, green and blue intensities, 0 to 255, in colour mode 1: SELECT COLOR with
    * one operand, the entry (section 5.3.2.6.2), then SET COLOR (section 5.3.2.5.1), whose operand keeps each
-   * intensity's top six bits. The entry is the drawing colour after it.
+   * intensity's eight bits. The entry is the drawing colour after it.
    */
   colour(index: number, red: number, green: number, blue: number): this {
     within("colour", "index", index, 0, COLOUR_ENTRIES - 1, "DEFAULT_PALETTE_BITS");
@@ -346,13 +400,15 @@ export class Naplps {
 
   /**
    * A rectangle with its top left at (`x`, `y`): SET and RECTANGLE (Outlined), or (Filled) with `filled` (sections
-   * 5.3.3.4.4 and 5.3.3.4.5), from its lower left corner, its size up and to the right.
+   * 5.3.3.4.4 and 5.3.3.4.5), from its lower left corner, its size up and to the right. A filled one covers from the
+   * pixel its near corner rounds to through the pixel its far corner rounds to (sections 5.3.3.4.1 and 5.3.2.2.6), so a
+   * fill of whole pixels is written from the centre of its first to the centre of its last.
    */
   rect(x: number, y: number, width: number, height: number, options: { readonly filled?: boolean } = {}): this {
     inPicture("rect", x, y);
     inPicture("rect", x + width, y + height);
-    within("rect", "width", width, 1, OBJECT_PICTURE_WIDTH, "OBJECT_PICTURE_WIDTH");
-    within("rect", "height", height, 1, OBJECT_PICTURE_HEIGHT, "OBJECT_PICTURE_HEIGHT");
+    between("rect", "width", width, 0, OBJECT_PICTURE_WIDTH, "OBJECT_PICTURE_WIDTH");
+    between("rect", "height", height, 0, OBJECT_PICTURE_HEIGHT, "OBJECT_PICTURE_HEIGHT");
     const [left, bottom] = unitSteps(x, y + height);
     const [right, top] = unitSteps(x + width, y);
     return this.#pdi(options.filled === true ? SET_RECTANGLE_FILLED : SET_RECTANGLE_OUTLINED, [
@@ -405,6 +461,7 @@ export class Naplps {
 
   /** NAPLPS of the program's own, appended as it is; the builder then sends SO before its next drawing and knows no colour mode. */
   bytes(raw: Uint8Array): this {
+    this.#start();
     for (const byte of raw) {
       this.#bytes.push(byte);
     }

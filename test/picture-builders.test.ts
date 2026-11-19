@@ -108,19 +108,26 @@ test("PAR-39: a colour is the HLS the renderer turns back nearest it, within a p
   }
 });
 
-test("PAR-40: each Naplps method writes the instructions it names, SO before the first drawing and SDC after the last", () => {
-  const SO = 0x0e;
+/** SO, and DOMAIN (section 5.3.2.2, Figure 14): single values of one byte, multi values of four (Table 5, b5 b4 b3 = 011), two dimensions, then the logical pel (0, 0) in four bytes (DEC-6849). */
+const SO = 0x0e;
+const DOMAIN = [0x21, 0x4c, 0x40, 0x40, 0x40, 0x40] as const;
+
+test("PAR-40: each Naplps method writes the instructions it names, DOMAIN and SO before the first drawing and SDC after the last", () => {
   const SDC = 0x1a;
+  // Worked by hand, twelve bits an axis, three of x and three of y a byte, most significant first (section 5.3.1,
+  // Figure 11): y = 240 is up 240/480 of the display's 25/32, 800 of 2048 steps, 001 100 100 000; x = 320 is 1024,
+  // 010 000 000 000; the top, 1600, is 011 001 000 000; and x = 640 is the largest, 2047, 011 111 111 111 (TODO-6846).
   const cases: readonly (readonly [Naplps, readonly number[]])[] = [
-    [new Naplps().reset(), [SO, 0x20, 0x7f, 0x7f, SDC]],
+    [new Naplps().reset(), [SO, 0x20, 0x7f, 0x7f, ...DOMAIN, SDC]],
     [new Naplps().clear(), [0x0c]],
-    [new Naplps().pen(3), [SO, 0x3e, 0x4c, SDC]],
-    [new Naplps().colour(1, 255, 0, 0), [SO, 0x3e, 0x44, 0x3c, 0x52, 0x52, 0x52, SDC]],
-    [new Naplps().point(0, 480), [SO, 0x24, 0x40, 0x40, 0x40, SDC]],
-    [new Naplps().point(320, 0), [SO, 0x24, 0x53, 0x41, 0x40, SDC]],
-    [new Naplps().line(640, 480), [SO, 0x28, 0x58, 0x78, 0x78, SDC]],
-    [new Naplps().rect(0, 0, 320, 240, { filled: true }), [SO, 0x33, 0x41, 0x44, 0x44, 0x51, 0x44, 0x44, SDC]],
-    [new Naplps().rect(0, 0, 320, 240), [SO, 0x32, 0x41, 0x44, 0x44, 0x51, 0x44, 0x44, SDC]],
+    [new Naplps().pen(3), [SO, ...DOMAIN, 0x3e, 0x4c, SDC]],
+    // Each primary's eight bits, two to a byte: red 11 11 11 11 in b5 and b2 (Figure 12).
+    [new Naplps().colour(1, 255, 0, 0), [SO, ...DOMAIN, 0x3e, 0x44, 0x3c, 0x52, 0x52, 0x52, 0x52, SDC]],
+    [new Naplps().point(0, 480), [SO, ...DOMAIN, 0x24, 0x40, 0x40, 0x40, 0x40, SDC]],
+    [new Naplps().point(320, 0), [SO, ...DOMAIN, 0x24, 0x53, 0x41, 0x40, 0x40, SDC]],
+    [new Naplps().line(640, 480), [SO, ...DOMAIN, 0x28, 0x58, 0x78, 0x78, 0x78, SDC]],
+    [new Naplps().rect(0, 0, 320, 240, { filled: true }), [SO, ...DOMAIN, 0x33, 0x41, 0x44, 0x44, 0x40, 0x51, 0x44, 0x44, 0x40, SDC]],
+    [new Naplps().rect(0, 0, 320, 240), [SO, ...DOMAIN, 0x32, 0x41, 0x44, 0x44, 0x40, 0x51, 0x44, 0x44, 0x40, SDC]],
     [
       new Naplps().polygon(
         [
@@ -130,10 +137,11 @@ test("PAR-40: each Naplps method writes the instructions it names, SO before the
         ],
         { filled: true },
       ),
-      [SO, 0x37, 0x40, 0x40, 0x40, 0x53, 0x41, 0x40, 0x4c, 0x7f, 0x78, SDC],
+      // The last displacement: across 2047 - 1024 = 1023, 001 111 111 111; up -1600, 4096 - 1600 = 100 111 000 000.
+      [SO, ...DOMAIN, 0x37, 0x40, 0x40, 0x40, 0x40, 0x53, 0x41, 0x40, 0x40, 0x4c, 0x7f, 0x78, 0x78, SDC],
     ],
-    [new Naplps().reset().clear(), [SO, 0x20, 0x7f, 0x7f, 0x0c]],
-    [new Naplps().bytes(Uint8Array.from([0x41])), [0x41]],
+    [new Naplps().reset().clear(), [SO, 0x20, 0x7f, 0x7f, ...DOMAIN, 0x0c]],
+    [new Naplps().bytes(Uint8Array.from([0x41])), [SO, ...DOMAIN, 0x41]],
   ];
   for (const [built, written] of cases) {
     assert.deepEqual(plain(built.parts()), [written]);
@@ -142,12 +150,15 @@ test("PAR-40: each Naplps method writes the instructions it names, SO before the
 
 test("PAR-40, PAR-5: text is a text part, the next drawing sends SO again, and after the program's own bytes the pen is selected first", () => {
   const built = new Naplps().pen(2).text("Hi").pen(3);
-  assert.deepEqual(plain(built.parts()), [[0x0e, 0x3e, 0x48], { text: "Hi" }, [0x0e, 0x3e, 0x4c, 0x1a]]);
+  assert.deepEqual(plain(built.parts()), [[0x0e, ...DOMAIN, 0x3e, 0x48], { text: "Hi" }, [0x0e, 0x3e, 0x4c, 0x1a]]);
   const own = new Naplps()
     .pen(2)
     .bytes(Uint8Array.from([0x0e, 0x3e, 0x70, 0x4c]))
     .text("Hi", { language: "ar", outside: true });
-  assert.deepEqual(plain(own.parts()), [[0x0e, 0x3e, 0x48, 0x0e, 0x3e, 0x70, 0x4c, 0x0e, 0x3e, 0x48], { text: "Hi", language: "ar", outside: true }]);
+  assert.deepEqual(plain(own.parts()), [
+    [0x0e, ...DOMAIN, 0x3e, 0x48, 0x0e, 0x3e, 0x70, 0x4c, 0x0e, 0x3e, 0x48],
+    { text: "Hi", language: "ar", outside: true },
+  ]);
   assert.throws(() => new Naplps().bytes(Uint8Array.from([0x0e])).text("Hi"), /call pen first/u);
 });
 
@@ -155,7 +166,7 @@ test("PAR-40: a macro is DEF MACRO, its code, contents that shift for themselves
   const built = new Naplps().defineMacro(0x21, (contents) => {
     contents.pen(2).rect(0, 0, 320, 240, { filled: true });
   });
-  assert.deepEqual(plain(built.parts()), [[0x1b, 0x40, 0x21, 0x0e, 0x3e, 0x48, 0x33, 0x41, 0x44, 0x44, 0x51, 0x44, 0x44, 0x1b, 0x45]]);
+  assert.deepEqual(plain(built.parts()), [[0x1b, 0x40, 0x21, 0x0e, ...DOMAIN, 0x3e, 0x48, 0x33, 0x41, 0x44, 0x44, 0x40, 0x51, 0x44, 0x44, 0x40, 0x1b, 0x45]]);
   assert.throws(() => new Naplps().defineMacro(0x21, (contents) => void contents.defineMacro(0x22, EMPTY)), /do not nest/u);
   assert.throws(() => new Naplps().defineMacro(0x1f, EMPTY), /the 96 macro names/u);
   const { MAX_MACRO_BYTES } = naplpsLimits;
