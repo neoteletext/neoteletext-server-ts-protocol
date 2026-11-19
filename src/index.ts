@@ -84,7 +84,7 @@ export type { PictureData, PicturePart, PictureText } from "./picture/parts.ts";
 export { Regis } from "./picture/regis.ts";
 export type { RegisDrawingAttributes, RegisTextOptions } from "./picture/regis.ts";
 export { Naplps } from "./picture/naplps.ts";
-export type { NaplpsObjectSpec, RasterPoint } from "./picture/naplps.ts";
+export type { NaplpsObjectSpec, NaplpsTextOptions, RasterPoint, TextRows } from "./picture/naplps.ts";
 export * as regisLimits from "./picture/regis-limits.ts";
 export * as naplpsLimits from "./picture/naplps-limits.ts";
 export { TextNotWritableError } from "./channel/text-bytes.ts";

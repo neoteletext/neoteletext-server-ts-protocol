@@ -344,9 +344,11 @@ context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
   `reset`, `clear`, `colour(index, r, g, b)` (0 to 255), `pen`, `point`
   (moves the drawing point), `line`, `rect(x, y, width, height, { filled
   })` (exactly dots x to x + width - 1 and lines y to y + height - 1),
-  `polygon(points, { filled })`, `text(text, { row, column, language,
-  outside })` (one Noto cell a character from the cell of row 1 to 23 and
-  column 0 to 39), `bytes`, `defineMacro(code, build)`, `object(spec)` (a
+  `polygon(points, { filled })`, `text(text, { row, column, rows,
+  language, outside })` (one Noto cell a character from the cell of row 1
+  to 23 and column 0 to 39; `rows: 2` is teletext's double height, each
+  character 12 dots by two rows from the upper row `row`, 1 to 22, RAS-8
+  item 5), `bytes`, `defineMacro(code, build)`, `object(spec)` (a
   `NaplpsObject` for `naplpsObjects`, in raster dots), `parts`.
 
 ## What is in it

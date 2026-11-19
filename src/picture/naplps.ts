@@ -234,16 +234,38 @@ function dotSteps(x: number, y: number, rounding: Rounding): readonly [number, n
   return [held(across, rounding), held(up, rounding)];
 }
 
+/** The height of a text call's characters in teletext rows: one, or two for teletext's double height (EN 300 706 Table 26, code 0/D). */
+export type TextRows = 1 | 2;
+const SINGLE_HEIGHT: TextRows = 1;
+const DOUBLE_HEIGHT: TextRows = 2;
+/** Where and how a text call writes (RAS-8): the cell of its first character, its height in rows, and its text part's language and whether it is outside the page's own text. */
+export interface NaplpsTextOptions {
+  readonly row: number;
+  readonly column: number;
+  readonly rows?: TextRows;
+  readonly language?: LanguageTag;
+  readonly outside?: boolean;
+}
+/** The field `rows` teletext rows high: a column across and `rows` rows' RASTER_ROW_LINES up, each rounded down. */
+function textField(rows: TextRows): readonly [number, number] {
+  return [
+    held(AXIS_STEPS / TEXT_COLUMNS, "down"),
+    held((rows * RASTER_ROW_LINES * DISPLAY_HEIGHT_NUMERATOR * AXIS_STEPS) / (DISPLAY_HEIGHT_DENOMINATOR * DISPLAY_LINES), "down"),
+  ];
+}
 /**
  * TEXT's character field (section 5.3.2.3.4; RAS-8 item 1): a column, 1/TEXT_COLUMNS of the unit screen, across, and
  * a row's RASTER_ROW_LINES of the display area's DISPLAY_LINES up, each rounded down to a hair under one Noto cell,
  * 3,276 by 4,452 steps, so that the renderer, which covers the pixels whose centres lie inside the field, never
  * covers a thirteenth dot or a twenty-first line.
  */
-const TEXT_FIELD = [
-  held(AXIS_STEPS / TEXT_COLUMNS, "down"),
-  held((RASTER_ROW_LINES * DISPLAY_HEIGHT_NUMERATOR * AXIS_STEPS) / (DISPLAY_HEIGHT_DENOMINATOR * DISPLAY_LINES), "down"),
-] as const;
+const TEXT_FIELD = textField(SINGLE_HEIGHT);
+/**
+ * The double-height field (RAS-8 item 5; TODO-6890, DEC-6889): a column across and two rows up, each rounded down,
+ * 3,276 by 8,904 steps, 11.9971 dots by 39.9984 lines, a hair under two cells; drawn by the NAPLPS renderer with the engine's Noto glyphs,
+ * every glyph row lands on two raster lines, the same pixels as the engine's own teletext double height.
+ */
+const DOUBLE_HEIGHT_FIELD = textField(DOUBLE_HEIGHT);
 
 /** A multi-value operand of two axes in steps (section 5.3.1, Figure 11): three bits of x and three of y to a byte, most significant first. */
 function multiValue(across: number, up: number): number[] {
@@ -485,15 +507,20 @@ export class Naplps {
   /**
    * Unicode text from the cell at `row` (FIRST_TEXT_ROW to LAST_TEXT_ROW, teletext rows 1 to 23) and `column` (0 to
    * 39), one Noto cell a character (RAS-8): TEXT with the character field of TEXT_FIELD, then POINT SET at the lower
-   * left of the cell, the dot (12 column, 20 row + 19) rounded down on both axes, then the text as a text part the
+   * left of the cell, the dot (12 column, 20 row + 19) rounded down on both axes. With `rows: 2` the characters are
+   * teletext's double height, as the engine draws it: each 12 dots by two rows, `row` the upper of the two (so 1 to
+   * 22), the field DOUBLE_HEIGHT_FIELD and the point the lower left of the row below, the dot (12 column, 20 row + 39)
+   * (RAS-8 item 5). Then the text as a text part the
    * server writes in the language's provided sets, characters only (PAR-5, RAS-8 item 4), as one run. Both are written
    * at every call, so nothing of an earlier call is relied on. A text part leaves G0 invoked with the primary set, so
    * the next drawing sends SO again. Colour mode 2 fills a character's field with the background, where a mark would
    * erase its letter, so after bytes of the program's own the builder selects its pen again first, in colour mode 1;
    * it throws when it has none to select.
    */
-  text(text: string, options: { readonly row: number; readonly column: number; readonly language?: LanguageTag; readonly outside?: boolean }): this {
-    within("text", "row", options.row, FIRST_TEXT_ROW, LAST_TEXT_ROW, "DISPLAY_FIRST_LINE and DISPLAY_LINES");
+  text(text: string, options: NaplpsTextOptions): this {
+    const rows = options.rows ?? SINGLE_HEIGHT;
+    within("text", "rows", rows, SINGLE_HEIGHT, DOUBLE_HEIGHT, "a character is one or two teletext rows high");
+    within("text", "row", options.row, FIRST_TEXT_ROW, LAST_TEXT_ROW - (rows - 1), "DISPLAY_FIRST_LINE and DISPLAY_LINES");
     within("text", "column", options.column, 0, TEXT_COLUMNS - 1, "RASTER_WIDTH");
     if (this.#ownBytes) {
       if (this.#pen === null) {
@@ -501,8 +528,8 @@ export class Naplps {
       }
       this.pen(this.#pen);
     }
-    this.#pdi(TEXT, [...TEXT_FORMAT, ...multiValue(...TEXT_FIELD)]);
-    const lowerLeft = RASTER_ROW_LINES * options.row + RASTER_ROW_LINES - 1;
+    this.#pdi(TEXT, [...TEXT_FORMAT, ...multiValue(...(rows === DOUBLE_HEIGHT ? DOUBLE_HEIGHT_FIELD : TEXT_FIELD))]);
+    const lowerLeft = RASTER_ROW_LINES * (options.row + rows) - 1;
     this.#pdi(POINT_SET_ABSOLUTE, multiValue(...dotSteps(CELL_DOTS * options.column, lowerLeft, "down")));
     this.#flush();
     this.#parts.push({
