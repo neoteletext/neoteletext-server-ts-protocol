@@ -55,7 +55,7 @@ test("TS-19: a member of every kind is written as built, with type and connectio
 
 test("TS-19, RULE-61: the members are one of every kind the schema gives, the local sounds among them, in its order", () => {
   // Read as text, as the language tags' test reads the schema: the kinds are the consts of the schema's SoundKind.
-  const schema = readFileSync(join(import.meta.dirname, "..", "schema", "protocol-15.json"), "utf8");
+  const schema = readFileSync(join(import.meta.dirname, "..", "schema", "protocol-16.json"), "utf8");
   const kinds = /"SoundKind": \{.*?\n {4}\},\n/su.exec(schema)?.[0] ?? "";
   assert.deepEqual(
     MEMBERS.map((member) => member.kind),

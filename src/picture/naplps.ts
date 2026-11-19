@@ -1,14 +1,16 @@
 // A builder of NAPLPS (renderer parity PAR-40): each method appends the
 // instructions of ANSI X3.110-1983 it names, in the 7-bit form, and
 // `parts()` gives them, with Unicode text as text parts the server writes in
-// the provided sets (PAR-5, PAR-21), for `naplps`. Coordinates are given in
-// the 640 by 480 design picture of animation.md ANIM-11, origin at the top
-// left and y down, any number within it and not only whole pixels, and
-// written as unit-screen operands at a four-byte precision (section
-// 5.3.2.2.3, Table 5): twelve bits an axis, a step of 1/2048 of the unit
-// screen, so that a fill can begin and end on any pixel of the teletext
-// raster's 480 by 462 canvas and of the 640 by 480 one (DEC-6849). The
-// builder sends DOMAIN selecting it before its first PDI or bytes of the
+// the provided sets (PAR-5, PAR-21), for `naplps`. Coordinates are dots of
+// the 480 by 500 teletext raster (DEC-6853; neoteletext-common
+// docs/naplps-raster.md RAS-2, RAS-6), origin at the page's top left and y
+// down, the picture drawn on lines DISPLAY_FIRST_LINE to DISPLAY_FIRST_LINE +
+// DISPLAY_LINES - 1 (DEC-6857), any number within the raster and not only
+// whole dots, and written as unit-screen operands at a six-byte precision
+// (section 5.3.2.2.3, Table 5): eighteen bits an axis, a step of 1/131072 of
+// the unit screen, the shortest at which a row of 40 characters written as
+// one run keeps every character on its Noto cell (RAS-6, RAS-8; section 11
+// of that document). The builder sends DOMAIN selecting it before its first PDI or bytes of the
 // program's own, and again after its own RESET, which restores the default
 // (section 5.3.2.2.1); a macro's contents send their own, since an object's
 // macro starts from the default (ANIM-11). Bytes of the program's own are
@@ -28,8 +30,11 @@ import {
   MAX_MACRO_BYTES,
   MAX_OBJECT_FRAMES,
   MAX_VERTICES,
-  OBJECT_PICTURE_HEIGHT,
-  OBJECT_PICTURE_WIDTH,
+  DISPLAY_FIRST_LINE,
+  DISPLAY_LINES,
+  RASTER_HEIGHT,
+  RASTER_ROW_LINES,
+  RASTER_WIDTH,
 } from "./naplps-limits.ts";
 import type { PicturePart } from "./parts.ts";
 
@@ -46,6 +51,7 @@ const END = 0x45;
 /** The PDI opcodes (section 5.3.1.1, Figure 9). */
 const RESET = 0x20;
 const DOMAIN = 0x21;
+const TEXT = 0x22;
 const POINT_SET_ABSOLUTE = 0x24;
 const LINE_ABSOLUTE = 0x28;
 const SET_RECTANGLE_OUTLINED = 0x32;
@@ -61,32 +67,51 @@ const OPERAND = 0x40;
 /** The data bits of an operand byte, b6 to b1. */
 const DATA_BITS = 6;
 /**
- * A multi-value operand's bytes in the domain the builder selects (section 5.3.2.2.3, Table 5: four, where the
- * default is three), and its bits of each axis in two dimensions, three to a byte (Figure 11).
+ * A multi-value operand's bytes in the domain the builder selects (section 5.3.2.2.3, Table 5: six, where the
+ * default is three; RAS-6), and its bits of each axis in two dimensions, three to a byte (Figure 11).
  */
-const MULTI_VALUE_BYTES = 4;
+const MULTI_VALUE_BYTES = 6;
 const AXIS_BITS_PER_BYTE = 3;
 const AXIS_BITS = MULTI_VALUE_BYTES * AXIS_BITS_PER_BYTE;
-/** A coordinate is a two's complement binary fraction, its most significant bit the sign (section 5.3.1): steps of 1/2048 of the unit screen in twelve bits. */
+/** A coordinate is a two's complement binary fraction, its most significant bit the sign (section 5.3.1): steps of 1/131072 of the unit screen in eighteen bits. */
 const AXIS_STEPS = 2 ** (AXIS_BITS - 1);
 const AXIS_MASK = 2 ** AXIS_BITS - 1;
 const AXIS_BYTE_MASK = 2 ** AXIS_BITS_PER_BYTE - 1;
 /**
  * The largest absolute coordinate, one step short of the unit screen's right and top edges, which an operand's
- * sign bit leaves out (TODO-6846). The NAPLPS renderer rounds a point to its nearest pixel and a filled shape covers
- * the pixel its far corner rounds to (sections 5.3.3.4.1 and 5.3.2.2.6), so a far edge written one step short still
- * covers a canvas's last pixel while the step is under half a pixel: on every canvas no wider than the design picture
- * (the teletext raster's 480 dots, the 640 by 480 picture), as asserted here. At three-byte precision the step was
- * 2.5 design pixels, and the raster's dot 479 was never reached.
+ * sign bit leaves out (TODO-6846), and the smallest, the unit screen's negative edge: a value is held to them (RAS-2).
  */
 const LARGEST_STEP = AXIS_STEPS - 1;
-if (2 * OBJECT_PICTURE_WIDTH >= AXIS_STEPS) {
-  throw new Error("a step of the operand's precision is half a design pixel or more: a far edge one step short of the unit screen's misses the last pixel");
+const SMALLEST_STEP = -AXIS_STEPS;
+/**
+ * The NAPLPS renderer rounds a point to its nearest pixel (sections 5.3.3.4.1 and 5.3.2.2.6), so a dot written to
+ * the nearest step lands on its own pixel while a step is under half a dot across and half a line up on the
+ * receiver's canvas of RASTER_WIDTH by DISPLAY_LINES (RAS-2): a line is DISPLAY_HEIGHT_NUMERATOR /
+ * (DISPLAY_HEIGHT_DENOMINATOR x DISPLAY_LINES) of the unit screen.
+ */
+if (2 * RASTER_WIDTH >= AXIS_STEPS || 2 * DISPLAY_LINES * DISPLAY_HEIGHT_DENOMINATOR >= DISPLAY_HEIGHT_NUMERATOR * AXIS_STEPS) {
+  throw new Error("a step of the operand's precision is half a dot or half a line or more: a dot written to the nearest step may land on its neighbour");
 }
+/** The raster line the display area's unit-screen bottom, up = 0, lies on: its last line (RAS-2's F + D - 1). */
+const DISPLAY_LAST_LINE = DISPLAY_FIRST_LINE + DISPLAY_LINES - 1;
+/** Teletext's 40 columns across the raster (RAS-1), each a Noto cell's width of dots. */
+const TEXT_COLUMNS = 40;
+if (RASTER_WIDTH % TEXT_COLUMNS !== 0) {
+  throw new Error("the raster is not a whole number of dots a column");
+}
+const CELL_DOTS = RASTER_WIDTH / TEXT_COLUMNS;
+/** The text rows a picture holds, those of its display area: teletext rows 1 to 23 (DEC-6857 item 1, RAS-8). */
+if (DISPLAY_FIRST_LINE % RASTER_ROW_LINES !== 0 || DISPLAY_LINES % RASTER_ROW_LINES !== 0) {
+  throw new Error("the display area is not whole teletext rows");
+}
+const FIRST_TEXT_ROW = DISPLAY_FIRST_LINE / RASTER_ROW_LINES;
+const LAST_TEXT_ROW = (DISPLAY_FIRST_LINE + DISPLAY_LINES) / RASTER_ROW_LINES - 1;
+/** TEXT's two fixed-format bytes (section 5.3.2.3): no spacing change, path right, no rotation; the cursor and the drawing point move together. The engine's write-text writes the same (RAS-8). */
+const TEXT_FORMAT = [0x40, 0x40] as const;
 /** DOMAIN's fixed-format byte (section 5.3.2.2.1, Figure 14): single-value operands of one byte (b2 b1, Table 4), multi-value operands of MULTI_VALUE_BYTES (b5 b4 b3, Table 5), two dimensions (b6, section 5.3.2.2.4). */
 const MULTI_VALUE_LENGTH_SHIFT = 2;
 const DOMAIN_FORMAT = OPERAND | ((MULTI_VALUE_BYTES - 1) << MULTI_VALUE_LENGTH_SHIFT);
-/** A colour's bits of each primary in one operand byte, G R B G R B from b6 to b1 (section 5.3.2.5.1). */
+/** A colour's bits of each primary in one operand byte, G R B G R B from b6 to b1 (section 5.3.2.5.1): twelve a primary in six bytes. */
 const PRIMARY_BITS_PER_BYTE = 2;
 const PRIMARY_BITS = MULTI_VALUE_BYTES * PRIMARY_BITS_PER_BYTE;
 /** Where each primary's high and low bit of a pair lies in an operand byte, b6 to b1 as bits 5 to 0 (Figure 12: G R B G R B). */
@@ -96,9 +121,10 @@ const BLUE_HIGH = 3;
 const GREEN_LOW = 2;
 const RED_LOW = 1;
 const BLUE_LOW = 0;
-/** An 8-bit primary's intensity, of which the operand keeps the top PRIMARY_BITS: all eight in four bytes. A colour written shorter than the domain's length is read with zero bits after it (section 5.3.2.2.5), which would take full intensity down a step. */
+/** An 8-bit primary's intensity, written as its eight bits followed by PRIMARY_BITS - 8 zero bits (RAS-6): the renderer keeps a primary's top eight, so every intensity reads back exactly. A colour written shorter than the domain's length is read with zero bits after it (section 5.3.2.2.5), which would take full intensity down a step. */
 const INTENSITY_BITS = 8;
 const LAST_INTENSITY = 2 ** INTENSITY_BITS - 1;
+const PADDING_BITS = PRIMARY_BITS - INTENSITY_BITS;
 /** The colour map's entries (2^DEFAULT_PALETTE_BITS), and a single-value operand's entry in its top bits (section 5.3.2.6.2; one byte in the default domain). */
 const COLOUR_ENTRIES = 2 ** DEFAULT_PALETTE_BITS;
 const ENTRY_SHIFT = DATA_BITS - DEFAULT_PALETTE_BITS;
@@ -114,23 +140,26 @@ const C0_END = 0x20;
 const DEL = 0x7f;
 const C1_LAST = 0x9f;
 
-/** A point of the design picture. */
-export interface DesignPoint {
+/** A place on the teletext raster, in dots across and lines down from the page's top left (RAS-6). */
+export interface RasterPoint {
   readonly x: number;
   readonly y: number;
 }
 
-/** A NAPLPS object as a program gives it to {@link Naplps.object}: ANIM-11's fields, in the design picture's pixels, those left out at their defaults. */
+/** A NAPLPS object as a program gives it to {@link Naplps.object}: ANIM-11's fields, in dots of the teletext raster (RAS-4), those left out at their defaults. */
 export interface NaplpsObjectSpec {
   /** 1 to 65,535. */
   readonly number: number;
   /** A macro object, drawn by its frame's macro, or a region of the stream's own picture; a macro object when it has frames. */
   readonly kind?: "macro" | "region";
+  /** The raster dot of the rectangle's top left. */
   readonly x: number;
   readonly y: number;
+  /** Dots across, 1 to `RASTER_WIDTH`: the rectangle is dots x to x + width - 1. */
   readonly width: number;
+  /** Lines down, 1 to `RASTER_HEIGHT`: the rectangle is lines y to y + height - 1. */
   readonly height: number;
-  /** Where the rectangle's top left lies in the macro's own drawing; 0 for a region. */
+  /** The raster dot at which the macro, drawn where the stream would draw it, puts the rectangle's top left; 0 for a region. */
   readonly originX?: number;
   readonly originY?: number;
   /** A macro object's frames, 1 to `MAX_OBJECT_FRAMES` macro codes. */
@@ -169,34 +198,52 @@ function within(call: string, what: string, value: number, least: number, most: 
   }
 }
 
-/** Throws unless `value` is a number from `least` to `most`, whole or not (a design coordinate: a step of the operand is finer than a design pixel), naming the call, what it is and the bound by its name. */
+/** Throws unless `value` is a number from `least` to `most`, whole or not (a place between dots: a step of the operand is finer than a dot), naming the call, what it is and the bound by its name. */
 function between(call: string, what: string, value: number, least: number, most: number, bound: string): void {
   if (!Number.isFinite(value) || value < least || value > most) {
     throw new RangeError(`Naplps.${call}: ${what} ${String(value)} is not a number from ${least} to ${most} (${bound})`);
   }
 }
 
-/** Throws unless (`x`, `y`) lies in the design picture, 0 to OBJECT_PICTURE_WIDTH across and 0 to OBJECT_PICTURE_HEIGHT down. */
-function inPicture(call: string, x: number, y: number): void {
-  between(call, "x", x, 0, OBJECT_PICTURE_WIDTH, "OBJECT_PICTURE_WIDTH");
-  between(call, "y", y, 0, OBJECT_PICTURE_HEIGHT, "OBJECT_PICTURE_HEIGHT");
+/** Throws unless (`x`, `y`) lies on the raster, 0 to RASTER_WIDTH - 1 across and 0 to RASTER_HEIGHT - 1 down (RAS-6). */
+function onRaster(call: string, x: number, y: number): void {
+  between(call, "x", x, 0, RASTER_WIDTH - 1, "RASTER_WIDTH");
+  between(call, "y", y, 0, RASTER_HEIGHT - 1, "RASTER_HEIGHT");
 }
 
-/** A unit-screen fraction in AXIS_STEPS steps, rounded and kept within the operand's signed range, to LARGEST_STEP. */
-function steps(fraction: number): number {
-  return Math.min(Math.max(Math.round(fraction * AXIS_STEPS), -AXIS_STEPS), LARGEST_STEP);
+/** How a place between steps is rounded (RAS-2): to the nearest, a tie up, towards plus infinity; or down, towards minus infinity. */
+type Rounding = "nearest" | "down";
+
+/** `steps` steps, not necessarily whole, rounded and held to the operand's signed range, SMALLEST_STEP to LARGEST_STEP (RAS-2). */
+function held(steps: number, rounding: Rounding): number {
+  const whole = rounding === "nearest" ? Math.floor(steps + 1 / 2) : Math.floor(steps);
+  return Math.min(Math.max(whole, SMALLEST_STEP), LARGEST_STEP);
 }
 
 /**
- * A design point on the unit screen, in steps: across, the picture's width is the unit's; down, its height is the
- * share of the unit's the display shows, DISPLAY_HEIGHT_NUMERATOR / DISPLAY_HEIGHT_DENOMINATOR, measured up from the
- * bottom (the NAPLPS renderer's surface; Appendix B).
+ * The raster place (`x`, `y`) on the unit screen, in steps (RAS-2, the renderer's `dot_steps`): across X / RASTER_WIDTH
+ * of the unit's width; up, (DISPLAY_LAST_LINE - Y) lines of the display area's DISPLAY_LINES, which span the share
+ * DISPLAY_HEIGHT_NUMERATOR / DISPLAY_HEIGHT_DENOMINATOR of the unit's width the display shows (the NAPLPS renderer's
+ * surface; Appendix B), measured up from the centre of the bottom line. A whole dot's value is never a tie: 480 and
+ * 14,720 have odd factors no power of two cancels, and a fraction's quotient is at least 1/14,720 from a whole number,
+ * far more than a double's error.
  */
-function unitSteps(x: number, y: number): readonly [number, number] {
-  const across = x / OBJECT_PICTURE_WIDTH;
-  const up = ((OBJECT_PICTURE_HEIGHT - y) / OBJECT_PICTURE_HEIGHT) * (DISPLAY_HEIGHT_NUMERATOR / DISPLAY_HEIGHT_DENOMINATOR);
-  return [steps(across), steps(up)];
+function dotSteps(x: number, y: number, rounding: Rounding): readonly [number, number] {
+  const across = (x * AXIS_STEPS) / RASTER_WIDTH;
+  const up = ((DISPLAY_LAST_LINE - y) * DISPLAY_HEIGHT_NUMERATOR * AXIS_STEPS) / (DISPLAY_HEIGHT_DENOMINATOR * DISPLAY_LINES);
+  return [held(across, rounding), held(up, rounding)];
 }
+
+/**
+ * TEXT's character field (section 5.3.2.3.4; RAS-8 item 1): a column, 1/TEXT_COLUMNS of the unit screen, across, and
+ * a row's RASTER_ROW_LINES of the display area's DISPLAY_LINES up, each rounded down to a hair under one Noto cell,
+ * 3,276 by 4,452 steps, so that the renderer, which covers the pixels whose centres lie inside the field, never
+ * covers a thirteenth dot or a twenty-first line.
+ */
+const TEXT_FIELD = [
+  held(AXIS_STEPS / TEXT_COLUMNS, "down"),
+  held((RASTER_ROW_LINES * DISPLAY_HEIGHT_NUMERATOR * AXIS_STEPS) / (DISPLAY_HEIGHT_DENOMINATOR * DISPLAY_LINES), "down"),
+] as const;
 
 /** A multi-value operand of two axes in steps (section 5.3.1, Figure 11): three bits of x and three of y to a byte, most significant first. */
 function multiValue(across: number, up: number): number[] {
@@ -214,10 +261,9 @@ function bit(value: number, at: number): number {
   return (value >> at) & 1;
 }
 
-/** A colour operand (section 5.3.2.5.1, Figure 12): each 8-bit primary's top PRIMARY_BITS, two to a byte, G R B G R B from b6 to b1. */
+/** A colour operand (section 5.3.2.5.1, Figure 12; RAS-6): each 8-bit primary then PADDING_BITS zero bits, two bits to a byte, G R B G R B from b6 to b1. */
 function colourValue(red: number, green: number, blue: number): number[] {
-  const kept = INTENSITY_BITS - PRIMARY_BITS;
-  const [r, g, b] = [red >> kept, green >> kept, blue >> kept];
+  const [r, g, b] = [red << PADDING_BITS, green << PADDING_BITS, blue << PADDING_BITS];
   const bytes: number[] = [];
   for (let shift = PRIMARY_BITS - PRIMARY_BITS_PER_BYTE; shift >= 0; shift -= PRIMARY_BITS_PER_BYTE) {
     const high = shift + 1;
@@ -255,8 +301,8 @@ function checkObject(spec: NaplpsObjectSpec, kind: "macro" | "region", frames: r
   within("object", "number", spec.number, 1, MOST_OBJECT_NUMBER, "an object's number");
   within("object", "x", spec.x, LEAST_SIGNED, MOST_SIGNED, "a signed 16-bit coordinate");
   within("object", "y", spec.y, LEAST_SIGNED, MOST_SIGNED, "a signed 16-bit coordinate");
-  within("object", "width", spec.width, 1, OBJECT_PICTURE_WIDTH, "OBJECT_PICTURE_WIDTH");
-  within("object", "height", spec.height, 1, OBJECT_PICTURE_HEIGHT, "OBJECT_PICTURE_HEIGHT");
+  within("object", "width", spec.width, 1, RASTER_WIDTH, "RASTER_WIDTH");
+  within("object", "height", spec.height, 1, RASTER_HEIGHT, "RASTER_HEIGHT");
   within("object", "layer", spec.layer ?? 1, 1, LAYERS - 1, "LAYERS");
   within("object", "order", spec.order ?? 0, LEAST_ORDER, MOST_ORDER, "a signed byte");
   within("object", "originX", originX, LEAST_SIGNED, MOST_SIGNED, "a signed 16-bit coordinate");
@@ -388,29 +434,30 @@ export class Naplps {
 
   /** Moves the drawing point to (`x`, `y`) without drawing: POINT SET (Absolute, Invisible) (section 5.3.3.1.2). */
   point(x: number, y: number): this {
-    inPicture("point", x, y);
-    return this.#pdi(POINT_SET_ABSOLUTE, multiValue(...unitSteps(x, y)));
+    onRaster("point", x, y);
+    return this.#pdi(POINT_SET_ABSOLUTE, multiValue(...dotSteps(x, y, "nearest")));
   }
 
   /** Draws a line from the drawing point to (`x`, `y`), which becomes the drawing point: LINE (Absolute) (section 5.3.3.2.2). */
   line(x: number, y: number): this {
-    inPicture("line", x, y);
-    return this.#pdi(LINE_ABSOLUTE, multiValue(...unitSteps(x, y)));
+    onRaster("line", x, y);
+    return this.#pdi(LINE_ABSOLUTE, multiValue(...dotSteps(x, y, "nearest")));
   }
 
   /**
-   * A rectangle with its top left at (`x`, `y`): SET and RECTANGLE (Outlined), or (Filled) with `filled` (sections
-   * 5.3.3.4.4 and 5.3.3.4.5), from its lower left corner, its size up and to the right. A filled one covers from the
-   * pixel its near corner rounds to through the pixel its far corner rounds to (sections 5.3.3.4.1 and 5.3.2.2.6), so a
-   * fill of whole pixels is written from the centre of its first to the centre of its last.
+   * The rectangle of dots `x` to `x + width - 1` and lines `y` to `y + height - 1`, whole dots of the raster (RAS-6):
+   * SET and RECTANGLE (Outlined), or (Filled) with `filled` (sections 5.3.3.4.4 and 5.3.3.4.5), from POINT SET at its
+   * bottom left dot (`x`, `y + height - 1`), its displacement the difference of the top right dot's values and that
+   * corner's. A filled one covers from the pixel its near corner rounds to through the pixel its far corner rounds to
+   * (sections 5.3.3.4.1 and 5.3.2.2.6), so it covers exactly its dots, and cells drawn by it meet exactly.
    */
   rect(x: number, y: number, width: number, height: number, options: { readonly filled?: boolean } = {}): this {
-    inPicture("rect", x, y);
-    inPicture("rect", x + width, y + height);
-    between("rect", "width", width, 0, OBJECT_PICTURE_WIDTH, "OBJECT_PICTURE_WIDTH");
-    between("rect", "height", height, 0, OBJECT_PICTURE_HEIGHT, "OBJECT_PICTURE_HEIGHT");
-    const [left, bottom] = unitSteps(x, y + height);
-    const [right, top] = unitSteps(x + width, y);
+    within("rect", "x", x, 0, RASTER_WIDTH - 1, "RASTER_WIDTH");
+    within("rect", "y", y, 0, RASTER_HEIGHT - 1, "RASTER_HEIGHT");
+    within("rect", "width", width, 1, RASTER_WIDTH - x, "RASTER_WIDTH");
+    within("rect", "height", height, 1, RASTER_HEIGHT - y, "RASTER_HEIGHT");
+    const [left, bottom] = dotSteps(x, y + height - 1, "nearest");
+    const [right, top] = dotSteps(x + width - 1, y, "nearest");
     return this.#pdi(options.filled === true ? SET_RECTANGLE_FILLED : SET_RECTANGLE_OUTLINED, [
       ...multiValue(left, bottom),
       ...multiValue(right - left, top - bottom),
@@ -422,11 +469,11 @@ export class Naplps {
    * 5.3.3.5.4 and 5.3.3.5.5), the first point absolute and each next a displacement from the one before, closed back
    * to the first.
    */
-  polygon(points: readonly DesignPoint[], options: { readonly filled?: boolean } = {}): this {
+  polygon(points: readonly RasterPoint[], options: { readonly filled?: boolean } = {}): this {
     within("polygon", "the number of points", points.length, LEAST_VERTICES, MAX_VERTICES, "MAX_VERTICES");
     const placed = points.map(({ x, y }) => {
-      inPicture("polygon", x, y);
-      return unitSteps(x, y);
+      onRaster("polygon", x, y);
+      return dotSteps(x, y, "nearest");
     });
     const operands = placed.flatMap(([across, up], index) => {
       const [beforeAcross, beforeUp] = index === 0 ? [0, 0] : (placed[index - 1] ?? [0, 0]);
@@ -436,18 +483,27 @@ export class Naplps {
   }
 
   /**
-   * Unicode text at the cursor, as a text part the server writes in the language's provided sets (PAR-5): it leaves G0
-   * invoked with the primary set, so the next drawing sends SO again. Colour mode 2 fills a character's field with the
-   * background, where a mark would erase its letter, so after bytes of the program's own the builder selects its pen
-   * again first, in colour mode 1; it throws when it has none to select.
+   * Unicode text from the cell at `row` (FIRST_TEXT_ROW to LAST_TEXT_ROW, teletext rows 1 to 23) and `column` (0 to
+   * 39), one Noto cell a character (RAS-8): TEXT with the character field of TEXT_FIELD, then POINT SET at the lower
+   * left of the cell, the dot (12 column, 20 row + 19) rounded down on both axes, then the text as a text part the
+   * server writes in the language's provided sets, characters only (PAR-5, RAS-8 item 4), as one run. Both are written
+   * at every call, so nothing of an earlier call is relied on. A text part leaves G0 invoked with the primary set, so
+   * the next drawing sends SO again. Colour mode 2 fills a character's field with the background, where a mark would
+   * erase its letter, so after bytes of the program's own the builder selects its pen again first, in colour mode 1;
+   * it throws when it has none to select.
    */
-  text(text: string, options: { readonly language?: LanguageTag; readonly outside?: boolean } = {}): this {
+  text(text: string, options: { readonly row: number; readonly column: number; readonly language?: LanguageTag; readonly outside?: boolean }): this {
+    within("text", "row", options.row, FIRST_TEXT_ROW, LAST_TEXT_ROW, "DISPLAY_FIRST_LINE and DISPLAY_LINES");
+    within("text", "column", options.column, 0, TEXT_COLUMNS - 1, "RASTER_WIDTH");
     if (this.#ownBytes) {
       if (this.#pen === null) {
         throw new Error("Naplps.text: after bytes of the program's own the builder knows no pen to leave colour mode 2 with: call pen first (PAR-5)");
       }
       this.pen(this.#pen);
     }
+    this.#pdi(TEXT, [...TEXT_FORMAT, ...multiValue(...TEXT_FIELD)]);
+    const lowerLeft = RASTER_ROW_LINES * options.row + RASTER_ROW_LINES - 1;
+    this.#pdi(POINT_SET_ABSOLUTE, multiValue(...dotSteps(CELL_DOTS * options.column, lowerLeft, "down")));
     this.#flush();
     this.#parts.push({
       text,

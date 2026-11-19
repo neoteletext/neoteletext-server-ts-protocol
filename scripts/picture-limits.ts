@@ -54,7 +54,18 @@ const OUTPUTS: readonly Output[] = [
     sources: [
       {
         path: "crates/naplps/src/limits.rs",
-        names: ["MAX_MACRO_BYTES", "MAX_VERTICES", "LAYERS", "MAX_OBJECT_FRAMES", "OBJECT_PICTURE_WIDTH", "OBJECT_PICTURE_HEIGHT", "MAX_LABEL_BYTES"],
+        names: [
+          "MAX_MACRO_BYTES",
+          "MAX_VERTICES",
+          "LAYERS",
+          "MAX_OBJECT_FRAMES",
+          "RASTER_WIDTH",
+          "RASTER_HEIGHT",
+          "RASTER_ROW_LINES",
+          "DISPLAY_FIRST_LINE",
+          "DISPLAY_LINES",
+          "MAX_LABEL_BYTES",
+        ],
       },
       { path: "crates/naplps/src/surface.rs", names: ["DISPLAY_HEIGHT_NUMERATOR", "DISPLAY_HEIGHT_DENOMINATOR"] },
       { path: "crates/naplps-render/src/main.rs", names: ["DEFAULT_PALETTE_BITS"] },

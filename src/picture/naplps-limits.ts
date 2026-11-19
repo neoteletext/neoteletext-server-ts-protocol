@@ -16,10 +16,27 @@ export const MAX_VERTICES = 4096;
 export const LAYERS = 4;
 /** Frames of one object (ANIM-14). */
 export const MAX_OBJECT_FRAMES = 16;
-/** The width of the picture an object's position, size and rectangle are in (ANIM-11). */
-export const OBJECT_PICTURE_WIDTH = 640;
-/** The height of the picture an object's position, size and rectangle are in (ANIM-11). */
-export const OBJECT_PICTURE_HEIGHT = 480;
+/**
+ * The width of NeoTeletext's teletext raster, every coordinate NeoTeletext defines on a NAPLPS
+ * page being one of its dots (DEC-6853 item 1, `docs/naplps-raster.md` RAS-1): 40 columns of 12
+ * dots, the engine's `PAGE_WIDTH`.
+ */
+export const RASTER_WIDTH = 480;
+/** The height of the teletext raster: 25 rows of 20 lines, the engine's `PAGE_HEIGHT` (RAS-1). */
+export const RASTER_HEIGHT = 500;
+/** The lines of one teletext row on the raster: the Noto cell's height (DEC-6857 item 3). */
+export const RASTER_ROW_LINES = 20;
+/**
+ * The raster line a NAPLPS display area starts on: the top of teletext row 1 (DEC-6857 item 1,
+ * REQ-5819 version 2). Rows 0 and 24 are the teletext page's own, wholly outside the picture.
+ */
+export const DISPLAY_FIRST_LINE = 20;
+/**
+ * The raster lines a NAPLPS display area takes, lines 20 to 479: teletext rows 1 to 23
+ * (DEC-6857 item 1). Every formula of the mapping is written in this and
+ * `DISPLAY_FIRST_LINE`, so that a change of the display area is a change of these two alone.
+ */
+export const DISPLAY_LINES = 460;
 /**
  * Bytes of an object's label, UTF-8: the text a screen reader speaks for it (DEC-6638 item 6,
  * row 6.1). The same bound as a sound's label in the engine's OBJECT record (REQ-37), the one

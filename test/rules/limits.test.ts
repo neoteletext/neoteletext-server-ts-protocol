@@ -15,7 +15,7 @@ import * as kit from "../../src/index.ts";
 import { limitFigureLines } from "../../src/testing/index.ts";
 
 /** The schema, read as JSON. */
-const SCHEMA: unknown = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "schema", "protocol-15.json"), "utf8"));
+const SCHEMA: unknown = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "schema", "protocol-16.json"), "utf8"));
 
 /** The member `name` of `value`, when it is an object. */
 function member(value: unknown, name: string): unknown {

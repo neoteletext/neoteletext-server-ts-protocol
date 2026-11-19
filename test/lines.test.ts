@@ -163,6 +163,8 @@ test("REQ-2215 item 3: a start of another protocol stops the program, both versi
       errors.push(text);
     },
   });
+  // RAS-10: the kit speaks 16 and stops on a server of 15, whose NAPLPS coordinates were the 640 by 480 picture's.
+  assert.equal(PROTOCOL, 16);
   const other = PROTOCOL - 1;
   input.write(`${START_LINE.replace(`"protocol":${PROTOCOL}`, `"protocol":${other}`)}\n{"type":"gone","connection":1}\n`);
   await assert.rejects(served, (error: unknown) => error instanceof ProtocolVersionError && error.server === other);

@@ -108,37 +108,41 @@ test("PAR-39: a colour is the HLS the renderer turns back nearest it, within a p
   }
 });
 
-/** SO, and DOMAIN (section 5.3.2.2, Figure 14): single values of one byte, multi values of four (Table 5, b5 b4 b3 = 011), two dimensions, then the logical pel (0, 0) in four bytes (DEC-6849). */
+/** SO, and DOMAIN (section 5.3.2.2, Figure 14): single values of one byte, multi values of six (Table 5, b5 b4 b3 = 101), two dimensions, then the logical pel (0, 0) in six bytes (RAS-6). */
 const SO = 0x0e;
-const DOMAIN = [0x21, 0x4c, 0x40, 0x40, 0x40, 0x40] as const;
+const DOMAIN = [0x21, 0x54, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40] as const;
 
-test("PAR-40: each Naplps method writes the instructions it names, DOMAIN and SO before the first drawing and SDC after the last", () => {
+test("PAR-40, RAS-6: each Naplps method writes the instructions it names, DOMAIN and SO before the first drawing and SDC after the last", () => {
   const SDC = 0x1a;
-  // Worked by hand, twelve bits an axis, three of x and three of y a byte, most significant first (section 5.3.1,
-  // Figure 11): y = 240 is up 240/480 of the display's 25/32, 800 of 2048 steps, 001 100 100 000; x = 320 is 1024,
-  // 010 000 000 000; the top, 1600, is 011 001 000 000; and x = 640 is the largest, 2047, 011 111 111 111 (TODO-6846).
+  // Worked by hand, eighteen bits an axis, three of x and three of y a byte, most significant first (section 5.3.1,
+  // Figure 11), a dot (X, Y) being X / 480 across and (479 - Y) x 25 / 14720 up of 131072 steps, to the nearest (RAS-2):
+  // dot (0, 479) is (0, 0); dot (240, 249) is (65536, 51200) exactly, 010 000 000 000 000 000 and 001 100 100 000 000 000;
+  // dot (479, 479) is 130798.93, 130799, 011 111 111 011 101 111 across and 0 up.
   const cases: readonly (readonly [Naplps, readonly number[]])[] = [
     [new Naplps().reset(), [SO, 0x20, 0x7f, 0x7f, ...DOMAIN, SDC]],
     [new Naplps().clear(), [0x0c]],
     [new Naplps().pen(3), [SO, ...DOMAIN, 0x3e, 0x4c, SDC]],
-    // Each primary's eight bits, two to a byte: red 11 11 11 11 in b5 and b2 (Figure 12).
-    [new Naplps().colour(1, 255, 0, 0), [SO, ...DOMAIN, 0x3e, 0x44, 0x3c, 0x52, 0x52, 0x52, 0x52, SDC]],
-    [new Naplps().point(0, 480), [SO, ...DOMAIN, 0x24, 0x40, 0x40, 0x40, 0x40, SDC]],
-    [new Naplps().point(320, 0), [SO, ...DOMAIN, 0x24, 0x53, 0x41, 0x40, 0x40, SDC]],
-    [new Naplps().line(640, 480), [SO, ...DOMAIN, 0x28, 0x58, 0x78, 0x78, 0x78, SDC]],
-    [new Naplps().rect(0, 0, 320, 240, { filled: true }), [SO, ...DOMAIN, 0x33, 0x41, 0x44, 0x44, 0x40, 0x51, 0x44, 0x44, 0x40, SDC]],
-    [new Naplps().rect(0, 0, 320, 240), [SO, ...DOMAIN, 0x32, 0x41, 0x44, 0x44, 0x40, 0x51, 0x44, 0x44, 0x40, SDC]],
+    // Each primary's eight bits then four zero bits, two to a byte: red 11 11 11 11 00 00 in b5 and b2 (Figure 12).
+    [new Naplps().colour(1, 255, 0, 0), [SO, ...DOMAIN, 0x3e, 0x44, 0x3c, 0x52, 0x52, 0x52, 0x52, 0x40, 0x40, SDC]],
+    [new Naplps().point(0, 479), [SO, ...DOMAIN, 0x24, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, SDC]],
+    [new Naplps().point(240, 249), [SO, ...DOMAIN, 0x24, 0x51, 0x44, 0x44, 0x40, 0x40, 0x40, SDC]],
+    [new Naplps().line(479, 479), [SO, ...DOMAIN, 0x28, 0x58, 0x78, 0x78, 0x58, 0x68, 0x78, SDC]],
+    // The cell of row 1, column 0: POINT SET at its bottom left dot (0, 39), (0, 97947.83) to the nearest, 97948, and
+    // the displacement to its top right dot (11, 20): 11 x 131072 / 480 = 3003.73, 3004, and 4229.57 - 0.17, 4229 up.
+    [new Naplps().rect(0, 20, 12, 20, { filled: true }), [SO, ...DOMAIN, 0x33, 0x42, 0x47, 0x47, 0x42, 0x43, 0x44, 0x40, 0x41, 0x68, 0x72, 0x78, 0x65, SDC]],
+    [new Naplps().rect(0, 20, 12, 20), [SO, ...DOMAIN, 0x32, 0x42, 0x47, 0x47, 0x42, 0x43, 0x44, 0x40, 0x41, 0x68, 0x72, 0x78, 0x65, SDC]],
     [
       new Naplps().polygon(
         [
-          { x: 0, y: 480 },
-          { x: 320, y: 0 },
-          { x: 640, y: 480 },
+          { x: 0, y: 479 },
+          { x: 240, y: 249 },
+          { x: 479, y: 479 },
         ],
         { filled: true },
       ),
-      // The last displacement: across 2047 - 1024 = 1023, 001 111 111 111; up -1600, 4096 - 1600 = 100 111 000 000.
-      [SO, ...DOMAIN, 0x37, 0x40, 0x40, 0x40, 0x40, 0x53, 0x41, 0x40, 0x40, 0x4c, 0x7f, 0x78, 0x78, SDC],
+      // The last displacement: across 130799 - 65536 = 65263, 001 111 111 011 101 111; up -51200, 2^18 - 51200 =
+      // 210,944, 110 011 100 000 000 000.
+      [SO, ...DOMAIN, 0x37, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x51, 0x44, 0x44, 0x40, 0x40, 0x40, 0x4e, 0x7b, 0x7c, 0x58, 0x68, 0x78, SDC],
     ],
     [new Naplps().reset().clear(), [SO, 0x20, 0x7f, 0x7f, ...DOMAIN, 0x0c]],
     [new Naplps().bytes(Uint8Array.from([0x41])), [SO, ...DOMAIN, 0x41]],
@@ -148,25 +152,41 @@ test("PAR-40: each Naplps method writes the instructions it names, DOMAIN and SO
   }
 });
 
-test("PAR-40, PAR-5: text is a text part, the next drawing sends SO again, and after the program's own bytes the pen is selected first", () => {
-  const built = new Naplps().pen(2).text("Hi").pen(3);
-  assert.deepEqual(plain(built.parts()), [[0x0e, ...DOMAIN, 0x3e, 0x48], { text: "Hi" }, [0x0e, 0x3e, 0x4c, 0x1a]]);
+/** TEXT with its two fixed-format bytes and the character field of RAS-8 item 1: 3,276 by 4,452 steps, 000 000 110 011 001 100 and 000 001 000 101 100 100. */
+const TEXT_FIELD = [0x22, 0x40, 0x40, 0x40, 0x41, 0x70, 0x5d, 0x4c, 0x64] as const;
+/** POINT SET at the lower left of row 1, column 0: the dot (0, 39), 97947.83 up rounded down, 97947, 010 111 111 010 011 011 (RAS-8 item 2). */
+const ROW_1_COLUMN_0 = [0x24, 0x42, 0x47, 0x47, 0x42, 0x43, 0x43] as const;
+
+test("PAR-40, PAR-5, RAS-8: text is TEXT's field and its cell's point, then a text part; the next drawing sends SO again, and after the program's own bytes the pen is selected first", () => {
+  const built = new Naplps().pen(2).text("Hi", { row: 1, column: 0 }).pen(3);
+  assert.deepEqual(plain(built.parts()), [[0x0e, ...DOMAIN, 0x3e, 0x48, ...TEXT_FIELD, ...ROW_1_COLUMN_0], { text: "Hi" }, [0x0e, 0x3e, 0x4c, 0x1a]]);
   const own = new Naplps()
     .pen(2)
     .bytes(Uint8Array.from([0x0e, 0x3e, 0x70, 0x4c]))
-    .text("Hi", { language: "ar", outside: true });
+    .text("Hi", { row: 1, column: 0, language: "ar", outside: true });
   assert.deepEqual(plain(own.parts()), [
-    [0x0e, ...DOMAIN, 0x3e, 0x48, 0x0e, 0x3e, 0x70, 0x4c, 0x0e, 0x3e, 0x48],
+    [0x0e, ...DOMAIN, 0x3e, 0x48, 0x0e, 0x3e, 0x70, 0x4c, 0x0e, 0x3e, 0x48, ...TEXT_FIELD, ...ROW_1_COLUMN_0],
     { text: "Hi", language: "ar", outside: true },
   ]);
-  assert.throws(() => new Naplps().bytes(Uint8Array.from([0x0e])).text("Hi"), /call pen first/u);
+  assert.throws(() => new Naplps().bytes(Uint8Array.from([0x0e])).text("Hi", { row: 1, column: 0 }), /call pen first/u);
+  // Row 23, column 39: the dot (468, 479), 127,795.2 across rounded down, 127,795, and 0 up.
+  assert.deepEqual(plain(new Naplps().text("x", { row: 23, column: 39 }).parts()), [
+    [0x0e, ...DOMAIN, ...TEXT_FIELD, 0x24, 0x58, 0x78, 0x48, 0x60, 0x70, 0x58],
+    { text: "x" },
+  ]);
+  throwsNaming(() => new Naplps().text("x", { row: 0, column: 0 }), "DISPLAY_FIRST_LINE");
+  throwsNaming(() => new Naplps().text("x", { row: 24, column: 0 }), "DISPLAY_LINES");
+  throwsNaming(() => new Naplps().text("x", { row: 1, column: 40 }), "RASTER_WIDTH");
+  throwsNaming(() => new Naplps().text("x", { row: 1.5, column: 0 }), "DISPLAY_LINES");
 });
 
 test("PAR-40: a macro is DEF MACRO, its code, contents that shift for themselves, END; definitions do not nest", () => {
   const built = new Naplps().defineMacro(0x21, (contents) => {
-    contents.pen(2).rect(0, 0, 320, 240, { filled: true });
+    contents.pen(2).rect(0, 20, 12, 20, { filled: true });
   });
-  assert.deepEqual(plain(built.parts()), [[0x1b, 0x40, 0x21, 0x0e, ...DOMAIN, 0x3e, 0x48, 0x33, 0x41, 0x44, 0x44, 0x40, 0x51, 0x44, 0x44, 0x40, 0x1b, 0x45]]);
+  assert.deepEqual(plain(built.parts()), [
+    [0x1b, 0x40, 0x21, 0x0e, ...DOMAIN, 0x3e, 0x48, 0x33, 0x42, 0x47, 0x47, 0x42, 0x43, 0x44, 0x40, 0x41, 0x68, 0x72, 0x78, 0x65, 0x1b, 0x45],
+  ]);
   assert.throws(() => new Naplps().defineMacro(0x21, (contents) => void contents.defineMacro(0x22, EMPTY)), /do not nest/u);
   assert.throws(() => new Naplps().defineMacro(0x1f, EMPTY), /the 96 macro names/u);
   const { MAX_MACRO_BYTES } = naplpsLimits;
@@ -176,7 +196,7 @@ test("PAR-40: a macro is DEF MACRO, its code, contents that shift for themselves
   );
 });
 
-test("PAR-40: an object is ANIM-11's fields with their defaults, and one outside its bounds throws naming them", () => {
+test("PAR-40, RAS-4: an object is ANIM-11's fields in raster dots with their defaults, and one outside its bounds throws naming them", () => {
   const naplps = new Naplps();
   assert.deepEqual(naplps.object({ number: 7, x: 10, y: 20, width: 30, height: 40, frames: [0x21], detectable: true, label: "Play" }), {
     number: 7,
@@ -194,9 +214,11 @@ test("PAR-40: an object is ANIM-11's fields with their defaults, and one outside
     frames: [0x21],
     label: "Play",
   });
-  assert.equal(naplps.object({ number: 8, x: 0, y: 0, width: 640, height: 480, cover: 0 }).kind, "region");
-  const { LAYERS, MAX_OBJECT_FRAMES, OBJECT_PICTURE_WIDTH } = naplpsLimits;
-  assert.throws(() => naplps.object({ number: 7, x: 0, y: 0, width: OBJECT_PICTURE_WIDTH + 1, height: 1 }), /OBJECT_PICTURE_WIDTH/u);
+  const { LAYERS, MAX_OBJECT_FRAMES, RASTER_HEIGHT, RASTER_WIDTH } = naplpsLimits;
+  assert.equal(naplps.object({ number: 8, x: 0, y: 0, width: RASTER_WIDTH, height: RASTER_HEIGHT, cover: 0 }).kind, "region", "the whole raster");
+  throwsNaming(() => naplps.object({ number: 7, x: 0, y: 0, width: RASTER_WIDTH + 1, height: 1 }), "RASTER_WIDTH");
+  throwsNaming(() => naplps.object({ number: 7, x: 0, y: 0, width: 1, height: RASTER_HEIGHT + 1 }), "RASTER_HEIGHT");
+  throwsNaming(() => naplps.object({ number: 7, x: 0, y: 0, width: 0, height: 1 }), "RASTER_WIDTH");
   assert.throws(
     () => naplps.object({ number: 7, x: 0, y: 0, width: 1, height: 1, frames: Array.from({ length: MAX_OBJECT_FRAMES + 1 }, () => 0x21) }),
     /MAX_OBJECT_FRAMES/u,
@@ -206,11 +228,16 @@ test("PAR-40: an object is ANIM-11's fields with their defaults, and one outside
   assert.throws(() => naplps.object({ number: 7, x: 0, y: 0, width: 1, height: 1, label: "a\u0007" }), /MAX_LABEL_BYTES/u);
 });
 
-test("PAR-40: a coordinate outside the design picture, or a polygon of too few or too many points, throws naming the limit", () => {
-  const { MAX_VERTICES, OBJECT_PICTURE_HEIGHT, OBJECT_PICTURE_WIDTH } = naplpsLimits;
-  assert.throws(() => new Naplps().point(OBJECT_PICTURE_WIDTH + 1, 0), /OBJECT_PICTURE_WIDTH/u);
-  assert.throws(() => new Naplps().line(0, OBJECT_PICTURE_HEIGHT + 1), /OBJECT_PICTURE_HEIGHT/u);
-  assert.throws(() => new Naplps().rect(600, 0, 41, 1), /OBJECT_PICTURE_WIDTH/u);
+test("PAR-40, RAS-6: a place off the raster, a rectangle past its edge, or a polygon of too few or too many points, throws naming the limit", () => {
+  const { MAX_VERTICES, RASTER_HEIGHT, RASTER_WIDTH } = naplpsLimits;
+  throwsNaming(() => new Naplps().point(RASTER_WIDTH, 0), "RASTER_WIDTH");
+  throwsNaming(() => new Naplps().line(0, RASTER_HEIGHT), "RASTER_HEIGHT");
+  throwsNaming(() => new Naplps().point(-0.5, 0), "RASTER_WIDTH");
+  throwsNaming(() => new Naplps().rect(470, 0, 11, 1), "RASTER_WIDTH");
+  throwsNaming(() => new Naplps().rect(0, 490, 1, 11), "RASTER_HEIGHT");
+  throwsNaming(() => new Naplps().rect(0, 0, 0, 1), "RASTER_WIDTH");
+  throwsNaming(() => new Naplps().rect(0.5, 0, 1, 1), "RASTER_WIDTH");
+  assert.equal(new Naplps().rect(470, 490, 10, 10).parts().length, 1, "to the last dot and line it is taken");
   assert.throws(() => new Naplps().polygon([{ x: 0, y: 0 }]), /MAX_VERTICES/u);
   assert.throws(() => new Naplps().polygon(Array.from({ length: MAX_VERTICES + 1 }, () => ({ x: 0, y: 0 }))), /MAX_VERTICES/u);
   assert.throws(() => new Naplps().pen(16), /DEFAULT_PALETTE_BITS/u);

@@ -3,10 +3,10 @@
 The NeoTeletext server's channel protocol for programs in TypeScript: the
 reference kit of DOC-1974. A
 channel is a program the server starts; they talk in lines of JSON on its
-standard input and output. This package speaks protocol version 15
+standard input and output. This package speaks protocol version 16
 (DEC-1482, DEC-6471, DEC-6522, DEC-6524, DEC-6587): every message in both directions is typed by types
-generated from the server's published JSON Schema (`schema/protocol-15.json`,
-the server's `protocol/schema-15.json`) and checked against it by
+generated from the server's published JSON Schema (`schema/protocol-16.json`,
+the server's `protocol/schema-16.json`) and checked against it by
 validators Ajv 8 compiles from it at build, in standalone mode, so nothing
 compiles a schema at run time. A page, an index and a log line are then
 held to the server's rules of text the schema cannot state: no control or
@@ -337,12 +337,17 @@ context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
   height, { fill, pen })`, `circle(x, y, radius, { fill })`, `text(text,
   { language, outside, size })`, `bytes`, `drawing(number, { detectable,
   layer, hover, pressed, label }, build)`, `commit`, `title`, `parts`.
-- **Naplps** writes ANSI X3.110-1983's instructions in the 7-bit form, in
-  the 640 by 480 design picture: `reset`, `clear`, `colour(index, r, g,
-  b)` (0 to 255), `pen`, `point` (moves the drawing point), `line`,
-  `rect(x, y, width, height, { filled })`, `polygon(points, { filled })`,
-  `text`, `bytes`, `defineMacro(code, build)`, `object(spec)` (a
-  `NaplpsObject` for `naplpsObjects`), `parts`.
+- **Naplps** writes ANSI X3.110-1983's instructions in the 7-bit form, at
+  six-byte operands, every place a dot of the 480 by 500 teletext raster
+  (`RasterPoint`; the picture is drawn on lines 20 to 479, teletext rows 1
+  to 23; neoteletext-common `docs/naplps-raster.md` RAS-6, RAS-8):
+  `reset`, `clear`, `colour(index, r, g, b)` (0 to 255), `pen`, `point`
+  (moves the drawing point), `line`, `rect(x, y, width, height, { filled
+  })` (exactly dots x to x + width - 1 and lines y to y + height - 1),
+  `polygon(points, { filled })`, `text(text, { row, column, language,
+  outside })` (one Noto cell a character from the cell of row 1 to 23 and
+  column 0 to 39), `bytes`, `defineMacro(code, build)`, `object(spec)` (a
+  `NaplpsObject` for `naplpsObjects`, in raster dots), `parts`.
 
 ## What is in it
 
@@ -384,7 +389,7 @@ context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
   cells and triplets; or rejects with `MeasureRefusedError`,
   the server's refusal naming the run. A channel's tests can measure every
   page against a running server.
-- **The protocol's version:** the kit speaks protocol 15 (`PROTOCOL`); a
+- **The protocol's version:** the kit speaks protocol 16 (`PROTOCOL`); a
   `start` of any other stops it before it sends anything, naming both
   (`ProtocolVersionError`, REQ-2215 item 3).
 - **Input:** `Input`, what a viewer did and the rule of the page's table

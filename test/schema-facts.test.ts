@@ -8,10 +8,10 @@ import { test } from "node:test";
 
 import { PROTOCOL } from "../src/index.ts";
 
-test("TS-3: PROTOCOL is the schema's start.protocol, 15", () => {
-  const text = readFileSync(join(import.meta.dirname, "..", "schema", "protocol-15.json"), "utf8");
+test("TS-3: PROTOCOL is the schema's start.protocol, 16", () => {
+  const text = readFileSync(join(import.meta.dirname, "..", "schema", "protocol-16.json"), "utf8");
   // Read as text, as the language tags' test reads the schema: the one `protocol` field, start's, and its const.
   const consts = [...text.matchAll(/"protocol": \{\s*"const": (\d+),/gu)].map((found) => Number(found[1]));
   assert.deepEqual(consts, [PROTOCOL]);
-  assert.equal(PROTOCOL, 15);
+  assert.equal(PROTOCOL, 16);
 });

@@ -1,5 +1,5 @@
 // Writes the protocol's TypeScript types from the server's published schema
-// (schema/protocol-15.json, the server's protocol/schema-15.json, generated
+// (schema/protocol-16.json, the server's protocol/schema-16.json, generated
 // from its Rust types): typescript.md TS-8 to TS-15. No library writes them
 // (DEC-6477 answer 2): the schema uses few keywords, each mapped below, and
 // any other keyword fails generation, naming it and its path, so a schema
@@ -713,7 +713,7 @@ function firstDifference(one: string, two: string): number {
 
 function main(): void {
   const root = join(import.meta.dirname, "..");
-  const source = "schema/protocol-15.json";
+  const source = "schema/protocol-16.json";
   const out = join(root, "src", "wire", "generated");
   const { types, bytes } = generate(readFileSync(join(root, source), "utf8"), source);
   const files: readonly (readonly [string, string])[] = [
