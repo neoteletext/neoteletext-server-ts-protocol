@@ -46,6 +46,19 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
+## Release 19.1.0: double-height NAPLPS text
+
+Release 19.1.0 adds `rows` to `Naplps.text`'s options: `text(text,
+{ row, column, rows: 2 })` writes teletext's double height, each
+character 12 dots by two rows from the upper row `row` (1 to 22), with
+TEXT's field 3,276 by 8,904 steps and the point at the lower left of the
+row below (neoteletext-common `docs/naplps-raster.md` RAS-8 item 5,
+TODO-6890). Nothing else changes: a call without `rows` writes the bytes
+19.0.0 wrote. `NaplpsTextOptions` and `TextRows` are exported. Its
+shared files are neoteletext-common's at 92ecc72, with the example
+`naplps-double-height-text`. The component library takes it to draw
+double height in NAPLPS (DEC-6889).
+
 ## Release 19.0.0: program protocol 16, NAPLPS on the teletext raster
 
 Release 19.0.0 speaks program protocol 16, at the server's schema of
