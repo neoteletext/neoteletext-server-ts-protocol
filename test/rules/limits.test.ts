@@ -46,9 +46,9 @@ test("RULE-57, REQ-6608: each limit the schema bounds a table by is the engine's
   }
 });
 
-test("RULE-57: the kit exports all forty-two limits of the table and the clock's rate, each a positive whole number", () => {
+test("RULE-57: the kit exports all forty-three limits of the table and the clock's rate, each a positive whole number", () => {
   const names = Object.keys(kit).filter((name) => /^(MAX_[A-Z_]+|TIMERS|VARIABLES|TICKS_PER_SECOND)$/u.test(name));
-  assert.equal(names.length, 43);
+  assert.equal(names.length, 44);
   const exported: Readonly<Record<string, unknown>> = kit;
   for (const name of names) {
     const value = exported[name];

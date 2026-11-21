@@ -60,7 +60,7 @@ readonly SHARED_COPIES=(
 # from (page-rules.md RULE-57, REQ-6608): the one home of the rule table's
 # limits, at the commit the server pins.
 engine="${NEOTELETEXT_ENGINE:-$HOME/devel/neoteletext-renderer-teletext}"
-readonly LIMITS_FROM="33d9089610d1ee2d920dd26d42fb22388c97e709"
+readonly LIMITS_FROM="40faa0d8a42e6a231a1a44dac85a1f4dc3d0cc6c"
 readonly LIMITS_SOURCE="crates/neoteletext-rules/src/limits.rs"
 # The ReGIS and NAPLPS renderers' repositories, and the commits whose limits
 # src/picture/regis-limits.ts and naplps-limits.ts are generated from
