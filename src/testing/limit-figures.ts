@@ -18,13 +18,20 @@ import * as naplps from "../picture/naplps-limits.ts";
 import * as regis from "../picture/regis-limits.ts";
 import * as limits from "../rules/limits.ts";
 
-/** The limits of animation (ANIM-16) by name and figure: a name the renderers share is looked for with each renderer's figure. */
+/**
+ * The limits of animation (ANIM-16) by name and figure, those the shared call list's note names (kit-calls.tsv, "Each
+ * kit also exports the limits of animation"): a name the renderers share is looked for with each renderer's figure.
+ */
 const ANIMATION_LIMITS: readonly (readonly [string, number])[] = [
+  ["LAYERS", teletext.LAYERS],
   ["MAX_SPRITES", teletext.MAX_SPRITES],
-  ["MAX_CONTROLS", teletext.MAX_CONTROLS],
   ["MAX_ANIMATED_OBJECTS", teletext.MAX_ANIMATED_OBJECTS],
   ["MAX_CYCLING_OBJECTS", teletext.MAX_CYCLING_OBJECTS],
   ["MAX_OBJECT_FRAMES", teletext.MAX_OBJECT_FRAMES],
+  ["MAX_CONTROLS", teletext.MAX_CONTROLS],
+  ["OBJECT_TYPES", teletext.OBJECT_TYPES],
+  ["OBJECTS_PER_TYPE", teletext.OBJECTS_PER_TYPE],
+  ["OBJECT_SUBPAGES", teletext.OBJECT_SUBPAGES],
   ["MAX_ANIMATED_DRAWINGS", regis.MAX_ANIMATED_DRAWINGS],
   ["MAX_CYCLING_OBJECTS", regis.MAX_CYCLING_OBJECTS],
   ["MAX_OBJECT_FRAMES", regis.MAX_OBJECT_FRAMES],
@@ -32,6 +39,7 @@ const ANIMATION_LIMITS: readonly (readonly [string, number])[] = [
   ["MAX_ANIMATED_OBJECTS", naplps.MAX_ANIMATED_OBJECTS],
   ["MAX_CYCLING_OBJECTS", naplps.MAX_CYCLING_OBJECTS],
   ["MAX_OBJECT_FRAMES", naplps.MAX_OBJECT_FRAMES],
+  ["DEFINABLE_CODES", naplps.DEFINABLE_CODES],
 ];
 
 /** The limits: every constant of the rule table's generated copy and the limits of animation, each name and figure once. */

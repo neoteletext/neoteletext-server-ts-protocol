@@ -78,13 +78,9 @@ test("REQ-6608, ANIM-16: limitFigureLines finds a limit of animation beside its 
   ]);
 });
 
-test(
-  "TODO-7055: limitFigureLines finds DEFINABLE_CODES, the count of macro names TODO-7055 lists among the limits of animation, beside its figure",
-  { skip: "fault: limitFigureLines does not look for DEFINABLE_CODES, a limit of animation the shared note and TODO-7055 name, reported for a Fable fix" },
-  () => {
-    const root = mkdtempSync(join(tmpdir(), "animation-figures-"));
-    const line = `const names = ${naplpsLimits.DEFINABLE_CODES}; // DEFINABLE_CODES`;
-    writeFileSync(join(root, "planted.ts"), `${line}\n`);
-    assert.deepEqual(limitFigureLines(root, []), [`planted.ts:1: DEFINABLE_CODES is ${naplpsLimits.DEFINABLE_CODES}: ${line}`]);
-  },
-);
+test("TODO-7055: limitFigureLines finds DEFINABLE_CODES, the count of macro names TODO-7055 lists among the limits of animation, beside its figure", () => {
+  const root = mkdtempSync(join(tmpdir(), "animation-figures-"));
+  const line = `const names = ${naplpsLimits.DEFINABLE_CODES}; // DEFINABLE_CODES`;
+  writeFileSync(join(root, "planted.ts"), `${line}\n`);
+  assert.deepEqual(limitFigureLines(root, []), [`planted.ts:1: DEFINABLE_CODES is ${naplpsLimits.DEFINABLE_CODES}: ${line}`]);
+});
