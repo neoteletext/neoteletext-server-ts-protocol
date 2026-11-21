@@ -353,6 +353,19 @@ context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
   viewer who selects them, now or later, until
   `context.forgetPicture(page, sub)`. No other call takes it: the type
   checker refuses it.
+- **Painting as a show** (rdm DEC-7031 item 6): with `restart`, a stream
+  may say how the generation it begins is painted.
+  `context.naplps(to, page, sub, data, { restart: true, lineSpeed: LINE_SPEED_1200 })`
+  has the receiver paint it as if its bytes arrived over a serial line of
+  that speed, `LINE_SPEED_MIN` to `LINE_SPEED_MAX` bits a second
+  (`LINE_SPEED_300`, `LINE_SPEED_1200`, `LINE_SPEED_2400` and
+  `LINE_SPEED_9600` are named), and `regis` takes it too, with
+  `defaultRate`, the paint rate, 1 to `DEFAULT_PAINT_RATE_MAX`, of every
+  numbered drawing that sets no `T` of its own. Either without `restart`,
+  or outside its range, throws `ProtocolError` (`invalid_paint`) before
+  anything is sent. A rule's trigger `{ event: "painted", target: "page" }`
+  or `{ event: "painted", target: { object: n } }` fires when the whole
+  picture, or numbered drawing `n`, is wholly painted.
 - **Links and the cursor:** `regisLinks` and `regisCursor` name a ReGIS
   picture's numbered drawings, `naplpsLinks(to, page, sub, [{ object,
   target }])` and `naplpsCursor(to, page, sub, object)` a NAPLPS picture's

@@ -12,7 +12,7 @@
 import type { Fault } from "./fault.ts";
 import { type ValidationFault, type Validator, program, server, sound } from "./generated/validators.js";
 import type { Limits } from "./limits.ts";
-import { exclusiveBytesFault, isPictureMessage, pictureFault } from "./picture-rules.ts";
+import { exclusiveBytesFault, isPictureMessage, paintFault, pictureFault } from "./picture-rules.ts";
 import { decodeBytes } from "./bytes.ts";
 import type { Encoded } from "./encoded.ts";
 import type { ProgramMessage, ServerMessage } from "./generated/protocol.js";
@@ -131,9 +131,9 @@ function isProgramMessage(message: unknown): message is Encoded<ProgramMessage> 
 
 /** Whether a message the program would send, as its line carries it, is valid, by the schema and then by the server's rules within the limits `start` gave: null, or its first fault. */
 export function checkProgram(message: unknown, limits: Limits): Fault | null {
-  const exclusive = exclusiveBytesFault(message);
-  if (exclusive !== null) {
-    return exclusive;
+  const unstated = exclusiveBytesFault(message) ?? paintFault(message);
+  if (unstated !== null) {
+    return unstated;
   }
   if (!isProgramMessage(message)) {
     return check(program, message);

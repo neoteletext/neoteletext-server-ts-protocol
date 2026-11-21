@@ -20,7 +20,10 @@ import { numbered } from "../page/numbering.ts";
 import { pageText } from "../page/page-numbers.ts";
 import { type Subpage, contentOf } from "../page/subpage.ts";
 import { readTtiPages } from "../tti/read-tti.ts";
+import { type RegisStreamOptions, streamFields } from "../picture/paint.ts";
 import { pictureFields } from "../picture/parts.ts";
+import { paintFault } from "../wire/picture-rules.ts";
+import { ProtocolError } from "../wire/validate.ts";
 import type { Viewer } from "./viewer.ts";
 import type { App } from "../wire/app.ts";
 
@@ -164,19 +167,32 @@ function viewing(parts: HostParts): ViewerHost {
   };
 }
 
+/**
+ * A stream's options as its message's fields, refused here, whoever the audience is and before anything is written,
+ * when the server would refuse them (`invalid_paint`, DEC-7031 item 6).
+ */
+function paintedFields(type: "regis" | "naplps", options: RegisStreamOptions): ReturnType<typeof streamFields> {
+  const fields = streamFields(options);
+  const fault = paintFault({ type, ...fields });
+  if (fault !== null) {
+    throw new ProtocolError(type, fault);
+  }
+  return fields;
+}
+
 type PictureHost = Pick<Host, "regis" | "regisLinks" | "regisCursor" | "naplps" | "naplpsLinks" | "naplpsCursor" | "forgetPicture" | "measurePictureText">;
 
 /** A sub-page's picture (renderer parity PAR-16 to PAR-22): its ReGIS and NAPLPS, given as bytes or parts, its links and its cursor, to the audience named or kept; a kept picture forgotten; and picture text measured. */
 function pictures(parts: HostParts): PictureHost {
   const { app, sender } = parts;
   return {
-    regis: (to, page, sub, data, restart): void => {
-      const fields = pictureFields("regis", data);
-      sender.toPictureAudience(to, (named) => ({ type: "regis", connections: named, page: pageText(page), sub: subText(sub), ...fields, restart }));
+    regis: (to, page, sub, data, options): void => {
+      const fields = { ...pictureFields("regis", data), ...paintedFields("regis", options) };
+      sender.toPictureAudience(to, (named) => ({ type: "regis", connections: named, page: pageText(page), sub: subText(sub), ...fields }));
     },
-    naplps: (to, page, sub, data, restart): void => {
-      const fields = pictureFields("naplps", data);
-      sender.toPictureAudience(to, (named) => ({ type: "naplps", connections: named, page: pageText(page), sub: subText(sub), ...fields, restart }));
+    naplps: (to, page, sub, data, options): void => {
+      const fields = { ...pictureFields("naplps", data), ...paintedFields("naplps", options) };
+      sender.toPictureAudience(to, (named) => ({ type: "naplps", connections: named, page: pageText(page), sub: subText(sub), ...fields }));
     },
     regisLinks: (to, page, sub, links): void => {
       const listed = links.map(({ drawing, target }) => ({ drawing, target }));

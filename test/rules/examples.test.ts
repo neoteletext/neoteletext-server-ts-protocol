@@ -27,7 +27,7 @@ function channelOf({ to, page, sub, table }: Example): Application {
   };
 }
 
-test("RULE-55: the fixture holds the eight examples of section 7.5 and the music player's table, and the kit builds every one", () => {
+test("RULE-55: the fixture holds the eight examples of section 7.5, the painted trigger's table and the music player's table, and the kit builds every one", () => {
   assert.deepEqual(
     fixtureLines("rules-examples.jsonl").map((line) => line["example"]),
     EXAMPLES.map(({ example }) => example),

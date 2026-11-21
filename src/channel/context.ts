@@ -15,6 +15,7 @@ import { Screen } from "../page/screen.ts";
 import type { Subpage } from "../page/subpage.ts";
 import type { App } from "../wire/app.ts";
 import type { Timeline } from "../animation/timeline.ts";
+import type { NaplpsStreamOptions, RegisStreamOptions } from "../picture/paint.ts";
 import type { PictureData } from "../picture/parts.ts";
 import type {
   AnimationOp,
@@ -88,10 +89,10 @@ export interface Host {
   log(text: string): void;
   measure(page: number, screen: Screen): Promise<ServerMessageMeasured>;
   packets(to: Audience, packets: Uint8Array): void;
-  regis(to: PictureAudience, page: number, sub: number, data: PictureData, restart: boolean): void;
+  regis(to: PictureAudience, page: number, sub: number, data: PictureData, options: RegisStreamOptions): void;
   regisLinks(to: PictureAudience, page: number, sub: number, links: readonly DrawingLink[]): void;
   regisCursor(to: PictureAudience, page: number, sub: number, drawing: number): void;
-  naplps(to: PictureAudience, page: number, sub: number, data: PictureData, restart: boolean): void;
+  naplps(to: PictureAudience, page: number, sub: number, data: PictureData, options: NaplpsStreamOptions): void;
   naplpsLinks(to: PictureAudience, page: number, sub: number, links: readonly ObjectLink[]): void;
   naplpsCursor(to: PictureAudience, page: number, sub: number, object: number): void;
   forgetPicture(page: number, sub: number): void;
@@ -279,13 +280,24 @@ export class Context {
    * {@link Context.forgetPicture}. A kept picture of one language takes the
    * other's bytes only with a restart (`wrong_picture_language`).
    *
+   * With `restart`, `lineSpeed` has the receiver paint the new generation as
+   * if its bytes arrived over a serial line of that speed, {@link LINE_SPEED_MIN}
+   * to {@link LINE_SPEED_MAX} bits a second at ten bits a byte (REQ-7024), and
+   * `defaultRate` gives every numbered drawing that sets no `T` of its own that
+   * paint rate, 1 to {@link DEFAULT_PAINT_RATE_MAX} (REQ-7025; a drawing's own
+   * `T`, `T0` among them, still holds). Either without `restart`, or outside its
+   * range, throws {@link ProtocolError} (`invalid_paint`) and nothing is sent,
+   * as the server would refuse it (DEC-7031 item 6). A rule table's `painted`
+   * trigger fires when the picture, or a numbered drawing, is wholly painted
+   * (REQ-7026), whether or not the viewer has gradual painting on.
+   *
    * A drawing answers the pointer with no message at all through two of
    * its attributes: `D(S10(I1,H11,A12),S11(V0),S12(V0))` has the viewer's
    * browser show drawing 11 in drawing 10's place while the pointer is
    * over it, and drawing 12 while it is pressed.
    */
-  regis(to: PictureAudience, page: number, sub: number, data: PictureData, options: { readonly restart?: boolean } = {}): void {
-    this.#host.regis(to, page, sub, data, options.restart === true);
+  regis(to: PictureAudience, page: number, sub: number, data: PictureData, options: RegisStreamOptions = {}): void {
+    this.#host.regis(to, page, sub, data, options);
   }
 
   /**
@@ -295,10 +307,13 @@ export class Context {
    * (PAR-21), leaving G0 invoked with the primary set; the {@link Naplps} builder makes such a list. `restart` begins
    * the sub-page's stream again; without it the bytes add to the stream, and go to no connection not yet sent a
    * restart. The server reads them as the viewer's renderer will and refuses what it would refuse (`invalid_naplps`,
-   * PAR-23). `{ kept: true }` keeps them as `regis` keeps ReGIS.
+   * PAR-23). `{ kept: true }` keeps them as `regis` keeps ReGIS. With `restart`, `lineSpeed` has the receiver paint
+   * the new generation at a serial line's speed as `regis` does, a WAIT's time on top of the line's (REQ-7024); without
+   * `restart`, or outside {@link LINE_SPEED_MIN} to {@link LINE_SPEED_MAX}, it throws {@link ProtocolError}
+   * (`invalid_paint`) and nothing is sent.
    */
-  naplps(to: PictureAudience, page: number, sub: number, data: PictureData, options: { readonly restart?: boolean } = {}): void {
-    this.#host.naplps(to, page, sub, data, options.restart === true);
+  naplps(to: PictureAudience, page: number, sub: number, data: PictureData, options: NaplpsStreamOptions = {}): void {
+    this.#host.naplps(to, page, sub, data, options);
   }
 
   /**

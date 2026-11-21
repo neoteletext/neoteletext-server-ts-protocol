@@ -1,10 +1,11 @@
-// The worked examples of page-rules.md section 7.5 and the music player's
+// The worked examples of page-rules.md section 7.5, the `painted` trigger's
+// table (DEC-7031 item 6) and the music player's
 // table of RULE-93 (music-player.ts), each written as a program writes it: a typed table, its
 // audience, its page and its sub-code, built with the kit's builders where
 // one makes the object. The type check holds each to the schema's types,
 // and test/rules/examples.test.ts to the document's JSON.
 
-import { type Audience, Key, characterKey, namedKey, noteOff, noteOn, phase, variable } from "../../src/index.ts";
+import { type Audience, Key, characterKey, namedKey, noteOff, noteOn, phase, row, variable } from "../../src/index.ts";
 import type { AnimationOp, RuleCommand, RuleTable } from "../../src/protocol.ts";
 import { MUSIC_PLAYER } from "./music-player.ts";
 
@@ -227,6 +228,32 @@ const PRESSES: RuleTable = {
   ],
 };
 
+/** The numbered drawing whose painting shows the next one, and the one it shows (DEC-7031 item 8's show). */
+const TITLE_DRAWING = 10;
+const AFTER_TITLE_DRAWING = 11;
+/** A panel's drawing is its row's parameter plus this, and the drawing its painting shows that parameter plus the other. */
+const FIRST_PANEL_DRAWING = 20;
+const FIRST_CAPTION_DRAWING = 30;
+
+/** Painting as a show (DEC-7031 items 4 and 6, REQ-7026): the whole picture painted is reported, and a drawing painted shows the next, one by its number and one a row. */
+const PAINTED: RuleTable = {
+  rows: { panels: [1, 2, 3] },
+  rules: [
+    { name: "received", on: { event: "painted", target: "page" }, do: [REPORT] },
+    {
+      name: "title_painted",
+      on: { event: "painted", target: { object: TITLE_DRAWING } },
+      do: [animate({ action: "show", target: { object: AFTER_TITLE_DRAWING } })],
+    },
+    {
+      name: "panel_painted",
+      rows: "panels",
+      on: { event: "painted", target: { object: row(FIRST_PANEL_DRAWING) } },
+      do: [animate({ action: "show", target: { object: row(FIRST_CAPTION_DRAWING) } })],
+    },
+  ],
+};
+
 /** Every example, by the fixture's names. */
 export const EXAMPLES: readonly Example[] = [
   { example: "example-1", to: EVERYONE, page: 0x120, sub: FIRST, table: TEXT_FIELD },
@@ -237,5 +264,6 @@ export const EXAMPLES: readonly Example[] = [
   { example: "example-6", to: EVERYONE, page: 0x170, sub: FIRST, table: SYNTH_STATE },
   { example: "example-7", to: EVERYONE, page: 0x180, sub: FIRST, table: BEAT },
   { example: "example-8", to: EVERYONE, page: 0x190, sub: FIRST, table: PRESSES },
+  { example: "painted", to: EVERYONE, page: 0x1a0, sub: FIRST, table: PAINTED },
   { example: "music-player", to: { connection: 7 }, page: 0x101, sub: MUSIC_SUB, table: MUSIC_PLAYER },
 ];

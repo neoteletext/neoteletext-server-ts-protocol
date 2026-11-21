@@ -88,6 +88,9 @@ export type { NaplpsObjectSpec, NaplpsTextOptions, RasterPoint, TextRows } from 
 export * as regisLimits from "./picture/regis-limits.ts";
 export * as naplpsLimits from "./picture/naplps-limits.ts";
 export { TextNotWritableError } from "./channel/text-bytes.ts";
+// Painting as a show (DEC-7031 item 6): how a stream's generation is painted, with the engine's bounds and the named line speeds.
+export { DEFAULT_PAINT_RATE_MAX, LINE_SPEED_1200, LINE_SPEED_2400, LINE_SPEED_300, LINE_SPEED_9600, LINE_SPEED_MAX, LINE_SPEED_MIN } from "./picture/paint.ts";
+export type { NaplpsStreamOptions, RegisStreamOptions } from "./picture/paint.ts";
 export { Timeline } from "./animation/timeline.ts";
 export type { TimelineStep } from "./animation/step.ts";
 // The limits of a page's rule table by the engine's names (page-rules.md RULE-57, REQ-6608), TICKS_PER_SECOND among them.
