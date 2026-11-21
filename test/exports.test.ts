@@ -140,6 +140,7 @@ const KIT = [
   "isConnection",
   "isPageNumber",
   "isReserved",
+  "keyCode",
   "keyText",
   "level",
   "modes",

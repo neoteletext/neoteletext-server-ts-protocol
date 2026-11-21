@@ -21,6 +21,7 @@ export { LineSplitter } from "./wire/line-splitter.ts";
 export { ProtocolVersionError, processStreams, serveLines } from "./wire/streams.ts";
 export type { Streams } from "./wire/streams.ts";
 export { Key, isCharacterKey, pressed, released } from "./input/keys.ts";
+export { keyCode } from "./input/key-code.ts";
 export type { KeyAction, HoverAction } from "./input/keys.ts";
 export { Button, Held, Mods, clicked } from "./input/input.ts";
 export type { Input, InputSource, Pointed } from "./input/input.ts";

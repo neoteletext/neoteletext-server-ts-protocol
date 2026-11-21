@@ -54,6 +54,24 @@
 # TICKS_PER_SECOND), generated from neoteletext_rules::limits at the commit its
 # scripts/check.sh names (LIMITS_FROM) and checked against it: they are constants,
 # not calls, and are not listed here.
+# keyCode answers a key's code as a condition reads the key that fired its rule
+# (page-rules.md RULE-116, the value fired key; RULE-10), so that a condition's in_set or
+# value names a key without the program writing a code: for {"name":n} the functional
+# code of n in the engine's table (DOC-1936; neoteletext_input::keys::code), which each kit
+# holds as a copy generated from the engine's tables at LIMITS_FROM and checked against
+# them, never as figures written by hand; for {"char":c} the Unicode scalar value of c's
+# one character; and nothing (undefined in TypeScript, None in Python) for
+# {"physical":c}, whose code is the viewer's layout's, for a name the table lacks, and for
+# a char that is not one character. It checks nothing else and sends nothing.
+# Each kit also exports the limits of animation (animation.md ANIM-16) by each renderer's
+# names, generated from the renderers' own files at the commits its scripts/check.sh names
+# and checked against them: teletextLimits (teletext_limits in Python: LAYERS, MAX_SPRITES,
+# MAX_ANIMATED_OBJECTS, MAX_CYCLING_OBJECTS, MAX_OBJECT_FRAMES, MAX_CONTROLS, OBJECT_TYPES,
+# OBJECTS_PER_TYPE, OBJECT_SUBPAGES, from the engine at LIMITS_FROM), and among regisLimits
+# (MAX_ANIMATED_DRAWINGS, MAX_CYCLING_OBJECTS, MAX_OBJECT_FRAMES) and naplpsLimits
+# (MAX_OBJECTS, MAX_ANIMATED_OBJECTS, MAX_CYCLING_OBJECTS, MAX_OBJECT_FRAMES,
+# DEFINABLE_CODES), which are regis_limits and naplps_limits in Python. They are
+# constants, not calls, and are not listed here.
 # Renderer parity (neoteletext-common docs/renderer-parity.md PAR-38 to PAR-40; the server's
 # schema of neoteletext-app-server 25bc0e7): the audience kept, which only regis,
 # regisLinks, regisCursor, naplps, naplpsObjects, naplpsLinks and naplpsCursor take and
@@ -223,6 +241,7 @@ step	reset	reset	-	object
 builder	physicalKey	physical_key	-	character
 builder	characterKey	character_key	-	character
 builder	namedKey	named_key	-	name
+builder	keyCode	key_code	-	key
 builder	level	level	-	channel
 builder	variable	variable	-	variable
 builder	plus	plus	-	plus, variable

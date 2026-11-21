@@ -129,7 +129,25 @@ as they are, and the server makes them into groups. The builders
 `physicalKey`, `characterKey`, `namedKey`, `level`, `variable`, `plus`,
 `row`, `fired`, `phase`, `noteOn`, `noteOff` and the mode set `modes`
 (`in(mode, condition?)`, `enter(mode)`, RULE-110) build its pieces and
-check nothing. A group may also hold a picture's links and cursor
+check nothing. A condition takes numbers alone, so "the key that fired is
+one of these" is written with `keyCode(key)`, which answers a key's code
+as the value `fired` `key` gives it (RULE-116): a named key's functional
+code from the engine's table (DOC-1936), a character key's Unicode scalar
+value, and `undefined` for a physical key, whose code is the viewer's
+layout's:
+
+```ts
+import { Key, characterKey, keyCode, namedKey } from "neoteletext-server-ts-protocol";
+
+const keys = [namedKey(Key.Enter), namedKey(Key.Down), characterKey("j")];
+const codes = keys.map(keyCode).filter((code) => code !== undefined);
+const firedOneOfThem = { read: { of: "fired", property: "key" }, in_set: codes } as const;
+```
+
+The two kinds share one range of numbers and the value does not say which
+fired: `ColorF0Red`'s code is also the scalar value of `\`.
+
+A group may also hold a picture's links and cursor
 (renderer parity PAR-20, RULE-119): `{ type: "regis_links", links }`,
 `{ type: "regis_cursor", drawing }`, `{ type: "naplps_links", links }` and
 `{ type: "naplps_cursor", object }`, the messages without `connections`,
@@ -434,8 +452,10 @@ context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
 - **Rules and animation:** `Context.rules`, `queryState`, `frame`,
   `animate`, `sprites`, `naplpsObjects`, `spriteSheet`, `playTimeline` and
   `stopTimeline`; the `Timeline` builder; `PageState`, `QueryRefusedError`
-  and `TICKS_PER_SECOND`; and the builders `physicalKey`, `characterKey`,
-  `namedKey` and `level`.
+  and `TICKS_PER_SECOND`; the builders `physicalKey`, `characterKey`,
+  `namedKey` and `level`; and `keyCode`, a key's code as a condition reads
+  the key that fired, the named keys' generated from the engine's
+  `neoteletext_input::keys`.
 - **Pictures:** `Context.regis`, `naplps`, `regisLinks`, `regisCursor`,
   `naplpsLinks`, `naplpsCursor`, `forgetPicture` and `measurePictureText`;
   the audiences with `{ kept: true }` (`PictureAudience`); `PicturePart`
