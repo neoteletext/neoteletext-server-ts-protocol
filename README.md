@@ -333,14 +333,15 @@ import { Naplps, Regis } from "neoteletext-server-ts-protocol";
 
 const button = new Regis()
   .colour(1, 20, 20, 80)
-  .drawing(11, {}, (look) => look.pen(2).box(0, 0, 100, 40, { fill: true }))
-  .drawing(10, { detectable: true, hover: 11, label: "Play" }, (play) =>
+  .drawing(11, { visible: false }, (look) => look.pen(2).box(0, 0, 100, 40, { fill: true }))
+  .drawing(10, { x: 200, y: 200, detectable: true, hover: 11, label: "Play" }, (play) =>
     play.pen(1).box(0, 0, 100, 40, { fill: true }).at(10, 10).text("Play"),
   )
-  .bytes("D(S11(V0),S10(X200,Y200))")
   .title("Player")
   .commit();
 context.regis({ kept: true }, 0x200, 1, button.parts(), { restart: true });
+// Later: move the button, and send nothing of its contents again.
+context.regis({ kept: true }, 0x200, 1, new Regis().set(10, { x: 240 }).commit().parts());
 
 const sign = new Naplps().reset().colour(1, 255, 0, 0).pen(1).rect(40, 40, 200, 120, { filled: true }).point(40, 200).text("שלום", { language: "he" });
 context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
@@ -368,8 +369,16 @@ context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
   numbered drawings: `erase(background?)`, `colour(index, r, g, b)` (0 to
   100 percent, written in HLS), `pen`, `at`, `line`, `box(x, y, width,
   height, { fill, pen })`, `circle(x, y, radius, { fill })`, `text(text,
-  { language, outside, size })`, `bytes`, `drawing(number, { detectable,
-  layer, hover, pressed, label }, build)`, `commit`, `title`, `parts`.
+  { language, outside, size })`, `bytes`, `drawing(number, attributes,
+  build)`, `set(number, attributes)` (attributes alone, the contents
+  untouched), `delete(number)`, `deleteAll`, `commit`, `title`, `parts`.
+  A drawing's attributes are ReGIS v2's fourteen, each optional and
+  written only when given: `parent`, `source`, `hover`, `pressed` and
+  `alternative` (a drawing's number, 0 for none), `x`, `y` and `depth`
+  (`MIN_COORDINATE` to `MAX_COORDINATE`), `visible`, `detectable`, `clip`
+  (`{ x, y, width, height }`, or `null` for none), `layer` (0 to `LAYERS`
+  - 1), `frames` (1 to `MAX_OBJECT_FRAMES` drawings, or `[]` for none),
+  `rate` (0 to `MAX_PAINT_RATE`) and `label`.
 - **Naplps** writes ANSI X3.110-1983's instructions in the 7-bit form, at
   six-byte operands, every place a dot of the 480 by 500 teletext raster
   (`RasterPoint`; the picture is drawn on lines 20 to 479, teletext rows 1
