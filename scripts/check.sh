@@ -37,7 +37,7 @@ readonly CHECKED_PATHS=(.)
 # schema/protocol-16.json is a copy of: a new schema is taken by copying it
 # and naming its commit here (typescript.md TS-5 to TS-7).
 server="${NEOTELETEXT_SERVER:-$HOME/devel/neoteletext-app-server}"
-readonly SCHEMA_FROM="c5557e4be601bd2337b0054adc9c893123271c28"
+readonly SCHEMA_FROM="e9fa47b1e757ac1786b9c2428bad21627d1be7bc"
 # neoteletext-common's repository, and the commit whose files the shared
 # copies below are copies of: the calls and the worked examples' lines both
 # kits must have (typescript.md TS-2, TS-6), and protocol 15's rule tables and
