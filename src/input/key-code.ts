@@ -21,9 +21,11 @@ const CODES: ReadonlyMap<string, number> = new Map([...FUNCTIONAL_KEY_NAMES.entr
  *
  * The two kinds share one range of numbers, and the value does not say
  * which kind fired: `ColorF0Red`'s code is also the scalar value of `\`,
- * and each of `F12` to `F35`, the keypad's keys and the keys from
- * `ColorF0Red` to `AudioVolumeDown` has a printable character's value. A
- * condition that must tell them apart also tests something else.
+ * and each of `F12` to `F35`, the keypad's keys, the located modifiers
+ * `ShiftLeft` to `MetaRight` (codes 80 to 91, the values of `P` to `[`) and
+ * the keys from `ColorF0Red` to `AudioVolumeDown` has a printable
+ * character's value. A condition that must tell them apart also tests
+ * something else.
  */
 export function keyCode(key: RuleKey): number | undefined {
   if ("name" in key) {
