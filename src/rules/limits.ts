@@ -86,8 +86,8 @@ export const MAX_START_TICKS = 216_000;
 export const MAX_CUE = 127;
 /**
  * Events handled in one tick: input events, the server's records the
- * evaluator carries out, cues and state queries together (a per-tick
- * budget, RULE-5).
+ * evaluator carries out, cues, paintings finished (DEC-7031 item 4) and
+ * state queries together (a per-tick budget, RULE-5).
  */
 export const MAX_EVENTS_PER_TICK = 16;
 /**
@@ -114,6 +114,12 @@ export const MAX_TABLE_VALUES = 64;
 export const MAX_TABLE_TARGETS = 64;
 /** Distinct metered values a table reads (RULE-33). */
 export const MAX_WATCHED = 32;
+/**
+ * Distinct drawings a table's `painted` triggers name, by a constant or
+ * by a row's `p` (DEC-7031 item 4): what the ReGIS renderer watches at
+ * once, asserted equal to its limit where both are linked.
+ */
+export const MAX_PAINT_WATCHED = 32;
 /** A table's image (RULE-41). */
 export const MAX_TABLE_BYTES = 32_768;
 /**

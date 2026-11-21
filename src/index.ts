@@ -21,6 +21,7 @@ export { LineSplitter } from "./wire/line-splitter.ts";
 export { ProtocolVersionError, processStreams, serveLines } from "./wire/streams.ts";
 export type { Streams } from "./wire/streams.ts";
 export { Key, isCharacterKey, pressed, released } from "./input/keys.ts";
+export { keyCode } from "./input/key-code.ts";
 export type { KeyAction, HoverAction } from "./input/keys.ts";
 export { Button, Held, Mods, clicked } from "./input/input.ts";
 export type { Input, InputSource, Pointed } from "./input/input.ts";
@@ -82,14 +83,21 @@ export type { MeasuredPictureText, PictureTextOptions } from "./channel/picture-
 // the renderers' limits they hold their calls to, by the renderers' names.
 export type { PictureData, PicturePart, PictureText } from "./picture/parts.ts";
 export { Regis } from "./picture/regis.ts";
-export type { RegisDrawingAttributes, RegisTextOptions } from "./picture/regis.ts";
+export type { RegisTextOptions } from "./picture/regis.ts";
+export type { RegisClip, RegisDrawingAttributes } from "./picture/regis-attributes.ts";
 export { Naplps } from "./picture/naplps.ts";
 export type { NaplpsObjectSpec, NaplpsTextOptions, RasterPoint, TextRows } from "./picture/naplps.ts";
 export * as regisLimits from "./picture/regis-limits.ts";
 export * as naplpsLimits from "./picture/naplps-limits.ts";
 export { TextNotWritableError } from "./channel/text-bytes.ts";
+// Painting as a show (DEC-7031 item 6): how a stream's generation is painted, with the engine's bounds and the named line speeds.
+export { DEFAULT_PAINT_RATE_MAX, LINE_SPEED_1200, LINE_SPEED_2400, LINE_SPEED_300, LINE_SPEED_9600, LINE_SPEED_MAX, LINE_SPEED_MIN } from "./picture/paint.ts";
+export type { NaplpsStreamOptions, RegisStreamOptions } from "./picture/paint.ts";
 export { Timeline } from "./animation/timeline.ts";
 export type { TimelineStep } from "./animation/step.ts";
+// The teletext renderer's limits of animation, controls and object pages by the engine's names (animation.md ANIM-16);
+// the ReGIS and NAPLPS renderers' are among regisLimits and naplpsLimits.
+export * as teletextLimits from "./animation/teletext-limits.ts";
 // The limits of a page's rule table by the engine's names (page-rules.md RULE-57, REQ-6608), TICKS_PER_SECOND among them.
 export * from "./rules/limits.ts";
 export { characterKey, fired, level, namedKey, noteOff, noteOn, phase, physicalKey, plus, row, variable } from "./rules/builders.ts";

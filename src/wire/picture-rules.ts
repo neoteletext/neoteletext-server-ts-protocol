@@ -6,7 +6,7 @@
 // check_regis_links, check_naplps_links, check_shown_subpage and the
 // measure_picture_text arm of the server's
 // crates/teletext-runtime/src/protocol/check.rs at neoteletext-app-server
-// 25bc0e7, and of the links a rule table's group holds (Scope::links_body
+// 25bc0e7, how a stream's generation is painted (DEC-7031 item 6), and of the links a rule table's group holds (Scope::links_body
 // of its protocol/check/rules.rs at 9059c09; PAR-20, RULE-119). What a text part's language shows, and whether the bytes draw,
 // are the server's to say: it encodes and reads them as a receiver would.
 
@@ -15,6 +15,7 @@ import type { Limits } from "./limits.ts";
 import type { Encoded } from "./encoded.ts";
 import type { PicturePart, ProgramMessage, RuleCommand, RuleTable } from "./generated/protocol.js";
 import { base64Bytes, boundedTextFault, firstOf, given, isFault } from "./rule-pieces.ts";
+import { DEFAULT_PAINT_RATE_MAX, DEFAULT_PAINT_RATE_MIN, LINE_SPEED_MAX, LINE_SPEED_MIN } from "../picture/paint.ts";
 
 /** The program's messages of a sub-page's picture, as their lines carry them. */
 export type PictureMessage = Extract<
@@ -109,6 +110,57 @@ function pictureBytesFault(message: Extract<PictureMessage, { type: "regis" | "n
     return isFault(bytes) ? bytes : null;
   }
   return partsFault("parts", parts ?? [], MOST_PICTURE_MESSAGE_BYTES);
+}
+
+/** One painting value of a message at `path`, as its line carries it; null when none is given, which the schema writes as left out or null. */
+function paintValue(message: object, path: "line_speed" | "default_rate"): unknown {
+  const value: unknown = path in message ? Reflect.get(message, path) : null;
+  return value ?? null;
+}
+
+/** One painting value at `path`: given only with `restart`, and then `least` to `most`, said as the server says it. */
+function paintValueFault(message: object, path: "line_speed" | "default_rate", restart: boolean, least: number, most: number, bounds: string): Fault | null {
+  const value = paintValue(message, path);
+  // A value that is no number is the schema's to refuse (`wrong_type`).
+  if (typeof value !== "number") {
+    return null;
+  }
+  if (!restart) {
+    return { path, rule: "invalid_paint", detail: `\`${path}\` is for the stream a message begins: it is given with \`restart: true\`` };
+  }
+  return value < least || value > most ? { path, rule: "invalid_paint", detail: `${value}${bounds}` } : null;
+}
+
+/**
+ * How a `regis` or `naplps` message has the stream it begins painted (the server's check_paint at e9fa47b; DEC-7031 item 6,
+ * REQ-7024, REQ-7025): a line speed and a default paint rate are of the generation a `restart` begins, so each is
+ * given only with one, the speed MIN_LINE_SPEED to MAX_LINE_SPEED bits a second and the rate 1 to
+ * MAX_DEFAULT_PAINT_RATE. It is told before the schema is: the schema states the ranges, whose fault would be
+ * `out_of_range`, and the server names `invalid_paint`. Any other message has no such rule.
+ */
+export function paintFault(message: unknown): Fault | null {
+  if (typeof message !== "object" || message === null || !("type" in message) || (message.type !== "regis" && message.type !== "naplps")) {
+    return null;
+  }
+  const restart = "restart" in message && message.restart === true;
+  return (
+    paintValueFault(
+      message,
+      "line_speed",
+      restart,
+      LINE_SPEED_MIN,
+      LINE_SPEED_MAX,
+      ` bits a second: MIN_LINE_SPEED (${LINE_SPEED_MIN}) to MAX_LINE_SPEED (${LINE_SPEED_MAX})`,
+    ) ??
+    paintValueFault(
+      message,
+      "default_rate",
+      restart,
+      DEFAULT_PAINT_RATE_MIN,
+      DEFAULT_PAINT_RATE_MAX,
+      `: ${DEFAULT_PAINT_RATE_MIN} to MAX_DEFAULT_PAINT_RATE (${DEFAULT_PAINT_RATE_MAX})`,
+    )
+  );
 }
 
 /** The detail of a link target that is not one. */

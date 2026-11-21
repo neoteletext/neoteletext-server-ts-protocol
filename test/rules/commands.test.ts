@@ -8,8 +8,8 @@ import { test } from "node:test";
 import { fixtureLines } from "./fixture.ts";
 import { INDEX, SUB, calling } from "./serving.ts";
 
-/** The calls a line of the fixture may name: the commands' (RULE-114). */
-const COMMAND_CALLS = ["localMidi", "variable", "timer", "report", "run", "sequence"] as const;
+/** The calls a line of the fixture may name: the commands' (RULE-114), and the picture streams' with how a generation is painted (DEC-7031 item 6). */
+const COMMAND_CALLS = ["localMidi", "variable", "timer", "report", "run", "sequence", "regis", "naplps"] as const;
 type CommandCall = (typeof COMMAND_CALLS)[number];
 
 function isCommandCall(name: unknown): name is CommandCall {

@@ -18,9 +18,14 @@
 #                             test/fixtures against neoteletext-common's
 #   scripts/check.sh limits   src/rules/limits.ts against the engine's
 #                             neoteletext_rules::limits
+#   scripts/check.sh key_codes
+#                             src/input/functional-keys.ts against the
+#                             engine's neoteletext_input::keys
 #   scripts/check.sh picture_limits
 #                             src/picture/regis-limits.ts and
-#                             naplps-limits.ts against the renderers'
+#                             naplps-limits.ts against the renderers', and
+#                             src/animation/teletext-limits.ts against the
+#                             engine's
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -37,7 +42,7 @@ readonly CHECKED_PATHS=(.)
 # schema/protocol-16.json is a copy of: a new schema is taken by copying it
 # and naming its commit here (typescript.md TS-5 to TS-7).
 server="${NEOTELETEXT_SERVER:-$HOME/devel/neoteletext-app-server}"
-readonly SCHEMA_FROM="c5557e4be601bd2337b0054adc9c893123271c28"
+readonly SCHEMA_FROM="e9fa47b1e757ac1786b9c2428bad21627d1be7bc"
 # neoteletext-common's repository, and the commit whose files the shared
 # copies below are copies of: the calls and the worked examples' lines both
 # kits must have (typescript.md TS-2, TS-6), and protocol 15's rule tables and
@@ -45,7 +50,7 @@ readonly SCHEMA_FROM="c5557e4be601bd2337b0054adc9c893123271c28"
 # section 7.5 and RULE-93; animation.md ANIM-19), and the picture builders'
 # calls and bytes (renderer-parity.md PAR-39, PAR-40).
 common="${NEOTELETEXT_COMMON:-$HOME/devel/neoteletext-common}"
-readonly COMMON_FROM="a8d9163128cd0ded1fb0a20e6fbef63d6dd712e3"
+readonly COMMON_FROM="1f17196dbe7685a8e33da0ccf0a272a6539d1463"
 # Each copy and the file of neoteletext-common it is a copy of.
 readonly SHARED_COPIES=(
     "kit-calls.tsv:docs/audio/kit-calls.tsv"
@@ -55,17 +60,24 @@ readonly SHARED_COPIES=(
     "test/fixtures/command-lines.jsonl:docs/command-lines.jsonl"
     "test/fixtures/picture-examples.jsonl:docs/picture-examples.jsonl"
 )
-# The engine's repository, and the commit whose
-# crates/neoteletext-rules/src/limits.rs src/rules/limits.ts is generated
-# from (page-rules.md RULE-57, REQ-6608): the one home of the rule table's
-# limits, at the commit the server pins.
+# The engine's repository, and the commit whose files the kit's copies of
+# the engine's figures are generated from, the commit the server pins:
+# src/rules/limits.ts from crates/neoteletext-rules/src/limits.rs, the one
+# home of the rule table's limits (page-rules.md RULE-57, REQ-6608);
+# src/input/functional-keys.ts from the functional key codes' tables
+# (DOC-1936; the engine's REQ-204); and src/animation/teletext-limits.ts
+# from the teletext limits of animation, controls and object pages
+# (animation.md ANIM-16).
 engine="${NEOTELETEXT_ENGINE:-$HOME/devel/neoteletext-renderer-teletext}"
-readonly LIMITS_FROM="33d9089610d1ee2d920dd26d42fb22388c97e709"
+readonly LIMITS_FROM="40faa0d8a42e6a231a1a44dac85a1f4dc3d0cc6c"
 readonly LIMITS_SOURCE="crates/neoteletext-rules/src/limits.rs"
+readonly KEY_CODE_SOURCES=(crates/neoteletext-input/src/keys.rs crates/neoteletext-input/src/keys/one_byte.rs crates/neoteletext-input/src/names.rs)
+readonly TELETEXT_SOURCES=(crates/neoteletext-core/src/limits.rs crates/neoteletext-core/src/controls.rs crates/neoteletext-core/src/consts/object_pages.rs crates/neoteletext-picture/src/tti.rs)
 # The ReGIS and NAPLPS renderers' repositories, and the commits whose limits
 # src/picture/regis-limits.ts and naplps-limits.ts are generated from
-# (renderer parity PAR-39, PAR-40): the commits the server of SCHEMA_FROM
-# pins, so that the builders' bounds are the receivers' and the server's.
+# (renderer parity PAR-39, PAR-40; animation.md ANIM-16): the commits the
+# server of SCHEMA_FROM pins, so that the builders' bounds and a picture's
+# animation budget are the receivers' and the server's.
 regis="${NEOTELETEXT_REGIS:-$HOME/devel/neoteletext-renderer-regis}"
 readonly REGIS_FROM="9c1a162cc1a8d17d727e19fa9a2253dee7f8bcc2"
 readonly REGIS_SOURCES=(crates/regis/src/limits.rs crates/regis/src/palette.rs crates/regis/src/surface.rs)
@@ -144,7 +156,7 @@ process.exit(newer === -1 || found[newer] > least[newer] ? 0 : 1);
     # The quality tools run on TypeScript 7: oxlint's type-aware rules are
     # typescript-go's own.
     step "formatting (Prettier, .prettierrc.json)"
-    npx --no -- prettier --check src test scripts/validators.ts scripts/types.ts scripts/limits.ts scripts/picture-limits.ts
+    npx --no -- prettier --check src test scripts/validators.ts scripts/types.ts scripts/limits.ts scripts/key-codes.ts scripts/picture-limits.ts
 
     step "lint, type-aware, warnings fail (oxlint, .oxlintrc.json)"
     npx --no -- oxlint --type-aware --tsconfig tsconfig.json --deny-warnings src test
@@ -207,21 +219,47 @@ limits() {
         fail "src/rules/limits.ts is not what the engine's $LIMITS_SOURCE at $LIMITS_FROM gives: run node scripts/limits.ts on it, or name in scripts/check.sh the commit it is from"
 }
 
+# The copy is generated from the engine's key tables at the commit named,
+# and is what generating it again gives. Read on this machine only, as the
+# limits are.
+key_codes() {
+    step "src/input/functional-keys.ts is generated from the engine's key tables at ${LIMITS_FROM:0:7}"
+    local sources="tmp/key-codes" path
+    rm -rf "$sources"
+    engine_git rev-parse --git-dir >/dev/null 2>&1 || fail "the engine's repository is needed at $engine (or NEOTELETEXT_ENGINE) to check the key codes' copy"
+    for path in "${KEY_CODE_SOURCES[@]}"; do
+        engine_git cat-file -e "$LIMITS_FROM:$path" 2>/dev/null || fail "$engine has no $path at $LIMITS_FROM"
+        mkdir -p "$sources/$(dirname "$path")"
+        engine_git show "$LIMITS_FROM:$path" >"$sources/$path"
+    done
+    node scripts/key-codes.ts "$sources" --check ||
+        fail "src/input/functional-keys.ts is not what the engine's key tables at $LIMITS_FROM give: run node scripts/key-codes.ts on them, or name in scripts/check.sh the commit they are from"
+}
+
 # The copies are generated from the renderers' files at the commits named
-# (PAR-39, PAR-40). Read on this machine only, as the engine's are.
+# (PAR-39, PAR-40, ANIM-16), the teletext renderer's being the engine's at
+# LIMITS_FROM. Read on this machine only, as the engine's are.
 picture_limits() {
-    step "src/picture/regis-limits.ts and naplps-limits.ts are generated from the renderers' at ${REGIS_FROM:0:7} and ${NAPLPS_FROM:0:7}"
+    step "src/picture/regis-limits.ts, naplps-limits.ts and src/animation/teletext-limits.ts are generated from the renderers' at ${REGIS_FROM:0:7}, ${NAPLPS_FROM:0:7} and ${LIMITS_FROM:0:7}"
     local sources="tmp/picture-limits" name repository from path
     rm -rf "$sources"
-    for name in regis naplps; do
-        if [[ "$name" == regis ]]; then
+    for name in teletext regis naplps; do
+        local -a paths
+        case "$name" in
+        teletext)
+            repository="$engine" from="$LIMITS_FROM"
+            paths=("${TELETEXT_SOURCES[@]}")
+            ;;
+        regis)
             repository="$regis" from="$REGIS_FROM"
-            local -a paths=("${REGIS_SOURCES[@]}")
-        else
+            paths=("${REGIS_SOURCES[@]}")
+            ;;
+        *)
             repository="$naplps" from="$NAPLPS_FROM"
-            local -a paths=("${NAPLPS_SOURCES[@]}")
-        fi
-        renderer_git "$repository" rev-parse --git-dir >/dev/null 2>&1 || fail "the $name renderer's repository is needed at $repository (or NEOTELETEXT_${name^^}) to check the picture limits' copy"
+            paths=("${NAPLPS_SOURCES[@]}")
+            ;;
+        esac
+        renderer_git "$repository" rev-parse --git-dir >/dev/null 2>&1 || fail "the $name renderer's repository is needed at $repository (or NEOTELETEXT_ENGINE, NEOTELETEXT_REGIS or NEOTELETEXT_NAPLPS, by the renderer) to check its limits' copy"
         for path in "${paths[@]}"; do
             renderer_git "$repository" cat-file -e "$from:$path" 2>/dev/null || fail "$repository has no $path at $from"
             mkdir -p "$sources/$name/$(dirname "$path")"
@@ -229,7 +267,7 @@ picture_limits() {
         done
     done
     node scripts/picture-limits.ts "$sources" --check ||
-        fail "src/picture/regis-limits.ts or naplps-limits.ts is not what the renderers' files give: run node scripts/picture-limits.ts on them, or name in scripts/check.sh the commits they are from"
+        fail "src/picture/regis-limits.ts, naplps-limits.ts or src/animation/teletext-limits.ts is not what the renderers' files give: run node scripts/picture-limits.ts on them, or name in scripts/check.sh the commits they are from"
 }
 
 reply_limit() {
@@ -249,6 +287,7 @@ commit_steps() {
     schema
     shared
     limits
+    key_codes
     picture_limits
     reply_limit
     stage
@@ -266,7 +305,7 @@ linux_steps() {
 }
 
 case "${1:-}" in
-schema | shared | limits | picture_limits | reply_limit | stage | build)
+schema | shared | limits | key_codes | picture_limits | reply_limit | stage | build)
     "$1"
     step "All checks passed ($1)"
     step_name=""

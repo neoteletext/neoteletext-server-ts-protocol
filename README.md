@@ -129,7 +129,25 @@ as they are, and the server makes them into groups. The builders
 `physicalKey`, `characterKey`, `namedKey`, `level`, `variable`, `plus`,
 `row`, `fired`, `phase`, `noteOn`, `noteOff` and the mode set `modes`
 (`in(mode, condition?)`, `enter(mode)`, RULE-110) build its pieces and
-check nothing. A group may also hold a picture's links and cursor
+check nothing. A condition takes numbers alone, so "the key that fired is
+one of these" is written with `keyCode(key)`, which answers a key's code
+as the value `fired` `key` gives it (RULE-116): a named key's functional
+code from the engine's table (DOC-1936), a character key's Unicode scalar
+value, and `undefined` for a physical key, whose code is the viewer's
+layout's:
+
+```ts
+import { Key, characterKey, keyCode, namedKey } from "neoteletext-server-ts-protocol";
+
+const keys = [namedKey(Key.Enter), namedKey(Key.Down), characterKey("j")];
+const codes = keys.map(keyCode).filter((code) => code !== undefined);
+const firedOneOfThem = { read: { of: "fired", property: "key" }, in_set: codes } as const;
+```
+
+The two kinds share one range of numbers and the value does not say which
+fired: `ColorF0Red`'s code is also the scalar value of `\`.
+
+A group may also hold a picture's links and cursor
 (renderer parity PAR-20, RULE-119): `{ type: "regis_links", links }`,
 `{ type: "regis_cursor", drawing }`, `{ type: "naplps_links", links }` and
 `{ type: "naplps_cursor", object }`, the messages without `connections`,
@@ -333,14 +351,15 @@ import { Naplps, Regis } from "neoteletext-server-ts-protocol";
 
 const button = new Regis()
   .colour(1, 20, 20, 80)
-  .drawing(11, {}, (look) => look.pen(2).box(0, 0, 100, 40, { fill: true }))
-  .drawing(10, { detectable: true, hover: 11, label: "Play" }, (play) =>
+  .drawing(11, { visible: false }, (look) => look.pen(2).box(0, 0, 100, 40, { fill: true }))
+  .drawing(10, { x: 200, y: 200, detectable: true, hover: 11, label: "Play" }, (play) =>
     play.pen(1).box(0, 0, 100, 40, { fill: true }).at(10, 10).text("Play"),
   )
-  .bytes("D(S11(V0),S10(X200,Y200))")
   .title("Player")
   .commit();
 context.regis({ kept: true }, 0x200, 1, button.parts(), { restart: true });
+// Later: move the button, and send nothing of its contents again.
+context.regis({ kept: true }, 0x200, 1, new Regis().set(10, { x: 240 }).commit().parts());
 
 const sign = new Naplps().reset().colour(1, 255, 0, 0).pen(1).rect(40, 40, 200, 120, { filled: true }).point(40, 200).text("שלום", { language: "he" });
 context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
@@ -353,6 +372,19 @@ context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
   viewer who selects them, now or later, until
   `context.forgetPicture(page, sub)`. No other call takes it: the type
   checker refuses it.
+- **Painting as a show** (rdm DEC-7031 item 6): with `restart`, a stream
+  may say how the generation it begins is painted.
+  `context.naplps(to, page, sub, data, { restart: true, lineSpeed: LINE_SPEED_1200 })`
+  has the receiver paint it as if its bytes arrived over a serial line of
+  that speed, `LINE_SPEED_MIN` to `LINE_SPEED_MAX` bits a second
+  (`LINE_SPEED_300`, `LINE_SPEED_1200`, `LINE_SPEED_2400` and
+  `LINE_SPEED_9600` are named), and `regis` takes it too, with
+  `defaultRate`, the paint rate, 1 to `DEFAULT_PAINT_RATE_MAX`, of every
+  numbered drawing that sets no `T` of its own. Either without `restart`,
+  or outside its range, throws `ProtocolError` (`invalid_paint`) before
+  anything is sent. A rule's trigger `{ event: "painted", target: "page" }`
+  or `{ event: "painted", target: { object: n } }` fires when the whole
+  picture, or numbered drawing `n`, is wholly painted.
 - **Links and the cursor:** `regisLinks` and `regisCursor` name a ReGIS
   picture's numbered drawings, `naplpsLinks(to, page, sub, [{ object,
   target }])` and `naplpsCursor(to, page, sub, object)` a NAPLPS picture's
@@ -368,8 +400,16 @@ context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
   numbered drawings: `erase(background?)`, `colour(index, r, g, b)` (0 to
   100 percent, written in HLS), `pen`, `at`, `line`, `box(x, y, width,
   height, { fill, pen })`, `circle(x, y, radius, { fill })`, `text(text,
-  { language, outside, size })`, `bytes`, `drawing(number, { detectable,
-  layer, hover, pressed, label }, build)`, `commit`, `title`, `parts`.
+  { language, outside, size })`, `bytes`, `drawing(number, attributes,
+  build)`, `set(number, attributes)` (attributes alone, the contents
+  untouched), `delete(number)`, `deleteAll`, `commit`, `title`, `parts`.
+  A drawing's attributes are ReGIS v2's fourteen, each optional and
+  written only when given: `parent`, `source`, `hover`, `pressed` and
+  `alternative` (a drawing's number, 0 for none), `x`, `y` and `depth`
+  (`MIN_COORDINATE` to `MAX_COORDINATE`), `visible`, `detectable`, `clip`
+  (`{ x, y, width, height }`, or `null` for none), `layer` (0 to `LAYERS`
+  - 1), `frames` (1 to `MAX_OBJECT_FRAMES` drawings, or `[]` for none),
+  `rate` (0 to `MAX_PAINT_RATE`) and `label`.
 - **Naplps** writes ANSI X3.110-1983's instructions in the 7-bit form, at
   six-byte operands, every place a dot of the 480 by 500 teletext raster
   (`RasterPoint`; the picture is drawn on lines 20 to 479, teletext rows 1
@@ -434,8 +474,10 @@ context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
 - **Rules and animation:** `Context.rules`, `queryState`, `frame`,
   `animate`, `sprites`, `naplpsObjects`, `spriteSheet`, `playTimeline` and
   `stopTimeline`; the `Timeline` builder; `PageState`, `QueryRefusedError`
-  and `TICKS_PER_SECOND`; and the builders `physicalKey`, `characterKey`,
-  `namedKey` and `level`.
+  and `TICKS_PER_SECOND`; the builders `physicalKey`, `characterKey`,
+  `namedKey` and `level`; and `keyCode`, a key's code as a condition reads
+  the key that fired, the named keys' generated from the engine's
+  `neoteletext_input::keys`.
 - **Pictures:** `Context.regis`, `naplps`, `regisLinks`, `regisCursor`,
   `naplpsLinks`, `naplpsCursor`, `forgetPicture` and `measurePictureText`;
   the audiences with `{ kept: true }` (`PictureAudience`); `PicturePart`
@@ -445,8 +487,19 @@ context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
 - **The rule table's limits** (page-rules.md RULE-57, REQ-6608): every
   limit by the engine's name (`MAX_RULES`, `MAX_RECTS`, `MAX_GROUPS`, …,
   `TICKS_PER_SECOND`), generated from `neoteletext_rules::limits`; write a
-  limit by its name, never its figure. `limitFigureLines` of the testing
-  entry finds a figure written beside a limit's name in a repository's
+  limit by its name, never its figure.
+- **The limits of animation** (animation.md ANIM-16), by each renderer's
+  names and generated from each renderer's own files: `teletextLimits`
+  (`MAX_SPRITES`, `MAX_CONTROLS`, `MAX_ANIMATED_OBJECTS`,
+  `MAX_CYCLING_OBJECTS`, `MAX_OBJECT_FRAMES`, `LAYERS`, and an object
+  page's `OBJECT_TYPES`, `OBJECTS_PER_TYPE` and `OBJECT_SUBPAGES`), and
+  among `regisLimits` (`MAX_ANIMATED_DRAWINGS`, `MAX_CYCLING_OBJECTS`,
+  `MAX_OBJECT_FRAMES`) and `naplpsLimits` (`MAX_OBJECTS`,
+  `MAX_ANIMATED_OBJECTS`, `MAX_CYCLING_OBJECTS`, `MAX_OBJECT_FRAMES`, and
+  `DEFINABLE_CODES`, the macro names of a stream). A name the renderers
+  share is read from the renderer meant.
+- `limitFigureLines` of the testing entry finds a figure written beside
+  the name of a limit of the rule table or of animation in a repository's
   files, for a channel's own test.
 - **Navigation:** pages that do not take digits or the coloured keys
   themselves get page selection by them, and a click a page does not take

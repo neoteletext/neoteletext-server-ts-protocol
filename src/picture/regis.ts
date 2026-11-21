@@ -9,31 +9,12 @@
 import type { LanguageTag } from "../wire/languages.ts";
 import { hlsOf } from "./hls.ts";
 import type { PicturePart } from "./parts.ts";
-import { COLOURS, LAYERS, MAX_CELL_SIDE, MAX_COORDINATE, MAX_DRAWING_NUMBER, MAX_LABEL_BYTES, MAX_TITLE_BYTES, MIN_COORDINATE } from "./regis-limits.ts";
+import { attributesOf, type RegisDrawingAttributes } from "./regis-attributes.ts";
+import { coordinate, quoted, within } from "./regis-checks.ts";
+import { COLOURS, MAX_CELL_SIDE, MAX_COORDINATE, MAX_DRAWING_NUMBER, MAX_TITLE_BYTES, MIN_COORDINATE } from "./regis-limits.ts";
 
 /** A colour's components are percentages, 0 to 100 (manual chapter 2, "HLS System"; the renderer's palette FULL). */
 const FULL_PERCENT = 100;
-/** The first and last bytes a ReGIS quoted string keeps as text: printable ASCII, then 10/0 to 15/15 (manual chapter 1; regis-v2.md "Attributes", read as ISO/IEC 8859-1). */
-const FIRST_PRINTABLE = 0x20;
-const LAST_PRINTABLE = 0x7e;
-const FIRST_UPPER_HALF = 0xa0;
-const LAST_UPPER_HALF = 0xff;
-/** The quote a title or label is written between; doubled inside it (manual chapter 1, "Quoted Strings"). */
-const QUOTE = "'";
-
-/** A numbered drawing's attributes (regis-v2.md "Attributes"): `I`, `G`, `H`, `A` and `U`. */
-export interface RegisDrawingAttributes {
-  /** Pointer events report it (`I`). */
-  readonly detectable?: boolean;
-  /** The layer a top-level drawing is drawn in, 0 to `LAYERS` - 1 (`G`). */
-  readonly layer?: number;
-  /** The drawing drawn in its place while the pointer is over it, or 0 for none (`H`). */
-  readonly hover?: number;
-  /** The drawing drawn in its place while it is pressed, or 0 for none (`A`). */
-  readonly pressed?: number;
-  /** What a screen reader speaks for it, at most `MAX_LABEL_BYTES` of plain ISO/IEC 8859-1 text, or "" for none (`U`). */
-  readonly label?: string;
-}
 
 /** How picture text is written: a text part's `language` and `outside` (PAR-21), and the character cell `T(S[w,h])` sets before it. */
 export interface RegisTextOptions {
@@ -41,34 +22,6 @@ export interface RegisTextOptions {
   readonly outside?: boolean;
   /** The display cell's width and height in pixels, 1 to `MAX_CELL_SIDE` (manual chapter 7, "Character Cell Size"). */
   readonly size?: readonly [number, number];
-}
-
-/** Throws unless `value` is an integer from `least` to `most`, naming the call, what it is and the bound by its name. */
-function within(call: string, what: string, value: number, least: number, most: number, bound: string): void {
-  if (!Number.isInteger(value) || value < least || value > most) {
-    throw new RangeError(`Regis.${call}: ${what} ${String(value)} is not an integer from ${least} to ${most} (${bound})`);
-  }
-}
-
-/** Throws unless `value` is a coordinate the renderer keeps, MIN_COORDINATE to MAX_COORDINATE (manual chapter 1, "Numeric Values"). */
-function coordinate(call: string, what: string, value: number): void {
-  within(call, what, value, MIN_COORDINATE, MAX_COORDINATE, `MIN_COORDINATE to MAX_COORDINATE`);
-}
-
-/** `text` quoted as a v2 label or title (regis-v2.md "Attributes"): plain ISO/IEC 8859-1 text of at most `most` bytes, the quote doubled. */
-function quoted(call: string, text: string, most: number, bound: string): string {
-  let length = 0;
-  for (const character of text) {
-    const code = character.codePointAt(0) ?? 0;
-    if ((code < FIRST_PRINTABLE || code > LAST_PRINTABLE) && (code < FIRST_UPPER_HALF || code > LAST_UPPER_HALF)) {
-      throw new RangeError(`Regis.${call}: ${JSON.stringify(character)} is not plain ISO/IEC 8859-1 text, which a v2 label or title is (regis-v2.md)`);
-    }
-    length += 1;
-  }
-  if (length > most) {
-    throw new RangeError(`Regis.${call}: ${length} bytes, at most ${most} (${bound})`);
-  }
-  return `${QUOTE}${text.replaceAll(QUOTE, QUOTE + QUOTE)}${QUOTE}`;
 }
 
 /** ReGIS as a list of parts for `regis` (PAR-39): each method appends its commands and answers the builder. */
@@ -206,33 +159,14 @@ export class Regis {
 
   /**
    * Numbered drawing `number` (regis-v2.md "The D command"): `D(B number)`, what `build` appends to the builder as its
-   * contents, `D(E)`, then `D(S number(…))` with the attributes given, `I`, `G`, `H`, `A` and `U` in that order.
-   * Inside `build`, a command the contents ignore or fail on throws: `erase`, `colour`, `drawing`, `commit`, `title`.
-   * Nothing shows before {@link Regis.commit}.
+   * contents, `D(E)`, then `D(S number(…))` with the attributes given, in the order of
+   * {@link RegisDrawingAttributes}' fields. Inside `build`, a command the contents ignore or fail on throws: `erase`,
+   * `colour`, `drawing`, `set`, `delete`, `deleteAll`, `commit`, `title`. Nothing shows before {@link Regis.commit}.
    */
   drawing(number: number, attributes: RegisDrawingAttributes, build: (contents: Regis) => void): this {
     this.#outside("drawing");
     within("drawing", "number", number, 1, MAX_DRAWING_NUMBER, "MAX_DRAWING_NUMBER");
-    const set: string[] = [];
-    if (attributes.detectable !== undefined) {
-      set.push(`I${attributes.detectable ? 1 : 0}`);
-    }
-    if (attributes.layer !== undefined) {
-      within("drawing", "layer", attributes.layer, 0, LAYERS - 1, "LAYERS");
-      set.push(`G${attributes.layer}`);
-    }
-    for (const [letter, what, value] of [
-      ["H", "hover", attributes.hover],
-      ["A", "pressed", attributes.pressed],
-    ] as const) {
-      if (value !== undefined) {
-        within("drawing", what, value, 0, MAX_DRAWING_NUMBER, "MAX_DRAWING_NUMBER");
-        set.push(`${letter}${value}`);
-      }
-    }
-    if (attributes.label !== undefined) {
-      set.push(`U${quoted("drawing", attributes.label, MAX_LABEL_BYTES, "MAX_LABEL_BYTES")}`);
-    }
+    const set = attributesOf("drawing", attributes);
     // A build that throws leaves nothing of the drawing, so that no definition is left open in the stream.
     const partsBefore = this.#parts.length;
     const commandsBefore = this.#commands;
@@ -249,6 +183,35 @@ export class Regis {
     }
     this.#write("D(E)");
     return set.length === 0 ? this : this.#write(`D(S${number}(${set.join(",")}))`);
+  }
+
+  /**
+   * Changes attributes of drawing `number` and nothing of its contents, `D(S number(…))` (regis-v2.md "The D
+   * command", Set): those given, in the order of {@link RegisDrawingAttributes}' fields, the rest left as they were.
+   * A number no drawing has makes one with no contents, as a group is made. With no attribute given it throws, there
+   * being nothing to write. Nothing shows before {@link Regis.commit}.
+   */
+  set(number: number, attributes: RegisDrawingAttributes): this {
+    this.#outside("set");
+    within("set", "number", number, 1, MAX_DRAWING_NUMBER, "MAX_DRAWING_NUMBER");
+    const set = attributesOf("set", attributes);
+    if (set.length === 0) {
+      throw new RangeError(`Regis.set: no attribute of drawing ${number} is given`);
+    }
+    return this.#write(`D(S${number}(${set.join(",")}))`);
+  }
+
+  /** Removes drawing `number` and its children at the next commit, `D(K number)` (regis-v2.md "The D command", Delete); a number no drawing has does nothing. */
+  delete(number: number): this {
+    this.#outside("delete");
+    within("delete", "number", number, 1, MAX_DRAWING_NUMBER, "MAX_DRAWING_NUMBER");
+    return this.#write(`D(K${number})`);
+  }
+
+  /** Removes every numbered drawing at the next commit, `D(Z)` (regis-v2.md "The D command", Delete all); the picture's title stays. */
+  deleteAll(): this {
+    this.#outside("deleteAll");
+    return this.#write("D(Z)");
   }
 
   /** Applies every drawing change since the last commit at once, `D(C)` (regis-v2.md "Commit and repaint"). */

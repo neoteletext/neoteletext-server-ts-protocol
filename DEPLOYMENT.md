@@ -46,6 +46,30 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
+## Release 19.3.0: painting as a show
+
+Release 19.3.0 takes what program protocol 16 gained without a raise for
+painting as a show (rdm DEC-7031 item 6; REQ-7024, REQ-7025, REQ-7026), at
+the server's schema of neoteletext-app-server `e9fa47b` (branch `painting`,
+not yet merged). New: `context.regis(to, page, sub, data, { restart,
+lineSpeed, defaultRate })` and `context.naplps(to, page, sub, data,
+{ restart, lineSpeed })`, written as the message's `line_speed` and
+`default_rate`; the types `RegisStreamOptions` and `NaplpsStreamOptions`;
+the constants `LINE_SPEED_MIN`, `LINE_SPEED_MAX`, `DEFAULT_PAINT_RATE_MAX`,
+`LINE_SPEED_300`, `LINE_SPEED_1200`, `LINE_SPEED_2400` and
+`LINE_SPEED_9600`; the rule trigger `{ event: "painted", target }`
+(`RuleTriggerPainted`) in a table's types; and the engine's
+`MAX_PAINT_WATCHED` among the limits, at the engine's `40faa0d8`. A line
+speed or a default rate outside its range, or given without `restart`,
+throws `ProtocolError` (`invalid_paint`) before anything is sent, as the
+server refuses it. Every call written for 19.2.1 works unchanged, and the
+version the kit stops at is still 16. A program that states a line speed, a
+default rate or a `painted` trigger runs only under a server that has them
+(a server built before them refuses the field as unknown, and the trigger
+as not listed); a program that states none runs under either. Its shared
+files are neoteletext-common's at ca825f3 (branch `painting`), which list
+the options and hold the lines and the `painted` table both kits write.
+
 ## Release 19.2.1: a snapshot's picture is what was sent to it alone
 
 Release 19.2.1 gathers a snapshot's picture only from a `regis`, `naplps`
