@@ -81,6 +81,25 @@
 # Python, a field and a keyword argument, not calls; the harness's snapshot asks the
 # program to draw a page or sub-page for no one in particular and answers its
 # snapshot_page or snapshot_declined.
+# A numbered drawing's attributes (the ReGIS renderer's docs/regis-v2.md, "Attributes" and
+# the grammar's "Attributes"; rdm DEC-7036 item 7, K2): drawing and set take every one of
+# the fourteen, each optional, one left out not being written, and write those given in
+# the order the rows list them, as the letters P, R, X, Y, L, V, C, I, G, H, A, N, F, T
+# and U, with commas between, inside D(S number(...)). parent, source, hover, pressed and
+# alternative name a drawing, 0 to MAX_DRAWING_NUMBER, 0 being none; x, y and depth are
+# MIN_COORDINATE to MAX_COORDINATE; visible and detectable are written 1 or 0; clip is a
+# rectangle of x, y (MIN_COORDINATE to MAX_COORDINATE), width and height (0 to
+# MAX_COORDINATE), written C(Xx,Yy,Wwidth,Hheight), or no clip, null in TypeScript and
+# False in Python, written C0; layer is 0 to LAYERS - 1; frames is a list of 1 to
+# MAX_OBJECT_FRAMES drawings, each 1 to MAX_DRAWING_NUMBER, written F(n,...), or an empty
+# list, written F0; rate is 0 to MAX_PAINT_RATE; label is at most MAX_LABEL_BYTES of
+# plain ISO/IEC 8859-1 text. drawing writes D(S number(...)) after the definition only
+# when an attribute is given. set writes D(S number(...)) alone, the drawing's contents
+# untouched, and refuses a call that gives no attribute; delete writes D(K number) and
+# deleteAll D(Z). None of the four may be called inside a drawing's build, and none
+# commits. Each kit refuses a value outside its range, naming the bound, before anything
+# is written; the bounds are the renderer's constants by its names, which each kit
+# generates from the renderer's limits.
 what	typescript	python	message	arguments
 call	sound	sound	sound	to, member
 call	authorLog	author_log	author_log	to, level, text, page
@@ -244,7 +263,10 @@ regis	box	box	-	x, y, width, height, options (fill; pen)
 regis	circle	circle	-	x, y, radius, options (fill)
 regis	text	text	-	text, options (language; outside; size)
 regis	bytes	bytes	-	raw
-regis	drawing	drawing	-	number, attributes (detectable; layer; hover; pressed; label), build
+regis	drawing	drawing	-	number, attributes (parent; source; x; y; depth; visible; clip; detectable; layer; hover; pressed; alternative; frames; rate; label), build
+regis	set	set	-	number, attributes (parent; source; x; y; depth; visible; clip; detectable; layer; hover; pressed; alternative; frames; rate; label)
+regis	delete	delete	-	number
+regis	deleteAll	delete_all	-	-
 regis	commit	commit	-	-
 regis	title	title	-	text
 regis	parts	parts	regis	-

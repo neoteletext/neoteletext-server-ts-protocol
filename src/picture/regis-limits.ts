@@ -26,6 +26,16 @@ export const MAX_DRAWING_NUMBER = 65_535;
  */
 export const LAYERS = 4;
 /**
+ * The entries of a drawing's frame list, `F(...)`, and so the frames an
+ * animation state can name: 0 to one less than this (ANIM-10, ANIM-14).
+ */
+export const MAX_OBJECT_FRAMES = 16;
+/**
+ * The largest paint rate: a 16-bit signed value, as every attribute is
+ * (DEC-6382 item 1; ANIM-10).
+ */
+export const MAX_PAINT_RATE = 32_767;
+/**
  * Bytes of a numbered drawing's label, the attribute `U`: the text a
  * screen reader speaks for it (DEC-6638 item 6, row 6.1). The same bound
  * as a sound's label in the engine's OBJECT record (REQ-37) and an object's

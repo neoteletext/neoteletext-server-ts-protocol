@@ -41,7 +41,17 @@ const OUTPUTS: readonly Output[] = [
     sources: [
       {
         path: "crates/regis/src/limits.rs",
-        names: ["MAX_COORDINATE", "MIN_COORDINATE", "MAX_CELL_SIDE", "MAX_DRAWING_NUMBER", "LAYERS", "MAX_LABEL_BYTES", "MAX_TITLE_BYTES"],
+        names: [
+          "MAX_COORDINATE",
+          "MIN_COORDINATE",
+          "MAX_CELL_SIDE",
+          "MAX_DRAWING_NUMBER",
+          "LAYERS",
+          "MAX_OBJECT_FRAMES",
+          "MAX_PAINT_RATE",
+          "MAX_LABEL_BYTES",
+          "MAX_TITLE_BYTES",
+        ],
       },
       { path: "crates/regis/src/palette.rs", names: ["COLOURS"] },
       { path: "crates/regis/src/surface.rs", names: ["SCREEN_WIDTH", "SCREEN_HEIGHT"] },

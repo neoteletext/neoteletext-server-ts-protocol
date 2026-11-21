@@ -45,7 +45,7 @@ readonly SCHEMA_FROM="c5557e4be601bd2337b0054adc9c893123271c28"
 # section 7.5 and RULE-93; animation.md ANIM-19), and the picture builders'
 # calls and bytes (renderer-parity.md PAR-39, PAR-40).
 common="${NEOTELETEXT_COMMON:-$HOME/devel/neoteletext-common}"
-readonly COMMON_FROM="a8d9163128cd0ded1fb0a20e6fbef63d6dd712e3"
+readonly COMMON_FROM="6aacbdb27a3e1e6e8453ca15a8c1abf89339cdd8"
 # Each copy and the file of neoteletext-common it is a copy of.
 readonly SHARED_COPIES=(
     "kit-calls.tsv:docs/audio/kit-calls.tsv"

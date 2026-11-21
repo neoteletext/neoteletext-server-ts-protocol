@@ -82,7 +82,8 @@ export type { MeasuredPictureText, PictureTextOptions } from "./channel/picture-
 // the renderers' limits they hold their calls to, by the renderers' names.
 export type { PictureData, PicturePart, PictureText } from "./picture/parts.ts";
 export { Regis } from "./picture/regis.ts";
-export type { RegisDrawingAttributes, RegisTextOptions } from "./picture/regis.ts";
+export type { RegisTextOptions } from "./picture/regis.ts";
+export type { RegisClip, RegisDrawingAttributes } from "./picture/regis-attributes.ts";
 export { Naplps } from "./picture/naplps.ts";
 export type { NaplpsObjectSpec, NaplpsTextOptions, RasterPoint, TextRows } from "./picture/naplps.ts";
 export * as regisLimits from "./picture/regis-limits.ts";
