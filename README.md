@@ -445,8 +445,19 @@ context.naplps({ kept: true }, 0x201, 1, sign.parts(), { restart: true });
 - **The rule table's limits** (page-rules.md RULE-57, REQ-6608): every
   limit by the engine's name (`MAX_RULES`, `MAX_RECTS`, `MAX_GROUPS`, …,
   `TICKS_PER_SECOND`), generated from `neoteletext_rules::limits`; write a
-  limit by its name, never its figure. `limitFigureLines` of the testing
-  entry finds a figure written beside a limit's name in a repository's
+  limit by its name, never its figure.
+- **The limits of animation** (animation.md ANIM-16), by each renderer's
+  names and generated from each renderer's own files: `teletextLimits`
+  (`MAX_SPRITES`, `MAX_CONTROLS`, `MAX_ANIMATED_OBJECTS`,
+  `MAX_CYCLING_OBJECTS`, `MAX_OBJECT_FRAMES`, `LAYERS`, and an object
+  page's `OBJECT_TYPES`, `OBJECTS_PER_TYPE` and `OBJECT_SUBPAGES`), and
+  among `regisLimits` (`MAX_ANIMATED_DRAWINGS`, `MAX_CYCLING_OBJECTS`,
+  `MAX_OBJECT_FRAMES`) and `naplpsLimits` (`MAX_OBJECTS`,
+  `MAX_ANIMATED_OBJECTS`, `MAX_CYCLING_OBJECTS`, `MAX_OBJECT_FRAMES`, and
+  `DEFINABLE_CODES`, the macro names of a stream). A name the renderers
+  share is read from the renderer meant.
+- `limitFigureLines` of the testing entry finds a figure written beside
+  the name of a limit of the rule table or of animation in a repository's
   files, for a channel's own test.
 - **Navigation:** pages that do not take digits or the coloured keys
   themselves get page selection by them, and a click a page does not take

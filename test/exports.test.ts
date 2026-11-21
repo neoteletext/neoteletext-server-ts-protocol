@@ -177,6 +177,7 @@ const KIT = [
   "runChannel",
   "runText",
   "serveLines",
+  "teletextLimits",
   "textCells",
   "textColour",
   "tti",

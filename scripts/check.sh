@@ -20,7 +20,9 @@
 #                             neoteletext_rules::limits
 #   scripts/check.sh picture_limits
 #                             src/picture/regis-limits.ts and
-#                             naplps-limits.ts against the renderers'
+#                             naplps-limits.ts against the renderers', and
+#                             src/animation/teletext-limits.ts against the
+#                             engine's
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -55,17 +57,21 @@ readonly SHARED_COPIES=(
     "test/fixtures/command-lines.jsonl:docs/command-lines.jsonl"
     "test/fixtures/picture-examples.jsonl:docs/picture-examples.jsonl"
 )
-# The engine's repository, and the commit whose
-# crates/neoteletext-rules/src/limits.rs src/rules/limits.ts is generated
-# from (page-rules.md RULE-57, REQ-6608): the one home of the rule table's
-# limits, at the commit the server pins.
+# The engine's repository, and the commit whose files the kit's copies of
+# the engine's figures are generated from, the commit the server pins:
+# src/rules/limits.ts from crates/neoteletext-rules/src/limits.rs, the one
+# home of the rule table's limits (page-rules.md RULE-57, REQ-6608); and
+# src/animation/teletext-limits.ts from the teletext limits of animation,
+# controls and object pages (animation.md ANIM-16).
 engine="${NEOTELETEXT_ENGINE:-$HOME/devel/neoteletext-renderer-teletext}"
 readonly LIMITS_FROM="33d9089610d1ee2d920dd26d42fb22388c97e709"
 readonly LIMITS_SOURCE="crates/neoteletext-rules/src/limits.rs"
+readonly TELETEXT_SOURCES=(crates/neoteletext-core/src/limits.rs crates/neoteletext-core/src/controls.rs crates/neoteletext-core/src/consts/object_pages.rs crates/neoteletext-picture/src/tti.rs)
 # The ReGIS and NAPLPS renderers' repositories, and the commits whose limits
 # src/picture/regis-limits.ts and naplps-limits.ts are generated from
-# (renderer parity PAR-39, PAR-40): the commits the server of SCHEMA_FROM
-# pins, so that the builders' bounds are the receivers' and the server's.
+# (renderer parity PAR-39, PAR-40; animation.md ANIM-16): the commits the
+# server of SCHEMA_FROM pins, so that the builders' bounds and a picture's
+# animation budget are the receivers' and the server's.
 regis="${NEOTELETEXT_REGIS:-$HOME/devel/neoteletext-renderer-regis}"
 readonly REGIS_FROM="9c1a162cc1a8d17d727e19fa9a2253dee7f8bcc2"
 readonly REGIS_SOURCES=(crates/regis/src/limits.rs crates/regis/src/palette.rs crates/regis/src/surface.rs)
@@ -208,20 +214,29 @@ limits() {
 }
 
 # The copies are generated from the renderers' files at the commits named
-# (PAR-39, PAR-40). Read on this machine only, as the engine's are.
+# (PAR-39, PAR-40, ANIM-16), the teletext renderer's being the engine's at
+# LIMITS_FROM. Read on this machine only, as the engine's are.
 picture_limits() {
-    step "src/picture/regis-limits.ts and naplps-limits.ts are generated from the renderers' at ${REGIS_FROM:0:7} and ${NAPLPS_FROM:0:7}"
+    step "src/picture/regis-limits.ts, naplps-limits.ts and src/animation/teletext-limits.ts are generated from the renderers' at ${REGIS_FROM:0:7}, ${NAPLPS_FROM:0:7} and ${LIMITS_FROM:0:7}"
     local sources="tmp/picture-limits" name repository from path
     rm -rf "$sources"
-    for name in regis naplps; do
-        if [[ "$name" == regis ]]; then
+    for name in teletext regis naplps; do
+        local -a paths
+        case "$name" in
+        teletext)
+            repository="$engine" from="$LIMITS_FROM"
+            paths=("${TELETEXT_SOURCES[@]}")
+            ;;
+        regis)
             repository="$regis" from="$REGIS_FROM"
-            local -a paths=("${REGIS_SOURCES[@]}")
-        else
+            paths=("${REGIS_SOURCES[@]}")
+            ;;
+        *)
             repository="$naplps" from="$NAPLPS_FROM"
-            local -a paths=("${NAPLPS_SOURCES[@]}")
-        fi
-        renderer_git "$repository" rev-parse --git-dir >/dev/null 2>&1 || fail "the $name renderer's repository is needed at $repository (or NEOTELETEXT_${name^^}) to check the picture limits' copy"
+            paths=("${NAPLPS_SOURCES[@]}")
+            ;;
+        esac
+        renderer_git "$repository" rev-parse --git-dir >/dev/null 2>&1 || fail "the $name renderer's repository is needed at $repository (or NEOTELETEXT_ENGINE, NEOTELETEXT_REGIS or NEOTELETEXT_NAPLPS, by the renderer) to check its limits' copy"
         for path in "${paths[@]}"; do
             renderer_git "$repository" cat-file -e "$from:$path" 2>/dev/null || fail "$repository has no $path at $from"
             mkdir -p "$sources/$name/$(dirname "$path")"
@@ -229,7 +244,7 @@ picture_limits() {
         done
     done
     node scripts/picture-limits.ts "$sources" --check ||
-        fail "src/picture/regis-limits.ts or naplps-limits.ts is not what the renderers' files give: run node scripts/picture-limits.ts on them, or name in scripts/check.sh the commits they are from"
+        fail "src/picture/regis-limits.ts, naplps-limits.ts or src/animation/teletext-limits.ts is not what the renderers' files give: run node scripts/picture-limits.ts on them, or name in scripts/check.sh the commits they are from"
 }
 
 reply_limit() {

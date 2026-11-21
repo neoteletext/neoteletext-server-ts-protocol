@@ -1,6 +1,8 @@
 // REQ-6608 (page-rules.md RULE-57): a limit of a page's rule table is
 // written by its name, never by its figure, outside the engine's
-// neoteletext_rules::limits and the copy generated from it. The lines of a
+// neoteletext_rules::limits and the copy generated from it; and so is a
+// limit of animation (animation.md ANIM-16), outside each renderer's
+// `limits` and the copies generated from them. The lines of a
 // repository's files that name a limit and also hold that limit's figure
 // as a number of its own (16384, 16_384 or 16,384; not a digit of a longer
 // number, a word or a clause such as RULE-4), as the server's
@@ -11,10 +13,31 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
+import * as teletext from "../animation/teletext-limits.ts";
+import * as naplps from "../picture/naplps-limits.ts";
+import * as regis from "../picture/regis-limits.ts";
 import * as limits from "../rules/limits.ts";
 
-/** The limits: every constant of the generated copy, by name and figure. */
-const LIMITS: readonly (readonly [string, number])[] = Object.entries(limits);
+/** The limits of animation (ANIM-16) by name and figure: a name the renderers share is looked for with each renderer's figure. */
+const ANIMATION_LIMITS: readonly (readonly [string, number])[] = [
+  ["MAX_SPRITES", teletext.MAX_SPRITES],
+  ["MAX_CONTROLS", teletext.MAX_CONTROLS],
+  ["MAX_ANIMATED_OBJECTS", teletext.MAX_ANIMATED_OBJECTS],
+  ["MAX_CYCLING_OBJECTS", teletext.MAX_CYCLING_OBJECTS],
+  ["MAX_OBJECT_FRAMES", teletext.MAX_OBJECT_FRAMES],
+  ["MAX_ANIMATED_DRAWINGS", regis.MAX_ANIMATED_DRAWINGS],
+  ["MAX_CYCLING_OBJECTS", regis.MAX_CYCLING_OBJECTS],
+  ["MAX_OBJECT_FRAMES", regis.MAX_OBJECT_FRAMES],
+  ["MAX_OBJECTS", naplps.MAX_OBJECTS],
+  ["MAX_ANIMATED_OBJECTS", naplps.MAX_ANIMATED_OBJECTS],
+  ["MAX_CYCLING_OBJECTS", naplps.MAX_CYCLING_OBJECTS],
+  ["MAX_OBJECT_FRAMES", naplps.MAX_OBJECT_FRAMES],
+];
+
+/** The limits: every constant of the rule table's generated copy and the limits of animation, each name and figure once. */
+const LIMITS: readonly (readonly [string, number])[] = [
+  ...new Map([...Object.entries(limits), ...ANIMATION_LIMITS].map((limit) => [limit.join(" "), limit] as const)).values(),
+];
 
 /** The folders that are no source of the repository's: installed packages, builds, scratch and git's own. */
 const NOT_SOURCE = new Set(["node_modules", "dist", "tmp", ".git", "vendor"]);

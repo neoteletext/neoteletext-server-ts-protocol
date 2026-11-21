@@ -3,7 +3,8 @@
 // scripts/check.sh checks against the engine's limits.rs at LIMITS_FROM.
 // RULE-57's verification asks the kits to compare them with what they
 // carry of them: the schema's bounds of a table. And no other file of the
-// kit writes a limit's figure beside its name.
+// kit writes a limit's figure beside its name, nor a limit of animation's
+// (animation.md ANIM-16) outside the copies generated from the renderers'.
 
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -56,8 +57,9 @@ test("RULE-57: the kit exports all forty-two limits of the table and the clock's
   }
 });
 
-test("REQ-6608: no file of the kit but the generated copy and this test, which plants some, writes a limit's figure beside its name", () => {
-  assert.deepEqual(limitFigureLines(join(import.meta.dirname, "..", ".."), ["src/rules/limits.ts", "scripts/limits.ts", "test/rules/limits.test.ts"]), []);
+test("REQ-6608: no file of the kit but the generated copies and this test, which plants some, writes a limit's figure beside its name", () => {
+  const generated = ["src/rules/limits.ts", "src/animation/teletext-limits.ts", "src/picture/regis-limits.ts", "src/picture/naplps-limits.ts"];
+  assert.deepEqual(limitFigureLines(join(import.meta.dirname, "..", ".."), [...generated, "scripts/limits.ts", "test/rules/limits.test.ts"]), []);
 });
 
 test("REQ-6608: the check finds a figure written beside its limit's name, with or without its thousands marked, and nothing else", () => {

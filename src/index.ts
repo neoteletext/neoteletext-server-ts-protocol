@@ -90,6 +90,9 @@ export * as naplpsLimits from "./picture/naplps-limits.ts";
 export { TextNotWritableError } from "./channel/text-bytes.ts";
 export { Timeline } from "./animation/timeline.ts";
 export type { TimelineStep } from "./animation/step.ts";
+// The teletext renderer's limits of animation, controls and object pages by the engine's names (animation.md ANIM-16);
+// the ReGIS and NAPLPS renderers' are among regisLimits and naplpsLimits.
+export * as teletextLimits from "./animation/teletext-limits.ts";
 // The limits of a page's rule table by the engine's names (page-rules.md RULE-57, REQ-6608), TICKS_PER_SECOND among them.
 export * from "./rules/limits.ts";
 export { characterKey, fired, level, namedKey, noteOff, noteOn, phase, physicalKey, plus, row, variable } from "./rules/builders.ts";
