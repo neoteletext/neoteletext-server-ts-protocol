@@ -139,7 +139,7 @@ export class Context {
     return this.#now;
   }
 
-  /** The real time, in milliseconds since the Unix epoch (UTC), by the server's clock. */
+  /** The real time, in milliseconds since the Unix epoch (UTC): the machine's clock as the program read the server's `start`, and the kit's clock since. */
   epochMs(): number {
     return this.#host.epochAtStart() + this.#now;
   }

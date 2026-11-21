@@ -3,6 +3,7 @@
 import type { Application } from "./application.ts";
 import { Channel } from "./channel.ts";
 import type { Clock } from "./channel-options.ts";
+import { timeAtRead } from "./start-time.ts";
 import { App } from "../wire/app.ts";
 import type { ServerEvents } from "../wire/server-events.ts";
 import { serveSocket, socketPath } from "../wire/socket.ts";
@@ -86,8 +87,8 @@ function channelEvents(channel: Channel, schedule: () => void): ServerEvents {
     };
   return {
     ...connectionEvents(channel, then),
-    start: then((...given: Parameters<ServerEvents["start"]>) => {
-      channel.start(...given);
+    start: then((stampedMs, limits, languages) => {
+      channel.start(timeAtRead(stampedMs, Date.now()), limits, languages);
     }),
     viewersReset: then(() => {
       channel.viewersReset();

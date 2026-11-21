@@ -150,7 +150,11 @@ export class Channel implements ServerEvents {
 
   // The server's events.
 
-  /** The server said start, with the limits it keeps to and the languages it writes: every connection the program knew is gone, and every application publishes its shared pages. */
+  /**
+   * The server said start, with the limits it keeps to and the languages it writes: every connection the program knew is
+   * gone, and every application publishes its shared pages. `epochMs` is the real time now, as this is called, which a
+   * running program reckons from the server's stamp (`timeAtRead`) and a test names.
+   */
   start(epochMs: number, limits: Limits, languages: readonly Language[]): void {
     this.#epochAtStart = epochMs - this.#clock.now();
     this.#app.started(limits, languages);
