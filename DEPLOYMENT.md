@@ -46,6 +46,46 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
+## Release 19.4.0: painting, every ReGIS attribute, key codes and lost releases
+
+Release 19.4.0 is the first release that holds painting as a show; 19.3.0
+below was built on the branch `painting` and never tagged or taken by a
+consumer. It still speaks program protocol 16, at the server's schema of
+neoteletext-app-server `e9fa47b` (branch `painting`, not yet merged), and
+every call written for 19.2.1 works unchanged. Beside 19.3.0's painting it
+adds:
+
+- **Every attribute of a ReGIS numbered drawing** (the ReGIS renderer's
+  `docs/regis-v2.md`, "Attributes"; rdm DEC-7036 item 7, TODO-7033):
+  `Regis.drawing(number, attributes, build)` takes all fourteen (`parent`,
+  `source`, `x`, `y`, `depth`, `visible`, `clip`, `detectable`, `layer`,
+  `hover`, `pressed`, `alternative`, `frames`, `rate`, `label`), and
+  `Regis.set(number, attributes)`, `Regis.delete(number)` and
+  `Regis.deleteAll()` change and remove drawings without drawing them
+  again. `clip: null` is no clip. The types `RegisDrawingAttributes` and
+  `RegisClip` are exported.
+- **`keyCode(key)`** (DEC-7036, TODO-7055): a key's code as a rule's
+  condition reads the key that fired it (page-rules.md RULE-116), from a
+  copy of the engine's functional key table generated at `LIMITS_FROM`.
+- **The limits of animation by each renderer's names** (animation.md
+  ANIM-16): `teletextLimits`, and `MAX_ANIMATED_DRAWINGS`,
+  `MAX_CYCLING_OBJECTS` and `MAX_OBJECT_FRAMES` among `regisLimits`, and
+  `MAX_OBJECTS`, `MAX_ANIMATED_OBJECTS`, `MAX_CYCLING_OBJECTS`,
+  `MAX_OBJECT_FRAMES` and `DEFINABLE_CODES` among `naplpsLimits`.
+- **The harness's lost releases** (DEC-7065, TODO-7057): when a connection
+  opens another page, is redirected or closes while a key or button the
+  page's table asks the release of is held, the harness first gives the
+  channel that release, marked `lost`, as the server does (DOC-1944).
+
+A program that sets an attribute, a line speed, a default rate or a
+`painted` trigger runs only under a server and receivers that have them.
+Its shared files are neoteletext-common's at 1f17196, the one commit that
+lists painting, the attributes, `keyCode` and the limits. The push
+protocol's version for painting (11, with magazine music, rdm DEC-7074)
+and the PAINT record's type are the server's and the engine's: the kit
+names neither, and `SCHEMA_FROM` and `LIMITS_FROM` move to the merged
+server and engine when their branches are merged.
+
 ## Release 19.3.0: painting as a show
 
 Release 19.3.0 takes what program protocol 16 gained without a raise for
