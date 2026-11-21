@@ -46,6 +46,21 @@ The package exports `neoteletext-server-ts-protocol`,
 `neoteletext-server-ts-protocol/protocol` (the protocol's types) and
 `neoteletext-server-ts-protocol/testing` (the test harness); nothing else.
 
+## Release 19.4.1: a channel's real time is the machine's clock
+
+Release 19.4.1 takes a running program's real time (`Context.epochMs()`)
+at the moment it reads the server's `start`, where 19.4.0 took `start`'s
+`epoch_ms`, the server's clock as it wrote the line, for the time of the
+read (TODO-7165, DEC-7171). A program the server has just started reads the line
+only once it has loaded, so its real time ran behind the machine's clock
+by that wait for its whole life: measured live, 534 ms, which put every
+clock and countdown of the component library about 555 ms late at each
+minute. The server and a program share a host on both transports, so the
+time at the read is the machine's clock, and `epoch_ms` itself where the
+machine's clock says less than it. Nothing else changes: the wire, the
+API, the test harness (whose `epochMs` is still the time at its start)
+and the shared files are 19.4.0's.
+
 ## Release 19.4.0: painting, every ReGIS attribute, key codes and lost releases
 
 Release 19.4.0 is the first release that holds painting as a show; 19.3.0
