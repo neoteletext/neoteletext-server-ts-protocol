@@ -57,9 +57,18 @@ by that wait for its whole life: measured live, 534 ms, which put every
 clock and countdown of the component library about 555 ms late at each
 minute. The server and a program share a host on both transports, so the
 time at the read is the machine's clock, and `epoch_ms` itself where the
-machine's clock says less than it. Nothing else changes: the wire, the
-API, the test harness (whose `epochMs` is still the time at its start)
-and the shared files are 19.4.0's.
+machine's clock says less than it. The wire, the API, the test harness
+(whose `epochMs` is still the time at its start) and the shared files are
+19.4.0's.
+
+It is also the first release to hold two changes made after 19.4.0 was
+tagged. `limitFigureLines` (the `testing` entry) looks for every limit of
+animation the call list names, adding `DEFINABLE_CODES`, `LAYERS`,
+`OBJECT_TYPES`, `OBJECTS_PER_TYPE` and `OBJECT_SUBPAGES` (41d4b48,
+TODO-7089), so a consumer whose own REQ-6608 test passed on 19.4.0 may
+find lines to change: the component library had three. And the note on
+`keyCode` names the located modifiers among the keys that overlap
+printable characters (f453eb3, TODO-7089), a comment alone.
 
 ## Release 19.4.0: painting, every ReGIS attribute, key codes and lost releases
 
