@@ -553,7 +553,14 @@ Every input the harness sends names a rule, as the server's does: the rule
 the input itself carries (`harness.send(1, { kind: "text", text: "x", rule:
 "search_box" })`), or the rule of the server's default table for it, so a
 channel's tests hear what a `send_all` channel hears. The harness evaluates
-no table. `fire(connection, rule, event?, tick?, target?)` gives the channel
+no table; it reads of one only which releases it asks for. As the server
+does (DOC-1944), it keeps a press as held when the table the program gave
+the page has a `key_up` trigger whose keys include the key, or a `release`
+trigger naming the button, and always under the default table; when the
+connection then opens another page, is redirected by the program or
+closes, the channel is first given the release of each thing still held,
+marked `lost` and named with the press's rule, row and tick. A press on a
+page whose table asks for no release of it gives none. `fire(connection, rule, event?, tick?, target?)` gives the channel
 what a rule's firing sends: a `rule_event` that it fired, a `rule_event` of
 a value read, or, given an input event as the server writes one, the
 `input` naming the rule and target. `answerState(query, state?)` answers a

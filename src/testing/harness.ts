@@ -9,7 +9,11 @@
 // the rule that sent it (page-rules.md RULE-37): the test's, or the rule the
 // server's default table would send it by (RULE-53). A test fires a rule,
 // answers a state query, and reads the `animate` messages the server would
-// send as it plays a timeline (RULE-55; animation.md ANIM-19).
+// send as it plays a timeline (RULE-55; animation.md ANIM-19). What a
+// connection holds is released as the server releases it (DOC-1944): when
+// its selection changes, by `open` or the program's redirect, or it closes,
+// the channel is given a release marked lost of each press whose release
+// the page's table asks for (the server's DEC-7065).
 
 // oxlint-disable import/max-dependencies, max-lines -- the harness stands in for the server, so it meets every part a program uses: the channel, input, pages, the wire and the limits start gives; and its calls are every scenario of kit-calls.tsv, one method each
 import { isDeepStrictEqual } from "node:util";
@@ -18,6 +22,8 @@ import type { Application } from "../channel/application.ts";
 import { Channel } from "../channel/channel.ts";
 import { Button, type Input } from "../input/input.ts";
 import { defaultRule } from "./default-rules.ts";
+import { HeldInput, type LostRelease } from "./held-input.ts";
+import { readInput } from "../input/read-input.ts";
 import { ticksIn } from "../animation/ticks.ts";
 import { pageText } from "../page/page-numbers.ts";
 import { subText } from "../channel/wire-page.ts";
@@ -37,6 +43,7 @@ import { decodeBytes } from "../wire/bytes.ts";
 import type {
   InputEvent,
   ProgramMessageAnimate,
+  ProgramMessageRules,
   ProgramMessageSound,
   ProgramMessageTimeline,
   Rule,
@@ -86,6 +93,16 @@ function memberOf(line: ProgramMessageSound): SoundMember {
   return member;
 }
 
+/** A connection's selection as the server holds it: the page, the sub-page or 3F7F, and the query. */
+interface Selection {
+  readonly page: number;
+  readonly sub: number;
+  readonly query: string | null;
+}
+
+/** The radix of a page and a sub-code as the protocol writes them. */
+const HEXADECIMAL = 16;
+
 /** The seed of the runtime's own test harness. */
 const TEST_SEED = 7n;
 
@@ -111,6 +128,12 @@ export class Harness {
   /** The number of each connection's selection, as the server gives them. */
   readonly #requests = new Map<number, number>();
   readonly #went = new Map<number, number>();
+  /** Each connection's selection as the server holds it: what it opened, or where the program last redirected it. */
+  readonly #selection = new Map<number, Selection>();
+  /** What each connection holds, and its page's table (DOC-1944). */
+  readonly #held = new HeldInput();
+  /** The lost releases a program's redirect made the server owe, given when the channel has finished what it was doing, as a program reads the server's answer after it wrote. */
+  #owed: { readonly connection: number; readonly lost: readonly LostRelease[] }[] = [];
   /** How many changes of each page's shared copy were counted. */
   readonly #counted = new Map<number, number>();
 
@@ -136,6 +159,58 @@ export class Harness {
       const page = pageOf(message["page"]);
       if (page !== undefined) {
         this.#went.set(message["connection"], page);
+        this.#redirected(message["connection"], message, page);
+      }
+    }
+    if (message["type"] === "rules") {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the channel's App held each line to the schema as it was written
+      this.#tabled(message as unknown as ProgramMessageRules);
+    }
+  }
+
+  /** The program redirected `connection` to `page`: a selection, when it answers the connection's selection and names another (DOC-1960), so the server lets go of what the connection held. */
+  #redirected(connection: number, message: Sent, page: number): void {
+    const { sub, query } = message;
+    const selection = { page, sub: typeof sub === "string" ? Number.parseInt(sub, HEXADECIMAL) : ANY_SUB, query: typeof query === "string" ? query : null };
+    if (message["request"] === this.#requests.get(connection) && this.#selects(connection, selection)) {
+      this.#owed.push({ connection, lost: this.#held.selectionChanged(connection) });
+    }
+  }
+
+  /** The program gave a page its table, or took it away: the table in force for each connection of the audience that has the page selected (page-rules.md RULE-40). */
+  #tabled(message: ProgramMessageRules): void {
+    const page = pageOf(message.page);
+    const sub = Number.parseInt(message.sub, HEXADECIMAL);
+    for (const [connection, selection] of this.#selection) {
+      if (isFor(message.connections, connection) && selection.page === page && (selection.sub === ANY_SUB || selection.sub === sub)) {
+        this.#held.table(connection, message.table);
+      }
+    }
+  }
+
+  /** Makes `selection` the connection's; whether it is another than it had. */
+  #selects(connection: number, selection: Selection): boolean {
+    if (isDeepStrictEqual(this.#selection.get(connection), selection)) {
+      return false;
+    }
+    this.#selection.set(connection, selection);
+    return true;
+  }
+
+  /** Gives the channel the releases `lost`, as the server gives them: each `input` marked lost, for the page that held it. */
+  #give(connection: number, lost: readonly LostRelease[]): void {
+    for (const { page, input } of lost) {
+      this.channel.input(connection, page, ANY_SUB, input);
+    }
+  }
+
+  /** Gives the channel the lost releases its redirects made the server owe, now that it has finished what it was given. */
+  #settle(): void {
+    while (this.#owed.length > 0) {
+      const owed = this.#owed;
+      this.#owed = [];
+      for (const { connection, lost } of owed) {
+        this.#give(connection, lost);
       }
     }
   }
@@ -184,6 +259,8 @@ export class Harness {
     this.#open.set(connection, page);
     this.#openSub.delete(connection);
     this.#went.delete(connection);
+    this.#held.ended(connection);
+    this.#selection.set(connection, { page, sub: ANY_SUB, query: null });
     this.#requests.set(connection, 1);
     const viewer = typeof who === "number" ? undefined : who;
     if (viewer === undefined) {
@@ -192,11 +269,15 @@ export class Harness {
       this.#viewerOf.set(connection, viewer);
     }
     this.channel.connected(connection, 1, { page, sub: ANY_SUB }, null, null, viewer?.handle ?? null, viewer?.remembered ?? false);
+    this.#settle();
     return connection;
   }
 
-  /** The connection selects `page`, or sub-page `sub` of it, leaving the page it had, as the server says. */
+  /** The connection selects `page`, or sub-page `sub` of it, leaving the page it had, as the server says: first the releases of what it held, marked lost, when the selection is another than it had (DOC-1944). */
   open(connection: number, page: number, sub: number = ANY_SUB, query: string | null = null): void {
+    if (this.#selects(connection, { page, sub, query })) {
+      this.#give(connection, this.#held.selectionChanged(connection));
+    }
     const before = this.#open.get(connection);
     if (before !== undefined && before !== page) {
       this.channel.left(connection, before);
@@ -211,10 +292,13 @@ export class Harness {
     const request = (this.#requests.get(connection) ?? 0) + 1;
     this.#requests.set(connection, request);
     this.channel.selected(connection, request, { page, sub }, pathOf({ page, sub }), query);
+    this.#settle();
   }
 
-  /** The connection closes and is not resumed: it leaves its page and is gone (VS-354). */
+  /** The connection closes and is not resumed: it is given the releases of what it held, marked lost (DOC-1944), leaves its page and is gone (VS-354). */
   close(connection: number): void {
+    this.#give(connection, this.#held.ended(connection));
+    this.#selection.delete(connection);
     const page = this.#open.get(connection);
     if (page !== undefined) {
       this.channel.left(connection, page);
@@ -224,6 +308,7 @@ export class Harness {
     this.#went.delete(connection);
     this.#viewerOf.delete(connection);
     this.channel.gone(connection);
+    this.#settle();
   }
 
   /** The page the connection has open; a test that names a connection with none fails. */
@@ -257,7 +342,9 @@ export class Harness {
       tick: input.tick ?? this.#tick(),
       target: input.target ?? null,
     };
+    this.#held.took(connection, page, sent);
     this.channel.input(connection, page, ANY_SUB, sent);
+    this.#settle();
   }
 
   /**
@@ -289,6 +376,7 @@ export class Harness {
       };
       this.#fromServer(fired);
       this.channel.ruleEvent(fired);
+      this.#settle();
       return;
     }
     if (rule === null) {
@@ -307,7 +395,9 @@ export class Harness {
       event: body,
     };
     this.#fromServer(input);
+    this.#held.took(connection, this.#pageOf(connection), readInput(body, false, { rule, ruleRow: row ?? null, tick: at, target: target ?? null }));
     dispatch(input, this.channel);
+    this.#settle();
   }
 
   /**
@@ -344,6 +434,7 @@ export class Harness {
     };
     this.#fromServer(answer);
     this.channel.pageState(answer);
+    this.#settle();
   }
 
   /**
@@ -420,6 +511,7 @@ export class Harness {
   /** The server's figures arrive, as they do every 10 seconds. */
   stats(stats: ServerStats): void {
     this.channel.stats(stats);
+    this.#settle();
   }
 
   /** Turns the wheel over a cell: `dy` in 1/120ths of a line, down positive. */
@@ -433,6 +525,7 @@ export class Harness {
     const wake = this.channel.nextWake();
     if (wake !== null && wake <= this.clock.time) {
       this.channel.deadline();
+      this.#settle();
     }
   }
 
@@ -441,6 +534,7 @@ export class Harness {
     for (let wake = this.channel.nextWake(); wake !== null && wake <= until; wake = this.channel.nextWake()) {
       this.clock.time = Math.max(this.clock.time, wake);
       this.channel.deadline();
+      this.#settle();
     }
     this.clock.time = Math.max(this.clock.time, until);
   }
@@ -605,6 +699,9 @@ export class Harness {
     this.#open.clear();
     this.#openSub.clear();
     this.#went.clear();
+    this.#selection.clear();
+    this.#held.clear();
+    this.#owed = [];
     this.#requests.clear();
     this.#viewerOf.clear();
     this.#nextConnection = 1;
